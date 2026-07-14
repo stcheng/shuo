@@ -47,4 +47,11 @@ jobs:
         run: make scan-secrets
 
       - name: Verify source and public export
-        run: make verify
+        run: |
+          set -o pipefail
+          verify_log="$(mktemp)"
+          if ! make verify 2>&1 | tee "$verify_log"; then
+            summary="$(tail -n 40 "$verify_log" | tr '\n' ' ' | sed 's/%/%25/g')"
+            echo "::error title=Shuo verification failed::$summary"
+            exit 1
+          fi
