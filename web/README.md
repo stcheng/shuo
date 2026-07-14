@@ -99,7 +99,8 @@ The homepage links to stable GitHub Release asset names:
 - `Shuo-latest-macOS.dmg`
 
 The direct-download app checks the signed Sparkle feed at `web/appcast.xml`.
-Generate or update it only after producing the final signed and notarized ZIP:
+Generate or update it only after the six public artifacts are attached to a
+published (non-draft) GitHub Release and the versioned ZIP URL is reachable:
 
 ```sh
 SHUO_RELEASE_TAG=v1.0.0 make appcast
@@ -114,7 +115,9 @@ public key and signed appcast belong in the repository.
 
 The packaging script should keep producing these stable aliases in addition to
 versioned artifacts. Upload the latest aliases to each GitHub Release so the
-homepage download buttons keep working without editing HTML.
+homepage download buttons keep working without editing HTML. Only then sign
+and commit `appcast.xml`, so an update feed never points to an unavailable
+archive.
 
 ## Release Checklist
 

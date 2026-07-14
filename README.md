@@ -224,17 +224,21 @@ artifacts.
 
 The lower-level `package-*` targets use development signing defaults and are
 only packaging smoke tools; their output is never a public release candidate.
-After `release-rc` creates the final verified ZIP, generate its signed feed
-entry. The ZIP must remain beside the matching RC checksum and JSON manifest:
+After `release-rc` creates the final verified artifacts, first inspect the
+six-file public allowlist and attach exactly those files to the published
+(non-draft) GitHub Release. Confirm the versioned ZIP URL is reachable before
+generating the signed feed entry; otherwise the deployed feed could point to a
+404. The ZIP must remain beside the matching RC checksum and JSON manifest:
 
 ```sh
 SHUO_APPCAST_ARCHIVE=dist/Shuo-1.0.0-macOS.zip make appcast
 ```
 
-Before a GitHub upload, inspect the six-file public allowlist with
+Before the GitHub upload, inspect the six-file public allowlist with
 `SHUO_RELEASE_MANIFEST=dist/Shuo-1.0.0-macOS.manifest.json make
 release-public-assets`. Never upload with a glob; the private dSYM is not a
-public release asset.
+public release asset. After the upload is live, run `make appcast` above and
+commit the resulting `web/appcast.xml`.
 
 The Sparkle private key stays in the release Mac's Keychain. Never export it
 into this repository, and never publish output from a lower-level packaging
