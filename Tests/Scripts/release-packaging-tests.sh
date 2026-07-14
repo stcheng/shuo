@@ -717,6 +717,13 @@ for required_check in \
     || fail "release verifier is missing: $required_check"
 done
 
+# Reading codesign through an early-exiting pipeline can make codesign receive
+# SIGPIPE under `set -o pipefail`, failing a valid release at the final gate.
+grep -Fq 'details="$(codesign --display --verbose=4 "$1" 2>&1)"' "$VERIFY_SCRIPT" \
+  || fail "release verifier must capture codesign metadata before extracting CDHash"
+grep -Fq '<<<"$details"' "$VERIFY_SCRIPT" \
+  || fail "release verifier must extract CDHash after codesign completes"
+
 for required_staging_behavior in \
   'shuo-release-stage.' \
   'verify_release_source_unchanged' \

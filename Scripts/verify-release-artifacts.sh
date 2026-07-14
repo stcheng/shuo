@@ -463,8 +463,14 @@ verify_production_entitlements() {
 }
 
 code_directory_hash() {
-  codesign --display --verbose=4 "$1" 2>&1 \
-    | awk -F= '$1 == "CDHash" { print $2; exit }'
+  local details
+
+  # Do not pipe codesign directly into an early-exiting reader. Under
+  # `set -o pipefail`, awk's `exit` can close the pipe before codesign has
+  # finished writing, turning an otherwise valid release into SIGPIPE (141).
+  details="$(codesign --display --verbose=4 "$1" 2>&1)"
+  awk -F= '$1 == "CDHash" { print $2; found = 1 } END { exit !found }' \
+    <<<"$details"
 }
 
 verify_notarized_app() {
