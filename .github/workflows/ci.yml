@@ -35,7 +35,13 @@ jobs:
           sw_vers
 
       - name: Install secret scanner
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks
+        run: |
+          # The macos-26 image currently carries an untrusted aws/tap. It is
+          # unrelated to this build, but Homebrew refuses every install while
+          # it remains configured. Remove it from this ephemeral runner, then
+          # install gitleaks from the trusted Homebrew core tap.
+          HOMEBREW_NO_AUTO_UPDATE=1 brew untap aws/tap || true
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks
 
       - name: Scan source tree and complete Git history
         run: make scan-secrets
