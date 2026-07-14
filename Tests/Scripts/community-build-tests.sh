@@ -27,8 +27,15 @@ settings="$({
 
 setting_value() {
   local key="$1"
-  printf '%s\n' "$settings" \
-    | awk -F ' = ' -v key="$key" '$1 == "    " key { print $2; exit }'
+  awk -F ' = ' -v key="$key" '
+    $1 == "    " key && !found {
+      value = $2
+      found = 1
+    }
+    END {
+      if (found) print value
+    }
+  ' <<<"$settings"
 }
 
 assert_setting() {

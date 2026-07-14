@@ -723,6 +723,8 @@ grep -Fq 'details="$(codesign --display --verbose=4 "$1" 2>&1)"' "$VERIFY_SCRIPT
   || fail "release verifier must capture codesign metadata before extracting CDHash"
 grep -Fq '<<<"$details"' "$VERIFY_SCRIPT" \
   || fail "release verifier must extract CDHash after codesign completes"
+grep -Fq 'MARKETING_VERSION$/ && !found' "$PACKAGE_SCRIPT" \
+  || fail "release packager must drain build settings while reading MARKETING_VERSION"
 
 for required_staging_behavior in \
   'shuo-release-stage.' \

@@ -113,7 +113,15 @@ verify_canonical_source_tag() {
     -disableAutomaticPackageResolution \
     -skipPackageUpdates \
     -showBuildSettings 2>/dev/null \
-    | awk -F ' = ' '$1 ~ /^[[:space:]]*MARKETING_VERSION$/ { print $2; exit }')"
+    | awk -F ' = ' '
+        $1 ~ /^[[:space:]]*MARKETING_VERSION$/ && !found {
+          value = $2
+          found = 1
+        }
+        END {
+          if (found) print value
+        }
+      ')"
   if [[ ! "$version" =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ ]]; then
     echo "Could not resolve a safe release version from ShuoDirect build settings." >&2
     exit 2

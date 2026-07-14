@@ -193,8 +193,10 @@ run_xcode_checks() {
   ! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$community_app/Contents/Info.plist" >/dev/null 2>&1
   ! /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$community_app/Contents/Info.plist" >/dev/null 2>&1
   codesign --verify --deep --strict "$community_app"
-  codesign -dv --verbose=4 "$community_app" 2>&1 | rg -Fq 'Signature=adhoc'
-  codesign -dv --verbose=4 "$community_app" 2>&1 | rg -Fq 'TeamIdentifier=not set'
+  local community_signature_details
+  community_signature_details="$(codesign -dv --verbose=4 "$community_app" 2>&1)"
+  grep -Fq 'Signature=adhoc' <<<"$community_signature_details"
+  grep -Fq 'TeamIdentifier=not set' <<<"$community_signature_details"
 
   xcodebuild build \
     -quiet \
