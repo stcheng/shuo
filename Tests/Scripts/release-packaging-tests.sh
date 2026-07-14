@@ -675,6 +675,10 @@ DMG_SIGN_LINE="$(grep -n 'sign_disk_image "$dmg_path"' "$PACKAGE_SCRIPT" | cut -
 DMG_NOTARY_LINE="$(grep -n 'notarize_disk_image "$dmg_path"' "$PACKAGE_SCRIPT" | cut -d: -f1)"
 [[ -n "$DMG_SIGN_LINE" && -n "$DMG_NOTARY_LINE" && "$DMG_SIGN_LINE" -lt "$DMG_NOTARY_LINE" ]] \
   || fail "DMG must be signed before it is submitted for notarization"
+grep -Fq 'Packaging/DMG/layout.dsstore' "$PACKAGE_SCRIPT" \
+  || fail "formal DMGs must require the committed Finder layout template"
+grep -Fq 'ditto "$layout_template" "$mount_dir/.DS_Store"' "$PACKAGE_SCRIPT" \
+  || fail "DMG assembly does not apply the committed Finder layout template"
 
 for required_check in \
   'codesign --verify' \

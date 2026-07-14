@@ -699,8 +699,9 @@ create_zip() {
 generate_dmg_background_assets() {
   if [[ "$RELEASE_MODE" == "1" ]]; then
     [[ -s "$ROOT_DIR/Packaging/DMG/background.png" \
-        && -s "$ROOT_DIR/Packaging/DMG/background@2x.png" ]] || {
-      echo "Formal releases require the committed DMG background assets." >&2
+        && -s "$ROOT_DIR/Packaging/DMG/background@2x.png" \
+        && -s "$ROOT_DIR/Packaging/DMG/layout.dsstore" ]] || {
+      echo "Formal releases require the committed DMG background and layout assets." >&2
       exit 2
     }
     return 0
@@ -712,7 +713,7 @@ generate_dmg_background_assets() {
 }
 
 create_dmg() (
-  local basename dmg_path latest_dmg_path work_dir rw_dmg mount_dir
+  local basename dmg_path latest_dmg_path work_dir rw_dmg mount_dir layout_attempt layout_template
   local app_size_kb image_size_mb
   basename="$(package_basename)"
   dmg_path="$PACKAGE_DIR/$basename.dmg"
@@ -720,6 +721,7 @@ create_dmg() (
   work_dir="$(mktemp -d /tmp/shuo-dmg.XXXXXX)"
   rw_dmg="$work_dir/$APP_NAME-rw.dmg"
   mount_dir="$work_dir/mount"
+  layout_template="$ROOT_DIR/Packaging/DMG/layout.dsstore"
   mkdir -p "$mount_dir"
 
   generate_dmg_background_assets
@@ -775,7 +777,14 @@ create_dmg() (
     /usr/bin/SetFile -a C "$mount_dir"
   fi
 
-  osascript - "$mount_dir" "$APP_NAME.app" <<'APPLESCRIPT'
+  # The committed layout was produced by Finder from this exact visual design.
+  # Reusing it makes formal DMG assembly deterministic even when Finder delays
+  # writing .DS_Store on a release machine. Keep the AppleScript fallback for
+  # local development when the reusable asset is intentionally absent.
+  if [[ -s "$layout_template" ]]; then
+    ditto "$layout_template" "$mount_dir/.DS_Store"
+  else
+    osascript - "$mount_dir" "$APP_NAME.app" <<'APPLESCRIPT'
 on run arguments
   set mountPath to item 1 of arguments
   set appItemName to item 2 of arguments
@@ -808,13 +817,21 @@ on run arguments
       update without registering applications
       delay 2
       close installerWindow
+      delay 2
     end tell
   end tell
 end run
 APPLESCRIPT
 
+    # Finder writes .DS_Store asynchronously after the window closes. Give it
+    # a short, bounded chance to flush the layout rather than racing the write.
+    for layout_attempt in {1..40}; do
+      [[ -s "$mount_dir/.DS_Store" ]] && break
+      sleep 0.25
+    done
+  fi
   sync
-  if [[ ! -f "$mount_dir/.DS_Store" ]]; then
+  if [[ ! -s "$mount_dir/.DS_Store" ]]; then
     echo "Finder did not create the DMG layout metadata." >&2
     exit 1
   fi

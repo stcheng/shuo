@@ -187,6 +187,7 @@ REQUIRED_PATHS=(
   "Makefile"
   "Packaging/DMG/background.png"
   "Packaging/DMG/background@2x.png"
+  "Packaging/DMG/layout.dsstore"
   "SECURITY.md"
   "Scripts/audit-public-source.sh"
   "Scripts/export-public.sh"

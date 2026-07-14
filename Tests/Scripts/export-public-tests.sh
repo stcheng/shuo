@@ -61,6 +61,7 @@ for required_path in \
   docs/good-first-issues.md \
   LICENSE \
   Packaging/DMG/background.png \
+  Packaging/DMG/layout.dsstore \
   Tests/Scripts/appcast-security-tests.sh \
   TRADEMARK.md; do
   [[ -f "$PUBLIC_REPOSITORY/$required_path" ]] \
