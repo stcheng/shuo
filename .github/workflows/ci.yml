@@ -34,14 +34,22 @@ jobs:
           xcodebuild -version
           sw_vers
 
-      - name: Install secret scanner
+      - name: Install CI verification tools
         run: |
           # The macos-26 image currently carries an untrusted aws/tap. It is
           # unrelated to this build, but Homebrew refuses every install while
           # it remains configured. Remove it from this ephemeral runner, then
-          # install gitleaks from the trusted Homebrew core tap.
+          # install every non-system verifier from the trusted Homebrew core
+          # tap. Explicit provisioning keeps the audit independent of runner
+          # image churn.
           HOMEBREW_NO_AUTO_UPDATE=1 brew untap aws/tap || true
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks ripgrep jq libxml2 rsync
+          xml_bin="$(brew --prefix libxml2)/bin"
+          echo "$xml_bin" >> "$GITHUB_PATH"
+          export PATH="$xml_bin:$PATH"
+          for tool in gitleaks rg jq xmllint rsync python3; do
+            command -v "$tool" >/dev/null
+          done
 
       - name: Scan source tree and complete Git history
         run: make scan-secrets
