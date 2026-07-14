@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en" data-language="en" data-page-name="home">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A local-first Mac voice keyboard for team names, project jargon, and global work, with an editable correction bar and local voice history.">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <meta name="theme-color" content="#050505">
+    <link rel="canonical" href="https://stcheng.github.io/shuo/">
+    <link rel="alternate" hreflang="en" href="https://stcheng.github.io/shuo/en/">
+    <link rel="alternate" hreflang="zh-Hans" href="https://stcheng.github.io/shuo/zh-hans/">
+    <link rel="alternate" hreflang="zh-Hant" href="https://stcheng.github.io/shuo/zh-hant/">
+    <link rel="alternate" hreflang="ja" href="https://stcheng.github.io/shuo/ja/">
+    <link rel="alternate" hreflang="x-default" href="https://stcheng.github.io/shuo/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Shuo">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="zh_TW">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:title" content="Shuo — Voice typing for team names, project jargon, and global work">
+    <meta property="og:description" content="A local-first Mac voice keyboard for team names, project jargon, and global work, with an editable correction bar and local voice history.">
+    <meta property="og:url" content="https://stcheng.github.io/shuo/">
+    <meta property="og:image" content="https://stcheng.github.io/shuo/assets/shuo-icon.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:image:alt" content="Shuo app icon">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Shuo — Voice typing for team names, project jargon, and global work">
+    <meta name="twitter:description" content="A local-first Mac voice keyboard for team names, project jargon, and global work, with an editable correction bar and local voice history.">
+    <meta name="twitter:image" content="https://stcheng.github.io/shuo/assets/shuo-icon.png">
+    <title>Shuo — Voice typing for team names, project jargon, and global work</title>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Shuo","description":"A local-first Mac voice keyboard for team names, project jargon, and global work, with an editable correction bar and local voice history.","url":"https://stcheng.github.io/shuo/","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS 14 or later","downloadUrl":"https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.dmg","inLanguage":["en","zh-Hans","zh-Hant","ja"],"image":"https://stcheng.github.io/shuo/assets/shuo-icon.png"}</script>
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="bcb36453-df04-4498-aa66-6ae00ed1094f" data-domains="stcheng.github.io" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true"></script>
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const parameters = new URLSearchParams(window.location.search);
+        const normalizeLanguage = (value) => {
+          const language = String(value || "").replaceAll("_", "-").toLowerCase();
+          if (language === "en" || language.startsWith("en-")) return "en";
+          if (language === "ja" || language.startsWith("ja-")) return "ja";
+          if (!language.startsWith("zh")) return null;
+          return ["hant", "tw", "hk", "mo"].some((part) => language.split("-").includes(part))
+            ? "zh-Hant"
+            : "zh-Hans";
+        };
+        let storedLanguage;
+        let storedTheme;
+        try {
+          storedLanguage = window.localStorage.getItem("shuo-site-language");
+          storedTheme = window.localStorage.getItem("shuo-site-theme");
+        } catch {
+          // The page still follows URL, browser, and system preferences.
+        }
+        const browserLanguages = navigator.languages?.length
+          ? navigator.languages
+          : [navigator.language];
+        const language =
+          normalizeLanguage(root.dataset.pageLanguage) ||
+          normalizeLanguage(parameters.get("lang")) ||
+          normalizeLanguage(storedLanguage) ||
+          browserLanguages.map(normalizeLanguage).find(Boolean) ||
+          "en";
+        const requestedTheme = parameters.get("theme");
+        const themePreference = ["auto", "light", "dark"].includes(requestedTheme)
+          ? requestedTheme
+          : ["auto", "light", "dark"].includes(storedTheme)
+            ? storedTheme
+            : "auto";
+        root.dataset.visualStyle = "thin";
+        root.dataset.language = language;
+        root.dataset.themePreference = themePreference;
+        root.dataset.theme =
+          themePreference === "auto"
+            ? window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+            : themePreference;
+        root.lang = language;
+      })();
+    </script>
+    <link rel="icon" href="assets/shuo-icon.png">
+    <link rel="apple-touch-icon" href="assets/shuo-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=20260713-select-color">
+  </head>
+  <body data-language="en">
+    <script>
+      document.body.dataset.language = document.documentElement.dataset.language;
+    </script>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Shuo 首页" data-aria-label-zh="Shuo 首页" data-aria-label-zh-hant="Shuo 首頁" data-aria-label-ja="說 シュオのホーム" data-aria-label-en="Shuo home">
+        <img src="assets/shuo-icon.png" alt="" width="32" height="32">
+        <span class="lang lang-en">Shuo</span>
+        <span class="lang lang-zh">Shuo <b>说</b></span>
+        <span class="lang lang-zh-hant">Shuo <b>說</b></span>
+        <span class="lang lang-ja"><b>說 シュオ</b></span>
+      </a>
+      <div class="header-actions">
+        <nav class="site-nav" aria-label="主要导航" data-aria-label-zh="主要导航" data-aria-label-zh-hant="主要導覽" data-aria-label-ja="メインナビゲーション" data-aria-label-en="Main navigation">
+          <a href="#correction">
+            <span class="lang lang-zh">界面</span>
+            <span class="lang lang-zh-hant">修正</span>
+            <span class="lang lang-ja">修正</span>
+            <span class="lang lang-en">Correction</span>
+          </a>
+          <a href="#architecture">
+            <span class="lang lang-zh">架构</span>
+            <span class="lang lang-zh-hant">架構</span>
+            <span class="lang lang-ja">仕組み</span>
+            <span class="lang lang-en">Architecture</span>
+          </a>
+          <a href="#examples">
+            <span class="lang lang-zh">范例</span>
+            <span class="lang lang-zh-hant">範例</span>
+            <span class="lang lang-ja">例</span>
+            <span class="lang lang-en">Examples</span>
+          </a>
+          <a href="#memory">
+            <span class="lang lang-zh">数据</span>
+            <span class="lang lang-zh-hant">資料</span>
+            <span class="lang lang-ja">データ</span>
+            <span class="lang lang-en">Data</span>
+          </a>
+          <a href="#privacy">
+            <span class="lang lang-zh">隐私</span>
+            <span class="lang lang-zh-hant">隱私</span>
+            <span class="lang lang-ja">プライバシー</span>
+            <span class="lang lang-en">Privacy</span>
+          </a>
+          <a href="#download">
+            <span class="lang lang-zh">下载</span>
+            <span class="lang lang-zh-hant">下載</span>
+            <span class="lang lang-ja">ダウンロード</span>
+            <span class="lang lang-en">Download</span>
+          </a>
+        </nav>
+        <a class="header-download" href="https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.dmg" data-umami-event="download-dmg">
+          <span class="lang lang-zh">下载</span>
+          <span class="lang lang-zh-hant">下載</span>
+          <span class="lang lang-ja">入手</span>
+          <span class="lang lang-en">Get</span>
+        </a>
+        <label class="language-select">
+          <span class="visually-hidden">Language</span>
+          <select data-language-select aria-label="Language">
+            <option value="en">EN</option>
+            <option value="zh-Hans">简</option>
+            <option value="zh-Hant">繁</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Appearance: automatic" title="Appearance">
+          <span aria-hidden="true">◐</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">
+            <span class="lang lang-zh">Mac 语音键盘</span>
+            <span class="lang lang-zh-hant">為真實工作語言而做的 Mac 語音鍵盤</span>
+            <span class="lang lang-ja">仕事の言葉に強い、Mac 音声入力</span>
+            <span class="lang lang-en">A voice keyboard for Mac</span>
+          </p>
+          <h1 class="hero-title" id="hero-title">
+            <span class="lang lang-en">Shuo</span>
+            <span class="lang lang-zh">Shuo <small>说</small></span>
+            <span class="lang lang-zh-hant">Shuo <small>說</small></span>
+            <span class="lang lang-ja hero-title-ja"><b>說</b><small>シュオ</small></span>
+          </h1>
+          <p class="hero-statement">
+            <span class="lang lang-zh">中文想法，<em>English terms，</em><br>　　一口气<del>说</del> Shuo 完。</span>
+            <span class="lang lang-zh-hant">中文思考，<em>English terms，</em><br>一口氣說完。</span>
+            <span class="lang lang-ja">日本語の文脈も、<em>English terms も、</em><br>ひと息で。</span>
+            <span class="lang lang-en">Voice typing for the words<br>only your team knows.</span>
+          </p>
+          <p class="hero-note">
+            <span class="lang lang-zh">按住。说话。松开。听错了，即刻改好。</span>
+            <span class="lang lang-zh-hant">按住說，放開寫入。聽錯了，就在懸浮列改好。</span>
+            <span class="lang lang-ja">キーを押して話し、離せば入力。聞き違いはフローティングバーで直せます。</span>
+            <span class="lang lang-en">Hold to speak, release to insert, and fix any miss in the floating bar.</span>
+          </p>
+          <p class="hero-proof">
+            <span class="lang lang-zh">No 账号登录，No 信息收集，No 广告。<br>本地模式：语音与文字只留在这台 Mac。</span>
+            <span class="lang lang-zh-hant">本機模式：語音與文字留在這台 Mac。無需帳號，不傳送遙測。</span>
+            <span class="lang lang-ja">ローカルモードなら、音声もテキストもこの Mac の中に。アカウント不要で、テレメトリも送信しません。</span>
+            <span class="lang lang-en">Local mode keeps voice and text on your Mac—no account or telemetry.</span>
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.dmg" data-umami-event="download-dmg">
+              <span class="lang lang-zh">下载 macOS 版</span>
+              <span class="lang lang-zh-hant">下載 macOS 版</span>
+              <span class="lang lang-ja">macOS 版をダウンロード</span>
+              <span class="lang lang-en">Download for macOS</span>
+            </a>
+            <a class="button secondary" href="#correction">
+              <span class="lang lang-zh">看看这是啥</span>
+              <span class="lang lang-zh-hant">看看如何修正</span>
+              <span class="lang lang-ja">修正の流れを見る</span>
+              <span class="lang lang-en">See correction loop</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-utterance reveal">
+          <p class="hero-utterance-label">
+            <span class="lang lang-zh">一句话，就按你说的样子</span>
+            <span class="lang lang-zh-hant">一句話，就是你工作的樣子</span>
+            <span class="lang lang-ja">いつもの仕事の言葉、そのままに</span>
+            <span class="lang lang-en">The way your work actually sounds</span>
+          </p>
+          <blockquote>
+            <span class="lang lang-zh">“把这个 <strong>API</strong> deploy 到 <strong>staging</strong>，然后开一个 <strong>PR</strong>。”</span>
+            <span class="lang lang-zh-hant">「把這個 <strong>API</strong> deploy 到 <strong>staging</strong>，test 跑完再開 <strong>PR</strong>。」</span>
+            <span class="lang lang-ja">「この <strong>endpoint</strong> は local Whisper で動かして、失敗したら OpenAI に <strong>fallback</strong> して。」</span>
+            <span class="lang lang-en">“Ask <strong>Shuotian</strong> and <strong>Aaditya</strong> to review the Qilin migration before stand-up.”</span>
+          </blockquote>
+          <p class="hero-utterance-meta">
+            <span class="lang lang-zh">右 ⌘ / 右 ⌥ · 按住 · 说话 · 松开</span>
+            <span class="lang lang-zh-hant">右 ⌘ / 右 ⌥ · 按住 · 說話 · 放開</span>
+            <span class="lang lang-ja">右 ⌘ / 右 ⌥ · 押す · 話す · 離す</span>
+            <span class="lang lang-en">Right ⌘ / Right ⌥ · hold · speak · release</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="correction-section" id="correction" aria-labelledby="correction-title">
+        <div class="correction-copy reveal">
+          <h2 class="eyebrow" id="correction-title">
+            <span class="lang lang-zh">直接录入，即刻显示。<br>随心修改，同步学习。</span>
+            <span class="lang lang-zh-hant">改完，放回原處</span>
+            <span class="lang lang-ja">直して、元の場所へ</span>
+            <span class="lang lang-en">Correction loop</span>
+          </h2>
+        </div>
+
+        <div class="correction-demo reveal" data-correction-demo data-state="insert">
+          <div class="correction-demo-head">
+            <span>LIVE LOOP / 01—03</span>
+            <div class="correction-demo-activity" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+
+          <div class="correction-target">
+            <div class="correction-target-bar">
+              <span>Terminal</span>
+              <span>
+                <span class="lang lang-zh">任意 App · 随心输入</span>
+                <span class="lang lang-zh-hant">同一 App · 同一輸入</span>
+                <span class="lang lang-ja">同じアプリ · 同じ入力</span>
+                <span class="lang lang-en">same app · same input</span>
+              </span>
+            </div>
+            <p>
+              <b>›</b>
+              <span class="correction-line-animation" data-correction-animation-line aria-hidden="true"></span>
+              <span class="correction-line-state" data-demo-state="insert edit">
+                <span class="lang lang-zh">这个 endpoint 先用 local <mark>Wishper</mark>，失败再 fallback 到 Cloud AI。</span>
+                <span class="lang lang-zh-hant">這個 endpoint 先用 local <mark>Wishper</mark>，失敗再 fallback 到 OpenAI。</span>
+                <span class="lang lang-ja">この endpoint は local <mark>Wishper</mark> で、失敗したら OpenAI に fallback して。</span>
+                <span class="lang lang-en">Use local <mark>Wishper</mark> for this endpoint, then fall back to OpenAI.</span>
+              </span>
+              <span class="correction-line-state" data-demo-state="replace">
+                <span class="lang lang-zh">这个 endpoint 先用 local <ins>Whisper</ins>，失败再 fallback 到 Cloud AI。</span>
+                <span class="lang lang-zh-hant">這個 endpoint 先用 local <ins>Whisper</ins>，失敗再 fallback 到 OpenAI。</span>
+                <span class="lang lang-ja">この endpoint は local <ins>Whisper</ins> で、失敗したら OpenAI に fallback して。</span>
+                <span class="lang lang-en">Use local <ins>Whisper</ins> for this endpoint, then fall back to OpenAI.</span>
+              </span>
+              <i class="correction-cursor" aria-hidden="true"></i>
+            </p>
+          </div>
+
+          <div class="correction-float">
+            <div class="correction-float-state correction-float-state-insert" data-demo-state="insert">
+              <p>
+                <span class="lang lang-zh">这个 endpoint 先用 local Wishper，失败再 fallback 到 Cloud AI。</span>
+                <span class="lang lang-zh-hant">這個 endpoint 先用 local Wishper，失敗再 fallback 到 OpenAI。</span>
+                <span class="lang lang-ja">この endpoint は local Wishper で、失敗したら OpenAI に fallback して。</span>
+                <span class="lang lang-en">Use local Wishper for this endpoint, then fall back to OpenAI.</span>
+              </p>
+            </div>
+            <div class="correction-float-state correction-float-state-edit" data-demo-state="edit">
+              <p>
+                <span class="lang lang-zh">这个 endpoint 先用 local <strong>Whisper</strong>，失败再 fallback 到 Cloud AI。</span>
+                <span class="lang lang-zh-hant">這個 endpoint 先用 local <strong>Whisper</strong>，失敗再 fallback 到 OpenAI。</span>
+                <span class="lang lang-ja">この endpoint は local <strong>Whisper</strong> で、失敗したら OpenAI に fallback して。</span>
+                <span class="lang lang-en">Use local <strong>Whisper</strong> for this endpoint, then fall back to OpenAI.</span>
+              </p>
+            </div>
+            <div class="correction-float-state correction-float-state-replace" data-demo-state="replace">
+              <p>
+                <span class="lang lang-zh">已放回原处</span>
+                <span class="lang lang-zh-hant">已放回原處</span>
+                <span class="lang lang-ja">元の場所へ戻しました</span>
+                <span class="lang lang-en">Put back in place</span>
+              </p>
+            </div>
+            <div class="correction-float-actions" aria-hidden="true"><span>×</span><span>↵</span></div>
+          </div>
+
+          <div class="correction-steps" role="group" aria-label="纠正演示步骤" data-aria-label-zh="纠正演示步骤" data-aria-label-zh-hant="修正示範步驟" data-aria-label-ja="修正デモの手順" data-aria-label-en="Correction demo steps">
+            <button type="button" data-correction-step="insert" aria-pressed="true">
+              <span>01</span>
+              <strong class="lang lang-zh">上屏</strong><strong class="lang lang-zh-hant">寫入</strong><strong class="lang lang-ja">入力</strong><strong class="lang lang-en">Insert</strong>
+            </button>
+            <button type="button" data-correction-step="edit" aria-pressed="false">
+              <span>02</span>
+              <strong class="lang lang-zh">修改</strong><strong class="lang lang-zh-hant">修改</strong><strong class="lang lang-ja">修正</strong><strong class="lang lang-en">Edit</strong>
+            </button>
+            <button type="button" data-correction-step="replace" aria-pressed="false">
+              <span>03</span>
+              <strong class="lang lang-zh">放回</strong><strong class="lang lang-zh-hant">放回</strong><strong class="lang lang-ja">戻す</strong><strong class="lang lang-en">Replace</strong>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="architecture-section" id="architecture" aria-labelledby="architecture-title">
+        <div class="architecture-inner">
+          <div class="architecture-intro reveal">
+            <div>
+              <p class="eyebrow">Signal path / 01—07</p>
+            </div>
+            <div>
+              <h2 id="architecture-title">
+                <span class="lang lang-zh">一段声音，都经历了什么</span>
+                <span class="lang lang-zh-hant">一句話，在寫入之前經過什麼。</span>
+                <span class="lang lang-ja">ひとつの発話が入力されるまで。</span>
+                <span class="lang lang-en">What happens before a sentence lands.</span>
+              </h2>
+            </div>
+          </div>
+
+          <div class="architecture-console reveal" data-architecture>
+            <div class="architecture-path-shell" tabindex="0" aria-label="可横向滚动的信号路径" data-aria-label-zh="可横向滚动的信号路径" data-aria-label-zh-hant="可橫向捲動的訊號路徑" data-aria-label-ja="横方向にスクロールできる信号経路" data-aria-label-en="Scrollable signal path">
+              <ol class="architecture-path" aria-label="Shuo 信号路径" data-aria-label-zh="Shuo 信号路径" data-aria-label-zh-hant="Shuo 訊號路徑" data-aria-label-ja="說 シュオの信号経路" data-aria-label-en="Shuo signal path">
+                <li class="architecture-rail" aria-hidden="true">
+                  <span class="architecture-rail-progress"></span>
+                </li>
+                <li class="architecture-node is-active">
+                  <button type="button" data-architecture-stage="voice-input" aria-controls="architecture-detail-voice-input" aria-expanded="true">
+                    <span class="architecture-node-code">01 / IN</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <path d="M4 16h3l2-6 4 13 4-17 4 14 2-4h5"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">语音输入</span>
+                      <span class="lang lang-zh-hant">語音輸入</span>
+                      <span class="lang lang-ja">音声入力</span>
+                      <span class="lang lang-en">Voice input</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="audio-processing" aria-controls="architecture-detail-audio-processing" aria-expanded="false">
+                    <span class="architecture-node-code">02 / DSP</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <path d="M6 8h20M6 16h20M6 24h20"></path>
+                        <circle cx="12" cy="8" r="2.5"></circle>
+                        <circle cx="21" cy="16" r="2.5"></circle>
+                        <circle cx="15" cy="24" r="2.5"></circle>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">声音处理</span>
+                      <span class="lang lang-zh-hant">聲音處理</span>
+                      <span class="lang lang-ja">音声処理</span>
+                      <span class="lang lang-en">Audio processing</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="context" aria-controls="architecture-detail-context" aria-expanded="false">
+                    <span class="architecture-node-code">03 / CTX</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <circle cx="8" cy="16" r="2.5"></circle>
+                        <circle cx="24" cy="9" r="2.5"></circle>
+                        <circle cx="24" cy="23" r="2.5"></circle>
+                        <path d="M10.5 16h4.5c4 0 3-7 6.5-7M15 16c4 0 3 7 6.5 7"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">上下文</span>
+                      <span class="lang lang-zh-hant">上下文</span>
+                      <span class="lang lang-ja">コンテキスト</span>
+                      <span class="lang lang-en">Context</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="inference" aria-controls="architecture-detail-inference" aria-expanded="false">
+                    <span class="architecture-node-code">04 / AI</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <rect x="9" y="9" width="14" height="14" rx="2"></rect>
+                        <path d="M13 13h6v6h-6zM12 5v4M20 5v4M12 23v4M20 23v4M5 12h4M23 12h4M5 20h4M23 20h4"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">AI 推理</span>
+                      <span class="lang lang-zh-hant">AI 推論</span>
+                      <span class="lang lang-ja">AI 推論</span>
+                      <span class="lang lang-en">AI inference</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="post-processing" aria-controls="architecture-detail-post-processing" aria-expanded="false">
+                    <span class="architecture-node-code">05 / TXT</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <path d="M6 9h14M6 16h20M6 23h11"></path>
+                        <path d="m23 5 1.2 2.8L27 9l-2.8 1.2L23 13l-1.2-2.8L19 9l2.8-1.2z"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">后处理</span>
+                      <span class="lang lang-zh-hant">後處理</span>
+                      <span class="lang lang-ja">後処理</span>
+                      <span class="lang lang-en">Post-processing</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="correction" aria-controls="architecture-detail-correction" aria-expanded="false">
+                    <span class="architecture-node-code">06 / YOU</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <path d="m8 23 1-5L21 6l5 5-12 12zM19 8l5 5M8 23l5-1"></path>
+                        <path d="M19 25H7"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">人工纠正</span>
+                      <span class="lang lang-zh-hant">人工修正</span>
+                      <span class="lang lang-ja">手動修正</span>
+                      <span class="lang lang-en">Human correction</span>
+                    </span>
+                  </button>
+                </li>
+                <li class="architecture-node">
+                  <button type="button" data-architecture-stage="result" aria-controls="architecture-detail-result" aria-expanded="false">
+                    <span class="architecture-node-code">07 / OUT</span>
+                    <span class="architecture-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 32 32">
+                        <path d="M6 8h13M6 14h9M6 20h11"></path>
+                        <path d="M18 23h8V10M22 14l4-4 4 4"></path>
+                      </svg>
+                    </span>
+                    <span class="architecture-node-title">
+                      <span class="lang lang-zh">最终结果</span>
+                      <span class="lang lang-zh-hant">最終結果</span>
+                      <span class="lang lang-ja">最終結果</span>
+                      <span class="lang lang-en">Final result</span>
+                    </span>
+                  </button>
+                </li>
+              </ol>
+            </div>
+
+            <div class="architecture-inspector" aria-live="polite">
+              <article class="architecture-detail" id="architecture-detail-voice-input" aria-labelledby="architecture-detail-title-voice-input">
+                <p class="architecture-detail-index">01 / CAPTURE</p>
+                <div>
+                  <h3 id="architecture-detail-title-voice-input">
+                    <span class="lang lang-zh">语音输入</span>
+                    <span class="lang lang-zh-hant">語音輸入</span>
+                    <span class="lang lang-ja">音声入力</span>
+                    <span class="lang lang-en">Voice input</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">按住快捷键时，Shuo 开始聆听；松开快捷键，Shuo 堵住耳朵。</span>
+                    <span class="lang lang-zh-hant">只有按住快捷鍵時，Shuo 才會擷取麥克風聲音；放開就結束這一段輸入。</span>
+                    <span class="lang lang-ja">ショートカットを押している間だけマイク音声を取り込み、離すとその入力を終了します。</span>
+                    <span class="lang lang-en">Shuo captures microphone audio only while you hold the push-to-talk shortcut, then closes that input when you release.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">边界</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">邊界</span>
+                  <span class="architecture-boundary-label lang lang-ja">境界</span>
+                  <span class="architecture-boundary-label lang lang-en">Boundary</span>
+                  <span class="lang lang-zh">从这台 Mac 的麦克风开始</span>
+                  <span class="lang lang-zh-hant">從這台 Mac 的麥克風開始</span>
+                  <span class="lang lang-ja">この Mac のマイクから始まる</span>
+                  <span class="lang lang-en">Begins at this Mac’s microphone</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-audio-processing" aria-labelledby="architecture-detail-title-audio-processing" hidden>
+                <p class="architecture-detail-index">02 / PREPARE</p>
+                <div>
+                  <h3 id="architecture-detail-title-audio-processing">
+                    <span class="lang lang-zh">声音处理</span>
+                    <span class="lang lang-zh-hant">聲音處理</span>
+                    <span class="lang lang-ja">音声処理</span>
+                    <span class="lang lang-en">Audio processing</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">检测人声、适配<strong>轻声输入</strong>；<strong>去除噪音</strong>，整理转写音频。</span>
+                    <span class="lang lang-zh-hant">偵測人聲、適應輕聲輸入，並把這段聲音整理成適合轉寫的音訊。</span>
+                    <span class="lang lang-ja">発話を検出し、小さな声に適応して、文字起こしに適した音声区間へ整えます。</span>
+                    <span class="lang lang-en">Speech detection and quiet-input adaptation prepare a clean audio segment for transcription.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">信号</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">訊號</span>
+                  <span class="architecture-boundary-label lang lang-ja">信号</span>
+                  <span class="architecture-boundary-label lang lang-en">Signal</span>
+                  <span class="lang lang-zh">在本机完成音频准备</span>
+                  <span class="lang lang-zh-hant">在本機完成音訊準備</span>
+                  <span class="lang lang-ja">音声の準備はローカルで完了</span>
+                  <span class="lang lang-en">Audio preparation runs locally</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-context" aria-labelledby="architecture-detail-title-context" hidden>
+                <p class="architecture-detail-index">03 / CONTEXT</p>
+                <div>
+                  <h3 id="architecture-detail-title-context">
+                    <span class="lang lang-zh">上下文</span>
+                    <span class="lang lang-zh-hant">上下文</span>
+                    <span class="lang lang-ja">コンテキスト</span>
+                    <span class="lang lang-en">Context</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">常用词汇、项目黑话、自定义提示词，共同组合成你的专属转写线索。</span>
+                    <span class="lang lang-zh-hant">常用詞、專案詞彙和可重用提示會組成有長度限制的拼寫線索；專案原始檔與路徑不會因此上傳。</span>
+                    <span class="lang lang-ja">よく使う語、プロジェクト用語、再利用できるプロンプトを長さを制限した綴りのヒントにまとめます。ソースファイルやパスはアップロードしません。</span>
+                    <span class="lang lang-en">Preferred terms, project vocabulary, and reusable prompts become bounded spelling hints; project source files and paths are not uploaded.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">上下文</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">上下文</span>
+                  <span class="architecture-boundary-label lang lang-ja">文脈</span>
+                  <span class="architecture-boundary-label lang lang-en">Context</span>
+                  <span class="lang lang-zh">只准备当前需要的线索</span>
+                  <span class="lang lang-zh-hant">只準備目前需要的線索</span>
+                  <span class="lang lang-ja">今必要なヒントだけを準備</span>
+                  <span class="lang lang-en">Only relevant hints are prepared</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-inference" aria-labelledby="architecture-detail-title-inference" hidden>
+                <p class="architecture-detail-index">04 / TRANSCRIBE</p>
+                <div>
+                  <h3 id="architecture-detail-title-inference">
+                    <span class="lang lang-zh">AI 推理</span>
+                    <span class="lang lang-zh-hant">AI 推論</span>
+                    <span class="lang lang-ja">AI 推論</span>
+                    <span class="lang lang-en">AI inference</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">你选定的本地模型，抑或云端模型，把处理后的音频变成初始输出。</span>
+                    <span class="lang lang-zh-hant">你選擇的本機或雲端語音模型，把處理後的音訊轉成初始輸出。只有雲端模式才會傳送本次音訊與有限提示。</span>
+                    <span class="lang lang-ja">選択したローカルまたはクラウドの音声モデルが、処理済み音声を初回の文字起こしへ変換します。音声と限定されたヒントを送るのはクラウドモードだけです。</span>
+                    <span class="lang lang-en">Your selected local or cloud speech model turns the prepared audio into an initial output. Only cloud mode sends this audio and its bounded hints.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">模型</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">模型</span>
+                  <span class="architecture-boundary-label lang lang-ja">モデル</span>
+                  <span class="architecture-boundary-label lang lang-en">Model</span>
+                  <span class="lang lang-zh">本地优先，云端可选</span>
+                  <span class="lang lang-zh-hant">本機優先，雲端可選</span>
+                  <span class="lang lang-ja">ローカル優先、クラウドは任意</span>
+                  <span class="lang lang-en">Local-first, cloud optional</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-post-processing" aria-labelledby="architecture-detail-title-post-processing" hidden>
+                <p class="architecture-detail-index">05 / REFINE</p>
+                <div>
+                  <h3 id="architecture-detail-title-post-processing">
+                    <span class="lang lang-zh">后处理</span>
+                    <span class="lang lang-zh-hant">後處理</span>
+                    <span class="lang lang-ja">後処理</span>
+                    <span class="lang lang-en">Post-processing</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">执行你开启的任意步骤：文本润色、字词替换，Emoji 支持、标点与格式修订，随心所欲。</span>
+                    <span class="lang lang-zh-hant">只執行你已開啟的步驟：文字整理、字形、Emoji、替換，以及可選的 AI 潤飾。</span>
+                    <span class="lang lang-ja">有効にした処理だけを実行します。テキスト整理、字形、Emoji、置換、任意の AI リライトです。</span>
+                    <span class="lang lang-en">Only enabled steps run: text cleanup, script conversion, emoji, replacements, and optional AI retouching.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">控制</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">控制</span>
+                  <span class="architecture-boundary-label lang lang-ja">制御</span>
+                  <span class="architecture-boundary-label lang lang-en">Control</span>
+                  <span class="lang lang-zh">AI 润色启用时，只发送当前文字与所需提示</span>
+                  <span class="lang lang-zh-hant">啟用 AI 潤飾時，只傳送目前文字與所需提示</span>
+                  <span class="lang lang-ja">AI リライト時は現在のテキストと必要な指示だけを送信</span>
+                  <span class="lang lang-en">AI retouch sends only the current text and required prompt</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-correction" aria-labelledby="architecture-detail-title-correction" hidden>
+                <p class="architecture-detail-index">06 / REVIEW</p>
+                <div>
+                  <h3 id="architecture-detail-title-correction">
+                    <span class="lang lang-zh">人工纠正</span>
+                    <span class="lang lang-zh-hant">人工修正</span>
+                    <span class="lang lang-ja">手動修正</span>
+                    <span class="lang lang-en">Human correction</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">悬浮栏修改，原 App 呈现，修改记录成为学习材料。语音指令，方便快捷；AI 增强，魔力无限。</span>
+                    <span class="lang lang-zh-hant">在懸浮列修改，並安全替換回原 App。</span>
+                    <span class="lang lang-ja">フローティングバーで修正し、元のアプリへ安全に戻します。</span>
+                    <span class="lang lang-en">Revise in the floating bar and safely return the text to the original app.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">人工闭环</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">人工閉環</span>
+                  <span class="architecture-boundary-label lang lang-ja">人の確認</span>
+                  <span class="architecture-boundary-label lang lang-en">Human loop</span>
+                  <span class="lang lang-zh">最终决定仍然在你手里</span>
+                  <span class="lang lang-zh-hant">最終決定仍然在你手裡</span>
+                  <span class="lang lang-ja">最後に決めるのはあなた</span>
+                  <span class="lang lang-en">You keep the final say</span>
+                </p>
+              </article>
+
+              <article class="architecture-detail" id="architecture-detail-result" aria-labelledby="architecture-detail-title-result" hidden>
+                <p class="architecture-detail-index">07 / COMMIT</p>
+                <div>
+                  <h3 id="architecture-detail-title-result">
+                    <span class="lang lang-zh">最终结果</span>
+                    <span class="lang lang-zh-hant">最終結果</span>
+                    <span class="lang lang-ja">最終結果</span>
+                    <span class="lang lang-en">Final result</span>
+                  </h3>
+                  <p>
+                    <span class="lang lang-zh">你 Shuo 的话，尽在你的掌控。</span>
+                    <span class="lang lang-zh-hant">最終文字寫入目標 App；相關錄音與歷史可查看或刪除。</span>
+                    <span class="lang lang-ja">確定したテキストは対象アプリへ。関連する音声と履歴は確認・削除できます。</span>
+                    <span class="lang lang-en">Confirmed text returns to the target app; linked audio and history remain reviewable or deletable.</span>
+                  </p>
+                </div>
+                <p class="architecture-boundary">
+                  <span class="architecture-boundary-label lang lang-zh">结果</span>
+                  <span class="architecture-boundary-label lang lang-zh-hant">結果</span>
+                  <span class="architecture-boundary-label lang lang-ja">結果</span>
+                  <span class="architecture-boundary-label lang lang-en">Result</span>
+                  <span class="lang lang-zh">写回当前工作位置</span>
+                  <span class="lang lang-zh-hant">寫回目前工作位置</span>
+                  <span class="lang lang-ja">作業中の場所へ書き戻す</span>
+                  <span class="lang lang-en">Written back where you work</span>
+                </p>
+              </article>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <section class="scope-section" id="examples" aria-labelledby="scope-title">
+        <div class="scope-intro reveal">
+          <h2 class="eyebrow" id="scope-title">
+            <span class="lang lang-zh">真实的工作语言</span>
+            <span class="lang lang-zh-hant">真實的工作語言</span>
+            <span class="lang lang-ja">実際の仕事の言葉</span>
+            <span class="lang lang-en">Real working language</span>
+          </h2>
+        </div>
+        <div class="scope-table reveal">
+          <div>
+            <span>
+              <span class="lang lang-zh">产品开发</span>
+              <span class="lang lang-zh-hant">產品開發</span>
+              <span class="lang lang-ja">日本語 + English</span>
+              <span class="lang lang-en">People</span>
+            </span>
+            <strong>
+              <span class="lang lang-zh">“把这个 API deploy 到 staging，test 跑完再开 PR。”</span>
+              <span class="lang lang-zh-hant">「把這個 API deploy 到 staging，test 跑完再開 PR。」</span>
+              <span class="lang lang-ja">「この endpoint は local Whisper で動かして、失敗したら Cloud AI に fallback して。」</span>
+              <span class="lang lang-en">Shuotian · Aaditya · Pranav · João</span>
+            </strong>
+            <p>
+              <span class="lang lang-zh">中英文混着说，不必切换模式。</span>
+              <span class="lang lang-zh-hant">中英文混著說，不必切換模式。</span>
+              <span class="lang lang-ja">日本語の文に英語の製品名やコード用語をそのまま。</span>
+              <span class="lang lang-en">Names from every team and writing system.</span>
+            </p>
+          </div>
+          <div>
+            <span>
+              <span class="lang lang-zh">全球协作</span>
+              <span class="lang lang-zh-hant">日英協作</span>
+              <span class="lang lang-ja">中国語 + English</span>
+              <span class="lang lang-en">Projects</span>
+            </span>
+            <strong>
+              <span class="lang lang-zh">「この endpoint は local Whisper で動かして、失敗したら Cloud AI に fallback して。」</span>
+              <span class="lang lang-zh-hant">「この endpoint は local Whisper で動かして、失敗したら Cloud AI に fallback して。」</span>
+              <span class="lang lang-ja">「把这个 API deploy 到 staging，test 跑完再开 PR。」</span>
+              <span class="lang lang-en">Qilin · Aranya · Project Feishu</span>
+            </strong>
+            <p>
+              <span class="lang lang-zh">日语与英文混合的工作语境也同样支持。</span>
+              <span class="lang lang-zh-hant">日語與英文混合的工作情境也同樣支援。</span>
+              <span class="lang lang-ja">中国語の文脈でも、英語の技術語を保ちます。</span>
+              <span class="lang lang-en">Supply internal names as context.</span>
+            </p>
+          </div>
+          <div>
+            <span>
+              <span class="lang lang-zh">项目与人名</span>
+              <span class="lang lang-zh-hant">專案與人名</span>
+              <span class="lang lang-ja">プロジェクトと人名</span>
+              <span class="lang lang-en">Engineering</span>
+            </span>
+            <strong>
+              <span class="lang lang-zh">Qilin · pgvector · Aaditya · Xiangyu</span>
+              <span class="lang lang-zh-hant">Qilin · pgvector · Aaditya · Xiangyu</span>
+              <span class="lang lang-ja">RAG · pgvector · Aaditya · Xiangyu</span>
+              <span class="lang lang-en">RAG · pgvector · eval · SwiftUI</span>
+            </strong>
+            <p>
+              <span class="lang lang-zh">项目词、拼音和团队名字由你维护，不必等公共词典认识。</span>
+              <span class="lang lang-zh-hant">專案詞、拼音和團隊名字由你維護，不必等公共詞典認識。</span>
+              <span class="lang lang-ja">プロジェクト語やチームの名前を、一般辞書任せにしません。</span>
+              <span class="lang lang-en">Give acronyms and code terms explicit spelling hints.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="voice-cases reveal" aria-labelledby="voice-cases-title">
+          <div class="voice-cases-intro">
+            <h3 class="eyebrow" id="voice-cases-title">
+              <span class="lang lang-zh">本地规则，云端增强</span>
+              <span class="lang lang-zh-hant">規則與語音修改</span>
+              <span class="lang lang-ja">ルールと音声編集</span>
+              <span class="lang lang-en">Rules and voice edits</span>
+            </h3>
+          </div>
+
+          <div class="voice-case-list">
+            <article class="voice-case">
+              <header class="voice-case-header">
+                <span class="voice-case-code">LOCAL RULE</span>
+                <strong>
+                  <span class="lang lang-zh">固定替换 + Emoji</span>
+                  <span class="lang lang-zh-hant">固定替換 + Emoji</span>
+                  <span class="lang lang-ja">固定置換 + Emoji</span>
+                  <span class="lang lang-en">Fixed replacement + Emoji</span>
+                </strong>
+                <span class="voice-case-mode">
+                  <span class="lang lang-zh">用户规则 · 本机</span>
+                  <span class="lang lang-zh-hant">使用者規則 · 本機</span>
+                  <span class="lang lang-ja">ユーザールール · ローカル</span>
+                  <span class="lang lang-en">User rule · on device</span>
+                </span>
+              </header>
+              <div class="voice-case-flow voice-case-flow-two">
+                <div class="voice-case-step">
+                  <span>YOU SAY</span>
+                  <p>
+                    <span class="lang lang-zh">你这个 project 有点<mark>屌</mark>啊 <mark>点赞表情</mark></span>
+                    <span class="lang lang-zh-hant">你這個 project 有點<mark>屌</mark>啊 <mark>讚表情</mark></span>
+                    <span class="lang lang-ja"><mark>ノーション</mark>で project を公開した <mark>party popper emoji</mark></span>
+                    <span class="lang lang-en">The <mark>Qillen</mark> launch is ready. <mark>Party popper emoji</mark></span>
+                  </p>
+                </div>
+                <span class="voice-case-arrow" aria-hidden="true">→</span>
+                <div class="voice-case-step voice-case-result">
+                  <span>SHUO TYPES</span>
+                  <p>
+                    <span class="lang lang-zh">你这个 project 有点<ins>叼</ins>啊 <ins>👍</ins></span>
+                    <span class="lang lang-zh-hant">你這個 project 有點<ins>叼</ins>啊 <ins>👍</ins></span>
+                    <span class="lang lang-ja"><ins>Notion</ins>で project を公開した <ins>🎉</ins></span>
+                    <span class="lang lang-en">The <ins>Qilin</ins> launch is ready. <ins>🎉</ins></span>
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            <article class="voice-case voice-case-advanced">
+              <header class="voice-case-header">
+                <span class="voice-case-code">VOICE EDIT</span>
+                <strong>
+                  <span class="lang lang-zh">高级语音修改</span>
+                  <span class="lang lang-zh-hant">進階語音修改</span>
+                  <span class="lang lang-ja">高度な音声編集</span>
+                  <span class="lang lang-en">Advanced voice edit</span>
+                </strong>
+                <span class="voice-case-mode">CLOUD AI · BETA</span>
+              </header>
+              <div class="voice-case-flow voice-case-flow-three">
+                <div class="voice-case-step">
+                  <span>FIRST PASS</span>
+                  <p>
+                    <span class="lang lang-zh">我已经累了，你能不能<mark>坐</mark>一下</span>
+                    <span class="lang lang-zh-hant">我已經累了，你能不能<mark>坐</mark>一下</span>
+                    <span class="lang lang-ja">この API の<mark>使用</mark>を Notion にまとめたので、レビューをお願いします。</span>
+                    <span class="lang lang-en">Ask <mark>Aaditya</mark> to review the Qilin migration <mark>after</mark> stand-up.</span>
+                  </p>
+                </div>
+                <span class="voice-case-arrow" aria-hidden="true">→</span>
+                <div class="voice-case-step voice-case-command">
+                  <span>YOU SAY</span>
+                  <p>
+                    <span class="lang lang-zh">“修改上一句，坐下来的坐换成做事情的做。”</span>
+                    <span class="lang lang-zh-hant">「修改上一句，坐下來的坐換成做事情的做。」</span>
+                    <span class="lang lang-ja">「前の文を修正。『使用』は、仕様書の『仕様』に変えて。」</span>
+                    <span class="lang lang-en">“Edit the last sentence. Change the reviewer to Shuotian and schedule the review before stand-up.”</span>
+                  </p>
+                </div>
+                <span class="voice-case-arrow" aria-hidden="true">→</span>
+                <div class="voice-case-step voice-case-result">
+                  <span>RESULT</span>
+                  <p>
+                    <span class="lang lang-zh">我已经累了，你能不能<ins>做</ins>一下</span>
+                    <span class="lang lang-zh-hant">我已經累了，你能不能<ins>做</ins>一下</span>
+                    <span class="lang lang-ja">この API の<ins>仕様</ins>を Notion にまとめたので、レビューをお願いします。</span>
+                    <span class="lang lang-en">Ask <ins>Shuotian</ins> to review the Qilin migration <ins>before</ins> stand-up.</span>
+                  </p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="memory-section" id="memory" aria-labelledby="memory-title">
+        <div class="memory-copy reveal">
+          <p class="eyebrow">
+            <span class="lang lang-zh">你的语音资料</span>
+            <span class="lang lang-zh-hant">你的語音資料</span>
+            <span class="lang lang-ja">あなたの音声データ</span>
+            <span class="lang lang-en">A corpus that stays yours</span>
+          </p>
+          <h2 id="memory-title">
+            <span class="lang lang-zh">为未来属于你的模型，留下高质量的数据。</span>
+            <span class="lang lang-zh-hant">為未來真正屬於你的模型，先把高品質資料留在手裡。</span>
+            <span class="lang lang-ja">将来の<span class="keep-word">パーソナルモデル</span>へ。良質なデータを、まず手元に。</span>
+            <span class="lang lang-en">Every correction leaves a useful trace.</span>
+          </h2>
+          <p>
+            <span class="lang lang-zh">原始录音、初始输出和最终修订会同时保存在本机。这些个人语料未来可用于个性化识别或创建你的专属声音模型，给予你无限想象。</span>
+            <span class="lang lang-zh-hant">錄音、初始輸出和確認修正會關聯保存在本機，直到你刪除。這些個人語料未來可用於個人化辨識或聲音模型；目前不上傳、不訓練，未來使用也需你明確選擇。</span>
+            <span class="lang lang-ja">元の音声、初回結果、確定した修正は、削除するまでこの Mac に関連付けて保存します。将来の個人向け認識・音声モデルに使えますが、現行版はアップロードも学習も行わず、将来の利用にも明示的な選択が必要です。</span>
+            <span class="lang lang-en">Audio, first-pass output, and accepted corrections stay linked on your Mac until deletion—an inspectable corpus for future personal models. Shuo does not upload or train on it; any future use requires your opt-in.</span>
+          </p>
+        </div>
+        <div class="memory-lines reveal" aria-label="个人语音资料" data-aria-label-zh="个人语音资料" data-aria-label-zh-hant="個人語音資料" data-aria-label-ja="個人音声データ" data-aria-label-en="Personal voice corpus">
+          <span><span class="lang lang-zh">原始录音</span><span class="lang lang-zh-hant">原始錄音</span><span class="lang lang-ja">元の音声</span><span class="lang lang-en">Original audio</span></span>
+          <span><span class="lang lang-zh">初始输出</span><span class="lang lang-zh-hant">初始輸出</span><span class="lang lang-ja">初回の文字起こし</span><span class="lang lang-en">First-pass output</span></span>
+          <span><span class="lang lang-zh">确认修正</span><span class="lang lang-zh-hant">確認修正</span><span class="lang lang-ja">確定した修正</span><span class="lang lang-en">Accepted correction</span></span>
+          <span><span class="lang lang-zh">回放、比较、订正、删除</span><span class="lang lang-zh-hant">可重聽、比較、刪除</span><span class="lang lang-ja">再生・比較・削除</span><span class="lang lang-en">Replay, compare, delete</span></span>
+          <span><span class="lang lang-zh">你的数据——无限可能</span><span class="lang lang-zh-hant">未來訓練需主動選擇</span><span class="lang lang-ja">将来の学習は明示的に選択</span><span class="lang lang-en">Future training is opt-in</span></span>
+        </div>
+      </section>
+
+      <section class="privacy-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="section-intro reveal">
+          <p class="eyebrow">
+            <span class="lang lang-zh">清楚的数据边界</span>
+            <span class="lang lang-zh-hant">清楚的資料邊界</span>
+            <span class="lang lang-ja">明確なデータ境界</span>
+            <span class="lang lang-en">A legible data boundary</span>
+          </p>
+          <h2 id="privacy-title">
+            <span class="lang lang-zh">选择本地模型，数据就不会离开你的 Mac。</span>
+            <span class="lang lang-zh-hant">選擇本機轉寫並關閉雲端 AI，語音和文字就不會離開這台 Mac。</span>
+            <span class="lang lang-ja">ローカル文字起こしを選び、クラウド AI をオフにすれば、音声もテキストもこの Mac から出ません。</span>
+            <span class="lang lang-en">Use local transcription with cloud AI off, and your voice and text stay on your Mac.</span>
+          </h2>
+        </div>
+        <div class="privacy-ledger reveal">
+          <div>
+            <span>01 / <span class="lang lang-zh">本地</span><span class="lang lang-zh-hant">本機</span><span class="lang lang-ja">ローカル</span><span class="lang lang-en">Local</span></span>
+            <p>
+              <span class="lang lang-zh">设置、录音、文字、历史、统计，一切都在本机；没有账号登录，没有信息收集，更没有广告。选择本地模型，无需任何网络，一样大胆开麦。</span>
+              <span class="lang lang-zh-hant">設定、錄音、歷史、統計、專案索引與修正紀錄都留在本機；無需帳號，不向 Shuo 傳送遙測或行為分析，也沒有廣告。</span>
+              <span class="lang lang-ja">設定、音声、履歴、統計、プロジェクト索引、修正記録はローカルに保存。アカウント不要で、說 シュオへテレメトリや行動分析を送らず、広告もありません。</span>
+              <span class="lang lang-en">Settings, audio, history, metrics, project indexes, and corrections stay local—no account, telemetry or behavioral analytics sent to Shuo, and no ads.</span>
+            </p>
+          </div>
+          <div>
+            <span>02 / <span class="lang lang-zh">云端</span><span class="lang lang-zh-hant">雲端</span><span class="lang lang-ja">クラウド</span><span class="lang lang-en">Cloud</span></span>
+            <p>
+              <span class="lang lang-zh">选择云端转写，只发送当前任务所需的音频、设置、启用的上下文和有限拼写提示给云端转写服务商。Shuo 听不到，看不到，碰不到。</span>
+              <span class="lang lang-zh-hant">選擇雲端轉寫時，只傳送目前任務所需的音訊、設定、已啟用的上下文與有限拼寫提示；專案原始檔與路徑不上傳。</span>
+              <span class="lang lang-ja">クラウド文字起こしを選ぶと、現在の処理に必要な音声、設定、有効なコンテキスト、限定された綴りのヒントだけを送信します。ソースファイルとパスは送りません。</span>
+              <span class="lang lang-en">Cloud transcription receives the current task's audio, settings, enabled context, and bounded spelling hints—not project source or paths.</span>
+            </p>
+          </div>
+          <div>
+            <span>03 / <span class="lang lang-zh">控制</span><span class="lang lang-zh-hant">控制</span><span class="lang lang-ja">管理</span><span class="lang lang-en">Control</span></span>
+            <p>
+              <span class="lang lang-zh">一切设置，详尽、公开、透明。开启你需要的功能，关闭你不需要的功能。你控制一切。</span>
+              <span class="lang lang-zh-hant">API Key 存在鑰匙圈。修正學習預設關閉，模式需逐項開啟並通過安全門檻；未來訓練或上傳也需明確選擇。</span>
+              <span class="lang lang-ja">API Key はキーチェーンに保存。修正学習は初期設定でオフで、各パターンは有効化と安全基準の通過が必要です。将来の学習やアップロードにも明示的な選択が必要です。</span>
+              <span class="lang lang-en">API keys live in Keychain. Correction learning is off by default; each pattern must be enabled and pass safety gates. Future training or upload also requires explicit opt-in.</span>
+            </p>
+          </div>
+        </div>
+        <p class="privacy-more reveal">
+          <a href="privacy.html">
+            <span class="lang lang-zh">阅读完整隐私说明 →</span>
+            <span class="lang lang-zh-hant">閱讀完整隱私說明 →</span>
+            <span class="lang lang-ja">プライバシーポリシーを読む →</span>
+            <span class="lang lang-en">Read the full privacy policy →</span>
+          </a>
+        </p>
+      </section>
+
+      <section class="download-section" id="download" aria-labelledby="download-title">
+        <div class="download-copy reveal">
+          <p class="eyebrow">
+            <span class="lang lang-zh">下载</span>
+            <span class="lang lang-zh-hant">下載</span>
+            <span class="lang lang-ja">ダウンロード</span>
+            <span class="lang lang-en">Download</span>
+          </p>
+          <h2 id="download-title">
+            <span class="lang lang-zh">大胆 Shuo，尽情写，把 Shuo 放入你的工具箱。</span>
+            <span class="lang lang-zh-hant">把 Shuo 放進選單列，讓重要的詞更容易說對。</span>
+            <span class="lang lang-ja">說 シュオをメニューバーに。いつもの言葉で、入力を始めよう。</span>
+            <span class="lang lang-en">Make the words that matter easier to say.</span>
+          </h2>
+          <p>
+            <span class="lang lang-zh">适用于 macOS 14 及以上版本。</span>
+            <span class="lang lang-zh-hant">適用於 macOS 14 及以上版本。首次啟動會引導快捷鍵、權限和轉寫方式；本機模式只需下載模型。</span>
+            <span class="lang lang-ja">macOS 14以降。初回起動でショートカット、権限、文字起こし方式を設定します。ローカルならモデルをダウンロードするだけです。</span>
+            <span class="lang lang-en">For macOS 14+. Local setup needs only a model download; cloud transcription is optional.</span>
+          </p>
+        </div>
+        <div class="download-list reveal">
+          <a href="https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.dmg" data-umami-event="download-dmg">
+            <span>DMG · <span class="lang lang-zh">推荐</span><span class="lang lang-zh-hant">推薦</span><span class="lang lang-ja">おすすめ</span><span class="lang lang-en">Recommended</span></span>
+            <strong>
+              <span class="lang lang-zh">下载并拖入“应用程序”</span>
+              <span class="lang lang-zh-hant">下載並拖入「應用程式」</span>
+              <span class="lang lang-ja">ダウンロードして「アプリケーション」へ</span>
+              <span class="lang lang-en">Download and drag to Applications</span>
+            </strong>
+          </a>
+          <a href="https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.zip" data-umami-event="download-zip">
+            <span>ZIP · <span class="lang lang-zh">备用</span><span class="lang lang-zh-hant">備用</span><span class="lang lang-ja">別形式</span><span class="lang lang-en">Alternative</span></span>
+            <strong>Shuo-latest-macOS.zip</strong>
+          </a>
+          <a href="https://github.com/stcheng/shuo/issues/new/choose">
+            <span>Bug</span>
+            <strong>
+              <span class="lang lang-zh">在 GitHub 反馈问题</span>
+              <span class="lang lang-zh-hant">在 GitHub 回報問題</span>
+              <span class="lang lang-ja">GitHub で問題を報告</span>
+              <span class="lang lang-en">Report on GitHub</span>
+            </strong>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <span class="lang lang-zh">Shuo 说：为真实工作语言而做的本地优先 Mac 语音键盘。</span>
+        <span class="lang lang-zh-hant">Shuo 說：為真實工作語言而做的本機優先 Mac 語音鍵盤。</span>
+        <span class="lang lang-ja">說 シュオは、実際の仕事の言葉に強いローカル優先の Mac 音声入力です。</span>
+        <span class="lang lang-en">Shuo is a local-first Mac voice keyboard for the words your team actually uses.</span>
+      </p>
+      <div>
+        <a href="https://github.com/stcheng/shuo"><span class="lang lang-zh">源码</span><span class="lang lang-zh-hant">原始碼</span><span class="lang lang-ja">ソース</span><span class="lang lang-en">Source</span></a>
+        <a href="privacy.html"><span class="lang lang-zh">隐私</span><span class="lang lang-zh-hant">隱私</span><span class="lang lang-ja">プライバシー</span><span class="lang lang-en">Privacy</span></a>
+        <a href="release-notes.html"><span class="lang lang-zh">更新</span><span class="lang lang-zh-hant">更新說明</span><span class="lang lang-ja">リリースノート</span><span class="lang lang-en">Release Notes</span></a>
+        <a href="https://buymeacoffee.com/stcheng" data-umami-event="sponsor-click"><span class="lang lang-zh">支持</span><span class="lang lang-zh-hant">支持 Shuo ↗</span><span class="lang lang-ja">Shuo を応援 ↗</span><span class="lang lang-en">Support Shuo ↗</span></a>
+        <a href="mailto:contact@bo-rista.com"><span class="lang lang-zh">联系</span><span class="lang lang-zh-hant">聯絡</span><span class="lang lang-ja">連絡</span><span class="lang lang-en">Contact</span></a>
+        <a href="#top"><span class="lang lang-zh">回到顶部</span><span class="lang lang-zh-hant">回到頂端</span><span class="lang lang-ja">ページ上部へ</span><span class="lang lang-en">Back to top</span></a>
+      </div>
+      <small class="footer-credit">by BOrista · 2026</small>
+    </footer>
+
+    <script src="script.js?v=20260714-release"></script>
+  </body>
+</html>
