@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # macos-26 keeps CI on the Xcode 26 toolchain family used for 1.0. Use the
+    # image's stable Xcode.app link and fail if GitHub changes its major version.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify release toolchain
+        run: |
+          xcodebuild -version | sed -n '1p' | grep -Eq '^Xcode 26([.][0-9]+)+$'
+          xcodebuild -version
+          sw_vers
+
+      - name: Install secret scanner
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks
+
+      - name: Scan source tree and complete Git history
+        run: make scan-secrets
+
+      - name: Verify source and public export
+        run: make verify

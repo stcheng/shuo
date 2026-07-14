@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Shuo Updates</title>
+    <link>https://stcheng.github.io/shuo/</link>
+    <description>Signed updates for the direct-download edition of Shuo.</description>
+    <language>en</language>
+  </channel>
+</rss>

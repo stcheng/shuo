@@ -1,0 +1,1211 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000020 /* ShuoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* ShuoApp.swift */; };
+		A10000000000000000000021 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppSettings.swift */; };
+		A10000000000000000000022 /* TranscriptItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* TranscriptItem.swift */; };
+		A10000000000000000000023 /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TranscriptionService.swift */; };
+		A10000000000000000000024 /* StubTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* StubTranscriptionService.swift */; };
+		A10000000000000000000025 /* TranscriptPostProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* TranscriptPostProcessor.swift */; };
+		A10000000000000000000026 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* AudioRecorder.swift */; };
+		A10000000000000000000027 /* PasteboardInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* PasteboardInjector.swift */; };
+		A10000000000000000000028 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* AppState.swift */; };
+		A10000000000000000000029 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* MenuBarView.swift */; };
+		A1000000000000000000002A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* SettingsView.swift */; };
+		A1000000000000000000002B /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* HistoryView.swift */; };
+		A1000000000000000000002C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* Assets.xcassets */; };
+		A1000000000000000000002D /* OpenAIAPIKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* OpenAIAPIKeyStore.swift */; };
+		A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* OpenAITranscriptionService.swift */; };
+		A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* RightOptionPushToTalkMonitor.swift */; };
+		A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* SingleInstanceGuard.swift */; };
+		A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* AudioActivityAnalyzer.swift */; };
+		A10000000000000000000035 /* AppLocalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* AppLocalizer.swift */; };
+		A10000000000000000000036 /* MetricsCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* MetricsCalculator.swift */; };
+		A10000000000000000000037 /* MetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* MetricsView.swift */; };
+		A10000000000000000000038 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* StatusItemController.swift */; };
+		A10000000000000000000039 /* CustomizationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* CustomizationModels.swift */; };
+		A1000000000000000000003A /* CustomizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* CustomizationView.swift */; };
+		A1000000000000000000003B /* AppPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* AppPanelView.swift */; };
+		A1000000000000000000003C /* VoiceEditCommandParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* VoiceEditCommandParser.swift */; };
+		A1000000000000000000003D /* VoiceEditLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* VoiceEditLLMService.swift */; };
+		A1000000000000000000003E /* EmojiResolverService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* EmojiResolverService.swift */; };
+		A1000000000000000000003F /* EmojiAnnotations.json in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* EmojiAnnotations.json */; };
+		B10000000000000000000003 /* ShuoCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShuoCoreTests.swift */; };
+		AA0000000000000000000003 /* OpenAIModelCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000001 /* OpenAIModelCatalogTests.swift */; };
+		AB0000000000000000000003 /* ReliabilityRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0000000000000000000001 /* ReliabilityRegressionTests.swift */; };
+		AC0000000000000000000002 /* CancellableProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000001 /* CancellableProcessRunner.swift */; };
+		X10000000000000000000003 /* RecordingSessionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = X10000000000000000000001 /* RecordingSessionCoordinatorTests.swift */; };
+		C10000000000000000000006 /* SettingsOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* SettingsOptions.swift */; };
+		C10000000000000000000007 /* LocalWhisperModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* LocalWhisperModelCatalog.swift */; };
+		C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000003 /* AppSettings+Defaults.swift */; };
+		C10000000000000000000009 /* AppSettings+Codable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000004 /* AppSettings+Codable.swift */; };
+		D10000000000000000000002 /* Localization.json in Resources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* Localization.json */; };
+		E70000000000000000000001 /* ThirdParty in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000011 /* ThirdParty */; };
+		E70000000000000000000002 /* ThirdParty in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000011 /* ThirdParty */; };
+		E70000000000000000000003 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000012 /* THIRD_PARTY_NOTICES.md */; };
+		E70000000000000000000004 /* THIRD_PARTY_NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000012 /* THIRD_PARTY_NOTICES.md */; };
+		E70000000000000000000005 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000013 /* LICENSE */; };
+		E70000000000000000000006 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000013 /* LICENSE */; };
+		E10000000000000000000002 /* TranscriptProcessingWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000001 /* TranscriptProcessingWorkflow.swift */; };
+		F10000000000000000000002 /* AppRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* AppRuntime.swift */; };
+		G10000000000000000000002 /* LocalWhisperAssetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = G10000000000000000000001 /* LocalWhisperAssetInstaller.swift */; };
+		H10000000000000000000002 /* ErrorDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H10000000000000000000001 /* ErrorDetailsView.swift */; };
+		I10000000000000000000002 /* AppExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I10000000000000000000001 /* AppExportService.swift */; };
+		J10000000000000000000005 /* AdaptiveRecognitionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = J10000000000000000000001 /* AdaptiveRecognitionModels.swift */; };
+		J10000000000000000000006 /* AdaptiveRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = J10000000000000000000002 /* AdaptiveRecognitionService.swift */; };
+		J10000000000000000000007 /* AdaptiveRecognitionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = J10000000000000000000003 /* AdaptiveRecognitionStore.swift */; };
+		K10000000000000000000003 /* TranscriptAudioStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = K10000000000000000000001 /* TranscriptAudioStore.swift */; };
+		K10000000000000000000004 /* TranscriptAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = K10000000000000000000002 /* TranscriptAudioPlayer.swift */; };
+		L10000000000000000000002 /* RecordingCuePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = L10000000000000000000001 /* RecordingCuePlayer.swift */; };
+		M10000000000000000000002 /* AudioOutputDeviceCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = M10000000000000000000001 /* AudioOutputDeviceCatalog.swift */; };
+		N10000000000000000000002 /* CrashReportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = N10000000000000000000001 /* CrashReportService.swift */; };
+		O10000000000000000000002 /* TranscriptHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = O10000000000000000000001 /* TranscriptHistoryStore.swift */; };
+		P10000000000000000000002 /* MetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = P10000000000000000000001 /* MetricsStore.swift */; };
+		Q10000000000000000000002 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = Q10000000000000000000001 /* AboutView.swift */; };
+		R10000000000000000000002 /* PluginConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000001 /* PluginConfiguration.swift */; };
+		S10000000000000000000001 /* AppUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = S10000000000000000000002 /* AppUpdateController.swift */; };
+		S10000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = S10000000000000000000041 /* Sparkle */; };
+		T10000000000000000000002 /* VoiceEditLocalResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10000000000000000000001 /* VoiceEditLocalResolver.swift */; };
+		U10000000000000000000002 /* OpenAICompatibleRequestBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = U10000000000000000000001 /* OpenAICompatibleRequestBuilder.swift */; };
+		V10000000000000000000002 /* RecordingSessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = V10000000000000000000001 /* RecordingSessionCoordinator.swift */; };
+		W10000000000000000000002 /* LocalWhisperSetupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = W10000000000000000000001 /* LocalWhisperSetupService.swift */; };
+		Y10000000000000000000002 /* OpenAIModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = Y10000000000000000000001 /* OpenAIModelCatalog.swift */; };
+		Z10000000000000000000002 /* OpenAIModelAvailabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = Z10000000000000000000001 /* OpenAIModelAvailabilityService.swift */; };
+		D20000000000000000000021 /* ProjectVocabularyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ProjectVocabularyModels.swift */; };
+		D20000000000000000000022 /* ProjectDirectoryBookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* ProjectDirectoryBookmark.swift */; };
+		D20000000000000000000023 /* ProjectVocabularyIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000003 /* ProjectVocabularyIndexer.swift */; };
+		D20000000000000000000024 /* TranscriptionVocabularyComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* TranscriptionVocabularyComposer.swift */; };
+		D20000000000000000000026 /* ProjectVocabularyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000006 /* ProjectVocabularyStore.swift */; };
+		D20000000000000000000027 /* ProjectVocabularyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000007 /* ProjectVocabularyController.swift */; };
+		D20000000000000000000028 /* VocabularyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000008 /* VocabularyView.swift */; };
+		D20000000000000000000031 /* ProjectVocabularyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ProjectVocabularyModels.swift */; };
+		D20000000000000000000032 /* ProjectDirectoryBookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* ProjectDirectoryBookmark.swift */; };
+		D20000000000000000000033 /* ProjectVocabularyIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000003 /* ProjectVocabularyIndexer.swift */; };
+		D20000000000000000000034 /* TranscriptionVocabularyComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* TranscriptionVocabularyComposer.swift */; };
+		D20000000000000000000036 /* ProjectVocabularyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000006 /* ProjectVocabularyStore.swift */; };
+		D20000000000000000000037 /* ProjectVocabularyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000007 /* ProjectVocabularyController.swift */; };
+		D20000000000000000000038 /* VocabularyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000008 /* VocabularyView.swift */; };
+		D20000000000000000000041 /* ProjectVocabularyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000009 /* ProjectVocabularyTests.swift */; };
+		E30000000000000000000002 /* RecoverableJSONStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30000000000000000000001 /* RecoverableJSONStore.swift */; };
+		F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */; };
+		A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */; };
+		A7BA00000000000000000004 /* AlibabaTranscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */; };
+		G50000000000000000000002 /* SettingsSearchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = G50000000000000000000001 /* SettingsSearchModels.swift */; };
+		H60000000000000000000002 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
+		H60000000000000000000003 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
+		E80000000000000000000002 /* CorrectionMappingAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80000000000000000000001 /* CorrectionMappingAggregator.swift */; };
+		E80000000000000000000005 /* CorrectionMappingAggregatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80000000000000000000004 /* CorrectionMappingAggregatorTests.swift */; };
+		E90000000000000000000002 /* FloatingCorrectionCommandReturnTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90000000000000000000001 /* FloatingCorrectionCommandReturnTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B10000000000000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000060 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000050;
+			remoteInfo = Shuo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000001 /* ShuoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuoApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000002 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		A10000000000000000000003 /* TranscriptItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptItem.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
+		A10000000000000000000005 /* StubTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubTranscriptionService.swift; sourceTree = "<group>"; };
+		A10000000000000000000006 /* TranscriptPostProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPostProcessor.swift; sourceTree = "<group>"; };
+		A10000000000000000000007 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		A10000000000000000000008 /* PasteboardInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteboardInjector.swift; sourceTree = "<group>"; };
+		A10000000000000000000009 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A1000000000000000000000A /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C90000000000000000000001 /* Info-Community.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Community.plist"; sourceTree = "<group>"; };
+		A1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1000000000000000000000F /* Shuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Shuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000010 /* OpenAIAPIKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAPIKeyStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000011 /* OpenAITranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAITranscriptionService.swift; sourceTree = "<group>"; };
+		F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsTranscriptionService.swift; sourceTree = "<group>"; };
+		A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionService.swift; sourceTree = "<group>"; };
+		A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionServiceTests.swift; sourceTree = "<group>"; };
+		G50000000000000000000001 /* SettingsSearchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchModels.swift; sourceTree = "<group>"; };
+		H60000000000000000000001 /* ArchitectureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureView.swift; sourceTree = "<group>"; };
+		E80000000000000000000001 /* CorrectionMappingAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionMappingAggregator.swift; sourceTree = "<group>"; };
+		E80000000000000000000004 /* CorrectionMappingAggregatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionMappingAggregatorTests.swift; sourceTree = "<group>"; };
+		E90000000000000000000001 /* FloatingCorrectionCommandReturnTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCorrectionCommandReturnTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000012 /* RightOptionPushToTalkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightOptionPushToTalkMonitor.swift; sourceTree = "<group>"; };
+		A10000000000000000000013 /* SingleInstanceGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleInstanceGuard.swift; sourceTree = "<group>"; };
+		A10000000000000000000014 /* AudioActivityAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioActivityAnalyzer.swift; sourceTree = "<group>"; };
+		A10000000000000000000015 /* AppLocalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalizer.swift; sourceTree = "<group>"; };
+		A10000000000000000000016 /* MetricsCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsCalculator.swift; sourceTree = "<group>"; };
+		A10000000000000000000017 /* MetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsView.swift; sourceTree = "<group>"; };
+		A10000000000000000000018 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		A10000000000000000000019 /* CustomizationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizationModels.swift; sourceTree = "<group>"; };
+		A1000000000000000000001A /* CustomizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomizationView.swift; sourceTree = "<group>"; };
+		A1000000000000000000001B /* AppPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPanelView.swift; sourceTree = "<group>"; };
+		A1000000000000000000001C /* VoiceEditCommandParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEditCommandParser.swift; sourceTree = "<group>"; };
+		A1000000000000000000001D /* VoiceEditLLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEditLLMService.swift; sourceTree = "<group>"; };
+		A1000000000000000000001E /* EmojiResolverService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiResolverService.swift; sourceTree = "<group>"; };
+		A1000000000000000000001F /* EmojiAnnotations.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = EmojiAnnotations.json; sourceTree = "<group>"; };
+		B10000000000000000000001 /* ShuoCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShuoCoreTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* ShuoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShuoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000001 /* OpenAIModelCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIModelCatalogTests.swift; sourceTree = "<group>"; };
+		AB0000000000000000000001 /* ReliabilityRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReliabilityRegressionTests.swift; sourceTree = "<group>"; };
+		AC0000000000000000000001 /* CancellableProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellableProcessRunner.swift; sourceTree = "<group>"; };
+		X10000000000000000000001 /* RecordingSessionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionCoordinatorTests.swift; sourceTree = "<group>"; };
+		C10000000000000000000001 /* SettingsOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsOptions.swift; sourceTree = "<group>"; };
+		C10000000000000000000002 /* LocalWhisperModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWhisperModelCatalog.swift; sourceTree = "<group>"; };
+		C10000000000000000000003 /* AppSettings+Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Defaults.swift"; sourceTree = "<group>"; };
+		C10000000000000000000004 /* AppSettings+Codable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Codable.swift"; sourceTree = "<group>"; };
+		D10000000000000000000001 /* Localization.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localization.json; sourceTree = "<group>"; };
+		E10000000000000000000001 /* TranscriptProcessingWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingWorkflow.swift; sourceTree = "<group>"; };
+		F10000000000000000000001 /* AppRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntime.swift; sourceTree = "<group>"; };
+		G10000000000000000000001 /* LocalWhisperAssetInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWhisperAssetInstaller.swift; sourceTree = "<group>"; };
+		H10000000000000000000001 /* ErrorDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorDetailsView.swift; sourceTree = "<group>"; };
+		I10000000000000000000001 /* AppExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppExportService.swift; sourceTree = "<group>"; };
+		J10000000000000000000001 /* AdaptiveRecognitionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveRecognitionModels.swift; sourceTree = "<group>"; };
+		J10000000000000000000002 /* AdaptiveRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveRecognitionService.swift; sourceTree = "<group>"; };
+		J10000000000000000000003 /* AdaptiveRecognitionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveRecognitionStore.swift; sourceTree = "<group>"; };
+		K10000000000000000000001 /* TranscriptAudioStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAudioStore.swift; sourceTree = "<group>"; };
+		K10000000000000000000002 /* TranscriptAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAudioPlayer.swift; sourceTree = "<group>"; };
+		L10000000000000000000001 /* RecordingCuePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingCuePlayer.swift; sourceTree = "<group>"; };
+		M10000000000000000000001 /* AudioOutputDeviceCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputDeviceCatalog.swift; sourceTree = "<group>"; };
+		N10000000000000000000001 /* CrashReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReportService.swift; sourceTree = "<group>"; };
+		O10000000000000000000001 /* TranscriptHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptHistoryStore.swift; sourceTree = "<group>"; };
+		P10000000000000000000001 /* MetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsStore.swift; sourceTree = "<group>"; };
+		Q10000000000000000000001 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		R10000000000000000000001 /* PluginConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginConfiguration.swift; sourceTree = "<group>"; };
+		S10000000000000000000002 /* AppUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateController.swift; sourceTree = "<group>"; };
+		S10000000000000000000004 /* Shuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Shuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		S10000000000000000000005 /* Info-Direct.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Direct.plist"; sourceTree = "<group>"; };
+		S10000000000000000000006 /* ShuoDirect.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShuoDirect.entitlements; sourceTree = "<group>"; };
+		T10000000000000000000001 /* VoiceEditLocalResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEditLocalResolver.swift; sourceTree = "<group>"; };
+		U10000000000000000000001 /* OpenAICompatibleRequestBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAICompatibleRequestBuilder.swift; sourceTree = "<group>"; };
+		V10000000000000000000001 /* RecordingSessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSessionCoordinator.swift; sourceTree = "<group>"; };
+		W10000000000000000000001 /* LocalWhisperSetupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWhisperSetupService.swift; sourceTree = "<group>"; };
+		Y10000000000000000000001 /* OpenAIModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIModelCatalog.swift; sourceTree = "<group>"; };
+		Z10000000000000000000001 /* OpenAIModelAvailabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIModelAvailabilityService.swift; sourceTree = "<group>"; };
+		D20000000000000000000001 /* ProjectVocabularyModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVocabularyModels.swift; sourceTree = "<group>"; };
+		D20000000000000000000002 /* ProjectDirectoryBookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDirectoryBookmark.swift; sourceTree = "<group>"; };
+		D20000000000000000000003 /* ProjectVocabularyIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVocabularyIndexer.swift; sourceTree = "<group>"; };
+		D20000000000000000000004 /* TranscriptionVocabularyComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionVocabularyComposer.swift; sourceTree = "<group>"; };
+		D20000000000000000000006 /* ProjectVocabularyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVocabularyStore.swift; sourceTree = "<group>"; };
+		D20000000000000000000007 /* ProjectVocabularyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVocabularyController.swift; sourceTree = "<group>"; };
+		D20000000000000000000008 /* VocabularyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyView.swift; sourceTree = "<group>"; };
+		D20000000000000000000009 /* ProjectVocabularyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVocabularyTests.swift; sourceTree = "<group>"; };
+		E30000000000000000000001 /* RecoverableJSONStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoverableJSONStore.swift; sourceTree = "<group>"; };
+		E70000000000000000000011 /* ThirdParty */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ThirdParty; sourceTree = "<group>"; };
+		E70000000000000000000012 /* THIRD_PARTY_NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES.md; sourceTree = "<group>"; };
+		E70000000000000000000013 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S10000000000000000000011 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				S10000000000000000000003 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000040 = {
+			isa = PBXGroup;
+			children = (
+				E70000000000000000000013 /* LICENSE */,
+				E70000000000000000000012 /* THIRD_PARTY_NOTICES.md */,
+				A10000000000000000000041 /* App */,
+				B10000000000000000000010 /* Tests */,
+				A1000000000000000000004A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000041 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000001 /* ShuoApp.swift */,
+				A10000000000000000000042 /* Models */,
+				A10000000000000000000043 /* Services */,
+				A10000000000000000000044 /* Stores */,
+				A10000000000000000000045 /* Views */,
+				A10000000000000000000046 /* Resources */,
+				A1000000000000000000000D /* Info.plist */,
+				C90000000000000000000001 /* Info-Community.plist */,
+				S10000000000000000000005 /* Info-Direct.plist */,
+				S10000000000000000000006 /* ShuoDirect.entitlements */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000042 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				G50000000000000000000001 /* SettingsSearchModels.swift */,
+				E80000000000000000000001 /* CorrectionMappingAggregator.swift */,
+				D20000000000000000000001 /* ProjectVocabularyModels.swift */,
+				C10000000000000000000001 /* SettingsOptions.swift */,
+				A10000000000000000000002 /* AppSettings.swift */,
+				C10000000000000000000003 /* AppSettings+Defaults.swift */,
+				C10000000000000000000004 /* AppSettings+Codable.swift */,
+				J10000000000000000000001 /* AdaptiveRecognitionModels.swift */,
+				R10000000000000000000001 /* PluginConfiguration.swift */,
+				Y10000000000000000000001 /* OpenAIModelCatalog.swift */,
+				C10000000000000000000002 /* LocalWhisperModelCatalog.swift */,
+				A10000000000000000000003 /* TranscriptItem.swift */,
+				A10000000000000000000019 /* CustomizationModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000043 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				E30000000000000000000001 /* RecoverableJSONStore.swift */,
+				D20000000000000000000002 /* ProjectDirectoryBookmark.swift */,
+				D20000000000000000000003 /* ProjectVocabularyIndexer.swift */,
+				D20000000000000000000004 /* TranscriptionVocabularyComposer.swift */,
+				A10000000000000000000004 /* TranscriptionService.swift */,
+				A10000000000000000000005 /* StubTranscriptionService.swift */,
+				A10000000000000000000006 /* TranscriptPostProcessor.swift */,
+				A10000000000000000000007 /* AudioRecorder.swift */,
+				A10000000000000000000008 /* PasteboardInjector.swift */,
+				A10000000000000000000010 /* OpenAIAPIKeyStore.swift */,
+				A10000000000000000000011 /* OpenAITranscriptionService.swift */,
+				F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */,
+				A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */,
+				A10000000000000000000012 /* RightOptionPushToTalkMonitor.swift */,
+				A10000000000000000000013 /* SingleInstanceGuard.swift */,
+				A10000000000000000000014 /* AudioActivityAnalyzer.swift */,
+				M10000000000000000000001 /* AudioOutputDeviceCatalog.swift */,
+				K10000000000000000000001 /* TranscriptAudioStore.swift */,
+				O10000000000000000000001 /* TranscriptHistoryStore.swift */,
+				K10000000000000000000002 /* TranscriptAudioPlayer.swift */,
+				L10000000000000000000001 /* RecordingCuePlayer.swift */,
+				A10000000000000000000015 /* AppLocalizer.swift */,
+				I10000000000000000000001 /* AppExportService.swift */,
+				J10000000000000000000002 /* AdaptiveRecognitionService.swift */,
+				A10000000000000000000016 /* MetricsCalculator.swift */,
+				P10000000000000000000001 /* MetricsStore.swift */,
+				A10000000000000000000018 /* StatusItemController.swift */,
+				A1000000000000000000001C /* VoiceEditCommandParser.swift */,
+				A1000000000000000000001D /* VoiceEditLLMService.swift */,
+				A1000000000000000000001E /* EmojiResolverService.swift */,
+				E10000000000000000000001 /* TranscriptProcessingWorkflow.swift */,
+				F10000000000000000000001 /* AppRuntime.swift */,
+				N10000000000000000000001 /* CrashReportService.swift */,
+				G10000000000000000000001 /* LocalWhisperAssetInstaller.swift */,
+				S10000000000000000000002 /* AppUpdateController.swift */,
+				T10000000000000000000001 /* VoiceEditLocalResolver.swift */,
+				U10000000000000000000001 /* OpenAICompatibleRequestBuilder.swift */,
+				V10000000000000000000001 /* RecordingSessionCoordinator.swift */,
+				W10000000000000000000001 /* LocalWhisperSetupService.swift */,
+				Z10000000000000000000001 /* OpenAIModelAvailabilityService.swift */,
+				AC0000000000000000000001 /* CancellableProcessRunner.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000044 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				D20000000000000000000006 /* ProjectVocabularyStore.swift */,
+				D20000000000000000000007 /* ProjectVocabularyController.swift */,
+				A10000000000000000000009 /* AppState.swift */,
+				J10000000000000000000003 /* AdaptiveRecognitionStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000045 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				H60000000000000000000001 /* ArchitectureView.swift */,
+				D20000000000000000000008 /* VocabularyView.swift */,
+				A1000000000000000000000A /* MenuBarView.swift */,
+				H10000000000000000000001 /* ErrorDetailsView.swift */,
+				A1000000000000000000000B /* SettingsView.swift */,
+				A1000000000000000000000C /* HistoryView.swift */,
+				A10000000000000000000017 /* MetricsView.swift */,
+				A1000000000000000000001A /* CustomizationView.swift */,
+				A1000000000000000000001B /* AppPanelView.swift */,
+				Q10000000000000000000001 /* AboutView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000046 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E70000000000000000000011 /* ThirdParty */,
+				A1000000000000000000000E /* Assets.xcassets */,
+				A1000000000000000000001F /* EmojiAnnotations.json */,
+				D10000000000000000000001 /* Localization.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000004A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000000F /* Shuo.app */,
+				B10000000000000000000002 /* ShuoTests.xctest */,
+				S10000000000000000000004 /* Shuo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000010 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000011 /* ShuoTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000011 /* ShuoTests */ = {
+			isa = PBXGroup;
+			children = (
+				E90000000000000000000001 /* FloatingCorrectionCommandReturnTests.swift */,
+				E80000000000000000000004 /* CorrectionMappingAggregatorTests.swift */,
+				D20000000000000000000009 /* ProjectVocabularyTests.swift */,
+				A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */,
+				B10000000000000000000001 /* ShuoCoreTests.swift */,
+				AA0000000000000000000001 /* OpenAIModelCatalogTests.swift */,
+				AB0000000000000000000001 /* ReliabilityRegressionTests.swift */,
+				X10000000000000000000001 /* RecordingSessionCoordinatorTests.swift */,
+			);
+			path = ShuoTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000050 /* Shuo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000080 /* Build configuration list for PBXNativeTarget "Shuo" */;
+			buildPhases = (
+				A10000000000000000000030 /* Sources */,
+				A10000000000000000000031 /* Frameworks */,
+				A10000000000000000000032 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Shuo;
+			productName = Shuo;
+			productReference = A1000000000000000000000F /* Shuo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B10000000000000000000007 /* ShuoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000020 /* Build configuration list for PBXNativeTarget "ShuoTests" */;
+			buildPhases = (
+				B10000000000000000000004 /* Sources */,
+				B10000000000000000000005 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B10000000000000000000008 /* PBXTargetDependency */,
+			);
+			name = ShuoTests;
+			productName = ShuoTests;
+			productReference = B10000000000000000000002 /* ShuoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		S10000000000000000000020 /* ShuoDirect */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = S10000000000000000000032 /* Build configuration list for PBXNativeTarget "ShuoDirect" */;
+			buildPhases = (
+				S10000000000000000000010 /* Sources */,
+				S10000000000000000000011 /* Frameworks */,
+				S10000000000000000000012 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShuoDirect;
+			packageProductDependencies = (
+				S10000000000000000000041 /* Sparkle */,
+			);
+			productName = ShuoDirect;
+			productReference = S10000000000000000000004 /* Shuo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000060 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A10000000000000000000050 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					B10000000000000000000007 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = A10000000000000000000050;
+					};
+					S10000000000000000000020 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000070 /* Build configuration list for PBXProject "Shuo" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000040;
+			productRefGroup = A1000000000000000000004A /* Products */;
+			packageReferences = (
+				S10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000050 /* Shuo */,
+				B10000000000000000000007 /* ShuoTests */,
+				S10000000000000000000020 /* ShuoDirect */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E70000000000000000000001 /* ThirdParty in Resources */,
+				E70000000000000000000003 /* THIRD_PARTY_NOTICES.md in Resources */,
+				E70000000000000000000005 /* LICENSE in Resources */,
+				A1000000000000000000002C /* Assets.xcassets in Resources */,
+				A1000000000000000000003F /* EmojiAnnotations.json in Resources */,
+				D10000000000000000000002 /* Localization.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S10000000000000000000012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E70000000000000000000002 /* ThirdParty in Resources */,
+				E70000000000000000000004 /* THIRD_PARTY_NOTICES.md in Resources */,
+				E70000000000000000000006 /* LICENSE in Resources */,
+				A1000000000000000000002C /* Assets.xcassets in Resources */,
+				A1000000000000000000003F /* EmojiAnnotations.json in Resources */,
+				D10000000000000000000002 /* Localization.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000030 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E80000000000000000000002 /* CorrectionMappingAggregator.swift in Sources */,
+				H60000000000000000000002 /* ArchitectureView.swift in Sources */,
+				G50000000000000000000002 /* SettingsSearchModels.swift in Sources */,
+				E30000000000000000000002 /* RecoverableJSONStore.swift in Sources */,
+				D20000000000000000000021 /* ProjectVocabularyModels.swift in Sources */,
+				D20000000000000000000022 /* ProjectDirectoryBookmark.swift in Sources */,
+				D20000000000000000000023 /* ProjectVocabularyIndexer.swift in Sources */,
+				D20000000000000000000024 /* TranscriptionVocabularyComposer.swift in Sources */,
+				D20000000000000000000026 /* ProjectVocabularyStore.swift in Sources */,
+				D20000000000000000000027 /* ProjectVocabularyController.swift in Sources */,
+				D20000000000000000000028 /* VocabularyView.swift in Sources */,
+				A10000000000000000000020 /* ShuoApp.swift in Sources */,
+				C10000000000000000000006 /* SettingsOptions.swift in Sources */,
+				A10000000000000000000021 /* AppSettings.swift in Sources */,
+				C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */,
+				C10000000000000000000009 /* AppSettings+Codable.swift in Sources */,
+				J10000000000000000000005 /* AdaptiveRecognitionModels.swift in Sources */,
+				C10000000000000000000007 /* LocalWhisperModelCatalog.swift in Sources */,
+				A10000000000000000000022 /* TranscriptItem.swift in Sources */,
+				A10000000000000000000023 /* TranscriptionService.swift in Sources */,
+				A10000000000000000000024 /* StubTranscriptionService.swift in Sources */,
+				A10000000000000000000025 /* TranscriptPostProcessor.swift in Sources */,
+				A10000000000000000000026 /* AudioRecorder.swift in Sources */,
+				A10000000000000000000027 /* PasteboardInjector.swift in Sources */,
+				A10000000000000000000028 /* AppState.swift in Sources */,
+				A10000000000000000000029 /* MenuBarView.swift in Sources */,
+				H10000000000000000000002 /* ErrorDetailsView.swift in Sources */,
+				A1000000000000000000002A /* SettingsView.swift in Sources */,
+				A1000000000000000000002B /* HistoryView.swift in Sources */,
+				A1000000000000000000002D /* OpenAIAPIKeyStore.swift in Sources */,
+				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
+				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
+				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
+				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
+				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
+				M10000000000000000000002 /* AudioOutputDeviceCatalog.swift in Sources */,
+				K10000000000000000000003 /* TranscriptAudioStore.swift in Sources */,
+				K10000000000000000000004 /* TranscriptAudioPlayer.swift in Sources */,
+				L10000000000000000000002 /* RecordingCuePlayer.swift in Sources */,
+				A10000000000000000000035 /* AppLocalizer.swift in Sources */,
+				I10000000000000000000002 /* AppExportService.swift in Sources */,
+				J10000000000000000000006 /* AdaptiveRecognitionService.swift in Sources */,
+				A10000000000000000000036 /* MetricsCalculator.swift in Sources */,
+				A10000000000000000000037 /* MetricsView.swift in Sources */,
+				A10000000000000000000038 /* StatusItemController.swift in Sources */,
+				J10000000000000000000007 /* AdaptiveRecognitionStore.swift in Sources */,
+				A10000000000000000000039 /* CustomizationModels.swift in Sources */,
+				A1000000000000000000003A /* CustomizationView.swift in Sources */,
+				A1000000000000000000003B /* AppPanelView.swift in Sources */,
+				A1000000000000000000003C /* VoiceEditCommandParser.swift in Sources */,
+				A1000000000000000000003D /* VoiceEditLLMService.swift in Sources */,
+				A1000000000000000000003E /* EmojiResolverService.swift in Sources */,
+				E10000000000000000000002 /* TranscriptProcessingWorkflow.swift in Sources */,
+				F10000000000000000000002 /* AppRuntime.swift in Sources */,
+				N10000000000000000000002 /* CrashReportService.swift in Sources */,
+				O10000000000000000000002 /* TranscriptHistoryStore.swift in Sources */,
+				P10000000000000000000002 /* MetricsStore.swift in Sources */,
+				G10000000000000000000002 /* LocalWhisperAssetInstaller.swift in Sources */,
+				Q10000000000000000000002 /* AboutView.swift in Sources */,
+				R10000000000000000000002 /* PluginConfiguration.swift in Sources */,
+				S10000000000000000000001 /* AppUpdateController.swift in Sources */,
+				T10000000000000000000002 /* VoiceEditLocalResolver.swift in Sources */,
+				U10000000000000000000002 /* OpenAICompatibleRequestBuilder.swift in Sources */,
+				V10000000000000000000002 /* RecordingSessionCoordinator.swift in Sources */,
+				W10000000000000000000002 /* LocalWhisperSetupService.swift in Sources */,
+				Y10000000000000000000002 /* OpenAIModelCatalog.swift in Sources */,
+				Z10000000000000000000002 /* OpenAIModelAvailabilityService.swift in Sources */,
+				AC0000000000000000000002 /* CancellableProcessRunner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E90000000000000000000002 /* FloatingCorrectionCommandReturnTests.swift in Sources */,
+				E80000000000000000000005 /* CorrectionMappingAggregatorTests.swift in Sources */,
+				D20000000000000000000041 /* ProjectVocabularyTests.swift in Sources */,
+				B10000000000000000000003 /* ShuoCoreTests.swift in Sources */,
+				AA0000000000000000000003 /* OpenAIModelCatalogTests.swift in Sources */,
+				AB0000000000000000000003 /* ReliabilityRegressionTests.swift in Sources */,
+				X10000000000000000000003 /* RecordingSessionCoordinatorTests.swift in Sources */,
+				A7BA00000000000000000004 /* AlibabaTranscriptionServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S10000000000000000000010 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E80000000000000000000002 /* CorrectionMappingAggregator.swift in Sources */,
+				H60000000000000000000003 /* ArchitectureView.swift in Sources */,
+				G50000000000000000000002 /* SettingsSearchModels.swift in Sources */,
+				E30000000000000000000002 /* RecoverableJSONStore.swift in Sources */,
+				D20000000000000000000031 /* ProjectVocabularyModels.swift in Sources */,
+				D20000000000000000000032 /* ProjectDirectoryBookmark.swift in Sources */,
+				D20000000000000000000033 /* ProjectVocabularyIndexer.swift in Sources */,
+				D20000000000000000000034 /* TranscriptionVocabularyComposer.swift in Sources */,
+				D20000000000000000000036 /* ProjectVocabularyStore.swift in Sources */,
+				D20000000000000000000037 /* ProjectVocabularyController.swift in Sources */,
+				D20000000000000000000038 /* VocabularyView.swift in Sources */,
+				A10000000000000000000020 /* ShuoApp.swift in Sources */,
+				C10000000000000000000006 /* SettingsOptions.swift in Sources */,
+				A10000000000000000000021 /* AppSettings.swift in Sources */,
+				C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */,
+				C10000000000000000000009 /* AppSettings+Codable.swift in Sources */,
+				J10000000000000000000005 /* AdaptiveRecognitionModels.swift in Sources */,
+				C10000000000000000000007 /* LocalWhisperModelCatalog.swift in Sources */,
+				A10000000000000000000022 /* TranscriptItem.swift in Sources */,
+				A10000000000000000000023 /* TranscriptionService.swift in Sources */,
+				A10000000000000000000024 /* StubTranscriptionService.swift in Sources */,
+				A10000000000000000000025 /* TranscriptPostProcessor.swift in Sources */,
+				A10000000000000000000026 /* AudioRecorder.swift in Sources */,
+				A10000000000000000000027 /* PasteboardInjector.swift in Sources */,
+				A10000000000000000000028 /* AppState.swift in Sources */,
+				A10000000000000000000029 /* MenuBarView.swift in Sources */,
+				H10000000000000000000002 /* ErrorDetailsView.swift in Sources */,
+				A1000000000000000000002A /* SettingsView.swift in Sources */,
+				A1000000000000000000002B /* HistoryView.swift in Sources */,
+				A1000000000000000000002D /* OpenAIAPIKeyStore.swift in Sources */,
+				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
+				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
+				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
+				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
+				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
+				M10000000000000000000002 /* AudioOutputDeviceCatalog.swift in Sources */,
+				K10000000000000000000003 /* TranscriptAudioStore.swift in Sources */,
+				K10000000000000000000004 /* TranscriptAudioPlayer.swift in Sources */,
+				L10000000000000000000002 /* RecordingCuePlayer.swift in Sources */,
+				A10000000000000000000035 /* AppLocalizer.swift in Sources */,
+				I10000000000000000000002 /* AppExportService.swift in Sources */,
+				J10000000000000000000006 /* AdaptiveRecognitionService.swift in Sources */,
+				A10000000000000000000036 /* MetricsCalculator.swift in Sources */,
+				A10000000000000000000037 /* MetricsView.swift in Sources */,
+				A10000000000000000000038 /* StatusItemController.swift in Sources */,
+				J10000000000000000000007 /* AdaptiveRecognitionStore.swift in Sources */,
+				A10000000000000000000039 /* CustomizationModels.swift in Sources */,
+				A1000000000000000000003A /* CustomizationView.swift in Sources */,
+				A1000000000000000000003B /* AppPanelView.swift in Sources */,
+				A1000000000000000000003C /* VoiceEditCommandParser.swift in Sources */,
+				A1000000000000000000003D /* VoiceEditLLMService.swift in Sources */,
+				A1000000000000000000003E /* EmojiResolverService.swift in Sources */,
+				E10000000000000000000002 /* TranscriptProcessingWorkflow.swift in Sources */,
+				F10000000000000000000002 /* AppRuntime.swift in Sources */,
+				N10000000000000000000002 /* CrashReportService.swift in Sources */,
+				O10000000000000000000002 /* TranscriptHistoryStore.swift in Sources */,
+				P10000000000000000000002 /* MetricsStore.swift in Sources */,
+				G10000000000000000000002 /* LocalWhisperAssetInstaller.swift in Sources */,
+				Q10000000000000000000002 /* AboutView.swift in Sources */,
+				R10000000000000000000002 /* PluginConfiguration.swift in Sources */,
+				S10000000000000000000001 /* AppUpdateController.swift in Sources */,
+				T10000000000000000000002 /* VoiceEditLocalResolver.swift in Sources */,
+				U10000000000000000000002 /* OpenAICompatibleRequestBuilder.swift in Sources */,
+				V10000000000000000000002 /* RecordingSessionCoordinator.swift in Sources */,
+				W10000000000000000000002 /* LocalWhisperSetupService.swift in Sources */,
+				Y10000000000000000000002 /* OpenAIModelCatalog.swift in Sources */,
+				Z10000000000000000000002 /* OpenAIModelAvailabilityService.swift in Sources */,
+				AC0000000000000000000002 /* CancellableProcessRunner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B10000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000050 /* Shuo */;
+			targetProxy = B10000000000000000000009 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000071 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000000000000000000072 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		C90000000000000000000010 /* Community */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG COMMUNITY_BUILD";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Community;
+		};
+		A10000000000000000000081 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/Shuo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 3;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
+				PRODUCT_MODULE_NAME = Shuo;
+				PRODUCT_NAME = Shuo;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A10000000000000000000082 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/Shuo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 3;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
+				PRODUCT_MODULE_NAME = Shuo;
+				PRODUCT_NAME = Shuo;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C90000000000000000000011 /* Community */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = CommunityAppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/ShuoDirect.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 3;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "App/Info-Community.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.shuo.community;
+				PRODUCT_MODULE_NAME = Shuo;
+				PRODUCT_NAME = "Shuo Community";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Community;
+		};
+		B10000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.ShuoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Shuo.app/Contents/MacOS/Shuo";
+			};
+			name = Debug;
+		};
+		B10000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.ShuoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Shuo.app/Contents/MacOS/Shuo";
+			};
+			name = Release;
+		};
+		C90000000000000000000012 /* Community */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				AD_HOC_CODE_SIGNING_ALLOWED = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.shuo.community.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Shuo Community.app/Contents/MacOS/Shuo Community";
+			};
+			name = Community;
+		};
+		S10000000000000000000030 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/ShuoDirect.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 3;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "App/Info-Direct.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
+				PRODUCT_MODULE_NAME = ShuoDirect;
+				PRODUCT_NAME = Shuo;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SPARKLE_PUBLIC_ED_KEY = "i0Hw/eZpvDeme6HTBGedmDhGfLECOXuTZ1q6urwyZyg=";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG DIRECT_DISTRIBUTION";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		S10000000000000000000031 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/ShuoDirect.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 3;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 4GQ47468NJ;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "App/Info-Direct.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
+				PRODUCT_MODULE_NAME = ShuoDirect;
+				PRODUCT_NAME = Shuo;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SPARKLE_PUBLIC_ED_KEY = "i0Hw/eZpvDeme6HTBGedmDhGfLECOXuTZ1q6urwyZyg=";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DIRECT_DISTRIBUTION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000070 /* Build configuration list for PBXProject "Shuo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000071 /* Debug */,
+				A10000000000000000000072 /* Release */,
+				C90000000000000000000010 /* Community */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000080 /* Build configuration list for PBXNativeTarget "Shuo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000081 /* Debug */,
+				A10000000000000000000082 /* Release */,
+				C90000000000000000000011 /* Community */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000000000000000000020 /* Build configuration list for PBXNativeTarget "ShuoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000000000000000000021 /* Debug */,
+				B10000000000000000000022 /* Release */,
+				C90000000000000000000012 /* Community */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		S10000000000000000000032 /* Build configuration list for PBXNativeTarget "ShuoDirect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				S10000000000000000000030 /* Debug */,
+				S10000000000000000000031 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		S10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		S10000000000000000000041 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = S10000000000000000000040 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000000000000000000060 /* Project object */;
+}
