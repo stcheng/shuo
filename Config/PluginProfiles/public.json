@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 4,
+  "profile": "public",
+  "enabledPlugins": [
+    "provider.openai",
+    "provider.localWhisper",
+    "history.basic",
+    "metrics.basic",
+    "quick.copy",
+    "quick.playAudio",
+    "quick.retranscribe",
+    "output.cleanup",
+    "smart.preferredTerms",
+    "advanced.settingsExport"
+  ],
+  "disabledPlugins": [
+    "provider.elevenLabs",
+    "provider.alibaba",
+    "output.customCorrections",
+    "output.chineseConversion",
+    "output.emoji",
+    "output.llmRetouch",
+    "command.modifyPrevious",
+    "command.deletePrevious",
+    "smart.promptContext",
+    "smart.adaptiveRecognition",
+    "smart.correctionWindow",
+    "metrics.advancedDashboard",
+    "workflow.messageToVideo"
+  ]
+}

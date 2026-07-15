@@ -1,0 +1,15 @@
+{
+  "name": "Shuo",
+  "short_name": "Shuo",
+  "description": "A local-first Mac voice keyboard for names, project jargon, and correctable voice input.",
+  "icons": [
+    {
+      "src": "assets/shuo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#070707",
+  "background_color": "#f7f7f2",
+  "display": "standalone"
+}

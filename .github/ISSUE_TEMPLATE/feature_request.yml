@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a focused improvement to Shuo
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the workflow rather than sharing real recordings or transcripts. This issue is public; do not include API keys, credentials, private audio, dictated text, correction history, or project vocabulary.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the user need and when it occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the smallest useful version of the change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional. Note any current workaround or different approach.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I did not include credentials, recordings, transcripts, correction data, project vocabulary, or other private information.
+          required: true

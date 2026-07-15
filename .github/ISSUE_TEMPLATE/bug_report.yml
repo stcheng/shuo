@@ -1,0 +1,103 @@
+name: Bug report
+description: Report a reproducible problem in Shuo
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Shuo.
+
+        **Privacy first:** this issue is public. Do not attach API keys, Keychain contents, signing credentials, private recordings, transcripts, correction history, or project vocabulary. Redact usernames and private paths from diagnostics and screenshots.
+
+        If this may be a security vulnerability, stop here and use [GitHub Private Vulnerability Reporting](https://github.com/stcheng/shuo/security/advisories/new).
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Shuo version and build
+      description: Find this in Shuo → About.
+      placeholder: "1.0.0 (build 3)"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: macOS and Mac
+      placeholder: "macOS 15.5, Mac mini M4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: distribution
+    attributes:
+      label: Installation
+      options:
+        - Direct-download DMG
+        - Shuo Community source build
+        - Maintainer development build
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Transcription provider
+      description: Select the provider involved, if any.
+      options:
+        - Not provider-specific
+        - Local whisper.cpp
+        - OpenAI
+        - ElevenLabs
+        - Alibaba Qwen
+        - Custom OpenAI-compatible endpoint
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem without including private dictated text.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open…
+        2. Choose…
+        3. Observe…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Optional. Paste only the minimum relevant output after removing credentials, dictated content, usernames, and private paths.
+      render: shell
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for this problem.
+          required: true
+        - label: I removed API keys, recordings, transcripts, correction data, project vocabulary, usernames, and private paths.
+          required: true
+        - label: This report does not contain undisclosed security-vulnerability details.
+          required: true
