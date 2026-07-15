@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # macos-26 keeps CI on the Xcode 26 toolchain family used for 1.0. Use the
+    # image's stable Xcode.app link and fail if GitHub changes its major version.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify release toolchain
+        run: |
+          xcodebuild -version | sed -n '1p' | grep -Eq '^Xcode 26([.][0-9]+)+$'
+          xcodebuild -version
+          sw_vers
+
+      - name: Install CI verification tools
+        run: |
+          # The macos-26 image currently carries an untrusted aws/tap. It is
+          # unrelated to this build, but Homebrew refuses every install while
+          # it remains configured. Remove it from this ephemeral runner, then
+          # install every non-system verifier from the trusted Homebrew core
+          # tap. Explicit provisioning keeps the audit independent of runner
+          # image churn.
+          HOMEBREW_NO_AUTO_UPDATE=1 brew untap aws/tap || true
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install gitleaks ripgrep jq libxml2 rsync
+          xml_bin="$(brew --prefix libxml2)/bin"
+          echo "$xml_bin" >> "$GITHUB_PATH"
+          export PATH="$xml_bin:$PATH"
+          for tool in gitleaks rg jq xmllint rsync python3; do
+            command -v "$tool" >/dev/null
+          done
+
+      - name: Scan source tree and complete Git history
+        run: make scan-secrets
+
+      - name: Verify source and public export
+        run: |
+          set -o pipefail
+          verify_log="$(mktemp)"
+          if ! make verify 2>&1 | tee "$verify_log"; then
+            summary="$(tail -n 40 "$verify_log" | tr '\n' ' ' | sed 's/%/%25/g')"
+            echo "::error title=Shuo verification failed::$summary"
+            exit 1
+          fi

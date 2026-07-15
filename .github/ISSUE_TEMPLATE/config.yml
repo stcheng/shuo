@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/stcheng/shuo/security/advisories/new
+    about: Do not put vulnerability details, credentials, audio, or transcripts in a public issue.

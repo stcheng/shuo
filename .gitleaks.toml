@@ -1,0 +1,15 @@
+[extend]
+useDefault = true
+
+# Sparkle uses an EdDSA public verification key in Xcode build settings. It is
+# intentionally public and cannot sign an update. Restrict the exception to the
+# setting name and project file rather than allowlisting an arbitrary value.
+[[rules]]
+id = "generic-api-key"
+
+    [[rules.allowlists]]
+    description = "Sparkle update verification public key"
+    condition = "AND"
+    regexTarget = "line"
+    regexes = ['''SPARKLE_PUBLIC_ED_KEY\s*=''', '''SUPublicEDKey''']
+    paths = ['''Shuo\.xcodeproj/project\.pbxproj''']

@@ -1,0 +1,11 @@
+--- a/runtime/llama.cpp/funasr-sensevoice/funasr-sensevoice.cpp
++++ b/runtime/llama.cpp/funasr-sensevoice/funasr-sensevoice.cpp
+@@ -159,7 +159,7 @@ int main(int argc,char**argv){
+     for(int n=0;n<N;n++){ const float*col=&lg[(size_t)n*V]; int am=0; float best=col[0];
+       for(int v=1;v<V;v++) if(col[v]>best){best=col[v];am=v;}
+       if(am!=prev && am!=m.c.blank) seg_ids.push_back(am); prev=am; }
+     if(emit_ids){ for(int id:seg_ids) printf("%d ",id); }
+-    else { std::string t=detok_sv(seg_ids,vocab,keep_tags); printf("%s",t.c_str()); }
++    else { std::string t=detok_sv(seg_ids,vocab,keep_tags); printf("%s\n",t.c_str()); }
+     ggml_gallocr_free(ga); ggml_free(c); ggml_backend_free(be);
+   };
