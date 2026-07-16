@@ -111,22 +111,21 @@ const documentMetadata = {
   },
   "release-notes": {
     en: {
-      title: "Release Notes — Shuo 1.2.1",
+      title: "Release Notes & Version History — Shuo",
       description:
-        "What is new in the Shuo 1.2.1 direct download for macOS."
+        "Release notes and version history for the Shuo macOS direct download."
     },
     "zh-Hans": {
-      title: "版本说明 — Shuo 说 1.2.1",
-      description: "Shuo 1.2.1 macOS 直装版的菜单栏启动可靠性更新。"
+      title: "版本说明与更新历史 — Shuo 说",
+      description: "查看 Shuo macOS 直装版的版本说明与更新历史。"
     },
     "zh-Hant": {
-      title: "版本說明 — Shuo 說 1.2.1",
-      description: "Shuo 1.2.1 macOS 直接下載版的選單列啟動可靠性更新。"
+      title: "版本說明與更新歷史 — Shuo 說",
+      description: "查看 Shuo macOS 直接下載版的版本說明與更新歷史。"
     },
     ja: {
-      title: "リリースノート — Shuo 說 シュオ 1.2.1",
-      description:
-        "Shuo 1.2.1 macOS直接配布版のメニューバー起動の信頼性に関する更新です。"
+      title: "リリースノートと更新履歴 — Shuo 說 シュオ",
+      description: "Shuo macOS直接配布版のリリースノートと更新履歴。"
     }
   }
 };

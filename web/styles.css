@@ -1629,6 +1629,16 @@ html .hero .button {
   text-underline-offset: 4px;
 }
 
+.release-version-index {
+  display: grid;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.release-version-index a {
+  width: fit-content;
+}
+
 .document-content {
   border-top: 1px solid var(--ink);
 }
