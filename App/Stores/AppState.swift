@@ -246,7 +246,16 @@ final class AppState: ObservableObject {
                 || settings.openAIOrganizationID != oldValue.openAIOrganizationID
                 || settings.openAIProjectID != oldValue.openAIProjectID {
                 resetOpenAIModelAvailability()
-                scheduleOpenAIModelRefresh(forceRefresh: false)
+                if settings.provider != .gemini {
+                    scheduleOpenAIModelRefresh(forceRefresh: false)
+                }
+            }
+
+            if settings.provider == .gemini,
+               oldValue.provider != .gemini {
+                // A switch to Gemini must leave no pending OpenAI model
+                // availability request running in the background.
+                resetOpenAIModelAvailability()
             }
 
             if settings.pushToTalkEnabled != oldValue.pushToTalkEnabled
@@ -332,6 +341,7 @@ final class AppState: ObservableObject {
     @Published private(set) var openAIAPIKey = ""
     @Published private(set) var elevenLabsAPIKey = ""
     @Published private(set) var alibabaAPIKey = ""
+    @Published private(set) var geminiAPIKey = ""
     @Published private(set) var openAIAvailableModelIDs = Set<String>()
     @Published private(set) var openAIModelAvailabilityFetchedAt: Date?
     @Published private(set) var openAIModelAvailabilityError: String?
@@ -387,6 +397,7 @@ final class AppState: ObservableObject {
     private var hasLoadedOpenAIAPIKey = false
     private var hasLoadedElevenLabsAPIKey = false
     private var hasLoadedAlibabaAPIKey = false
+    private var hasLoadedGeminiAPIKey = false
     private var lastInsertion: LastShuoInsertion? {
         didSet {
             replacementSafetySessionID = lastInsertion?.id
@@ -1281,7 +1292,9 @@ final class AppState: ObservableObject {
                 )
             )
         } catch {
-            refreshOpenAIModelsAfterFailureIfNeeded(error)
+            if provider == .openAI {
+                refreshOpenAIModelsAfterFailureIfNeeded(error)
+            }
             throw error
         }
         let preparedTranscript = transcriptProcessingWorkflow.prepare(
@@ -1622,7 +1635,9 @@ final class AppState: ObservableObject {
             errorMessage = localizedErrorMessage(error)
         }
 
-        scheduleOpenAIModelRefresh(forceRefresh: false)
+        if settings.provider != .gemini {
+            scheduleOpenAIModelRefresh(forceRefresh: false)
+        }
     }
 
     func loadOpenAIAPIKeyIfNeeded() {
@@ -1690,18 +1705,50 @@ final class AppState: ObservableObject {
         }
     }
 
+    func updateGeminiAPIKey(_ apiKey: String) {
+        geminiAPIKey = apiKey
+        hasLoadedGeminiAPIKey = true
+
+        do {
+            try GeminiAPIKeyStore.save(apiKey)
+        } catch {
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
+    func loadGeminiAPIKeyIfNeeded() {
+        guard !hasLoadedGeminiAPIKey else {
+            return
+        }
+
+        hasLoadedGeminiAPIKey = true
+        do {
+            geminiAPIKey = try GeminiAPIKeyStore.load()
+        } catch {
+            geminiAPIKey = ""
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
     func clearCloudAPIKeys() {
         updateOpenAIAPIKey("")
         updateElevenLabsAPIKey("")
         updateAlibabaAPIKey("")
+        updateGeminiAPIKey("")
     }
 
     func refreshOpenAIModelsIfNeeded() {
+        guard settings.provider != .gemini else {
+            return
+        }
         loadOpenAIAPIKeyIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: false, delayNanoseconds: 0)
     }
 
     func refreshOpenAIModels() {
+        guard settings.provider != .gemini else {
+            return
+        }
         loadOpenAIAPIKeyIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: true, delayNanoseconds: 0)
     }
@@ -1728,6 +1775,9 @@ final class AppState: ObservableObject {
         openAIModelRefreshTask?.cancel()
         openAIModelRefreshGeneration &+= 1
         let refreshGeneration = openAIModelRefreshGeneration
+        guard settings.provider != .gemini else {
+            return
+        }
         guard OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey) != nil else {
             return
         }
@@ -1767,6 +1817,7 @@ final class AppState: ObservableObject {
 
         guard !Task.isCancelled,
               generation == openAIModelRefreshGeneration,
+              settings.provider != .gemini,
               let normalizedAPIKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey) else {
             return
         }
@@ -2909,6 +2960,9 @@ final class AppState: ObservableObject {
         case .alibaba:
             loadAlibabaAPIKeyIfNeeded()
             return alibabaAPIKey
+        case .gemini:
+            loadGeminiAPIKeyIfNeeded()
+            return geminiAPIKey
         case .local:
             return ""
         }
@@ -2924,6 +2978,11 @@ final class AppState: ObservableObject {
         guard requestSettings.transcriptRetouchEnabled
             || (requestSettings.emojiPostProcessingEnabled && requestSettings.aiEmojiResolverEnabled) else {
             return ""
+        }
+
+        if requestSettings.provider == .gemini {
+            loadGeminiAPIKeyIfNeeded()
+            return geminiAPIKey
         }
 
         loadOpenAIAPIKeyIfNeeded()
@@ -3473,13 +3532,20 @@ final class AppState: ObservableObject {
                 : VoiceEditLLMError.disabledInSettings
         }
 
-        loadOpenAIAPIKeyIfNeeded()
-        if effectiveSettings.openAITextModelSelectionMode == .automatic,
-           openAIModelAvailabilityFetchedAt != nil,
-           OpenAIModelCatalog.recommendedTextModelID(
-               availableModelIDs: openAIAvailableModelIDs
-           ) == nil {
-            throw OpenAIModelSelectionError.noCompatibleTextModel
+        let apiKey: String
+        if effectiveSettings.provider == .gemini {
+            loadGeminiAPIKeyIfNeeded()
+            apiKey = geminiAPIKey
+        } else {
+            loadOpenAIAPIKeyIfNeeded()
+            if effectiveSettings.openAITextModelSelectionMode == .automatic,
+               openAIModelAvailabilityFetchedAt != nil,
+               OpenAIModelCatalog.recommendedTextModelID(
+                   availableModelIDs: openAIAvailableModelIDs
+               ) == nil {
+                throw OpenAIModelSelectionError.noCompatibleTextModel
+            }
+            apiKey = openAIAPIKey
         }
 
         do {
@@ -3488,12 +3554,14 @@ final class AppState: ObservableObject {
                     previousText: previousText,
                     commandText: commandText,
                     settings: effectiveSettings,
-                    apiKey: openAIAPIKey
+                    apiKey: apiKey
                 )
             )
             return TranscriptPostProcessor().process(rewritten, settings: effectiveSettings)
         } catch {
-            refreshOpenAIModelsAfterFailureIfNeeded(error)
+            if effectiveSettings.provider == .openAI {
+                refreshOpenAIModelsAfterFailureIfNeeded(error)
+            }
             throw error
         }
     }

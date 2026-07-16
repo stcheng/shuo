@@ -578,6 +578,28 @@ struct EmojiAIResolverService {
             return nil
         }
 
+        if settings.provider == .gemini {
+            do {
+                let content = try await GeminiTextCompletionService().complete(
+                    systemInstruction: """
+                    You resolve short spoken emoji requests.
+                    Return exactly one Unicode emoji if the phrase clearly names an emoji concept.
+                    Return NONE if the phrase is ambiguous, unsafe, not an emoji concept, or no suitable emoji exists.
+                    Do not return words, explanations, Markdown, quotes, punctuation, or multiple emoji.
+                    """,
+                    userContent: "Phrase: \(phrase)",
+                    settings: settings,
+                    apiKey: apiKey
+                )
+                return EmojiResolverService.singleEmoji(from: content)
+            } catch VoiceEditLLMError.requestFailed {
+                // Match the existing OpenAI-compatible behavior: an optional
+                // emoji enhancement never prevents the transcript from being
+                // inserted when the provider rejects the request.
+                return nil
+            }
+        }
+
         guard let endpoint = OpenAICompatibleRequestBuilder.endpoint(
             baseURLString: settings.openAIBaseURL,
             path: "chat/completions"

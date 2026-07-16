@@ -259,6 +259,8 @@ struct AppLocalizer {
             return localized("Cloud (ElevenLabs)", "云端（ElevenLabs）", "雲端（ElevenLabs）", "クラウド（ElevenLabs）")
         case .alibaba:
             return localized("Cloud (Alibaba Qwen)", "云端（阿里云通义）", "雲端（阿里雲通義）", "クラウド（Alibaba Qwen）")
+        case .gemini:
+            return localized("Cloud (Gemini)", "云端（Gemini）", "雲端（Gemini）", "クラウド（Gemini）")
         case .custom:
             return localized("Custom", "自定义", "自訂", "カスタム")
         }
@@ -291,12 +293,66 @@ struct AppLocalizer {
         )
     }
 
+    func onboardingGeminiDetail() -> String {
+        localized(
+            "Gemini 3.1 Flash-Lite transcribes recordings and can also power optional text enhancements with the same API key and model.",
+            "Gemini 3.1 Flash-Lite 可转写录音，并使用同一 API key 与模型支持可选的文本增强。",
+            "Gemini 3.1 Flash-Lite 可轉寫錄音，並使用相同 API key 與模型支援選用的文字增強。",
+            "Gemini 3.1 Flash-Lite は録音を文字起こしし、同じ API キーとモデルで任意のテキスト拡張も利用できます。"
+        )
+    }
+
     func alibabaProviderDetail() -> String {
         localized(
             "Qwen3-ASR-Flash sends the current recording to Alibaba Cloud Model Studio's Beijing endpoint. Use an API key created for the Beijing region.",
             "Qwen3-ASR-Flash 会把当前录音发送到阿里云百炼北京地域接口；请使用在北京地域创建的 API key。",
             "Qwen3-ASR-Flash 會把目前錄音傳送至阿里雲 Model Studio 北京地域介面；請使用在北京地域建立的 API key。",
             "Qwen3-ASR-Flash は現在の録音をAlibaba Cloud Model Studioの北京エンドポイントへ送信します。北京リージョンのAPIキーを使用してください。"
+        )
+    }
+
+    func geminiAPIKeyDetail() -> String {
+        localized(
+            "Stored separately in macOS Keychain and excluded from Settings exports.",
+            "单独保存在 macOS 钥匙串中，不会包含在设置导出里。",
+            "會個別儲存在 macOS 鑰匙圈中，不會包含在設定匯出內。",
+            "macOSのキーチェーンに個別に保存され、設定の書き出しには含まれません。"
+        )
+    }
+
+    func geminiTextEnhancementsDetail() -> String {
+        localized(
+            "Enabled retouch, voice edit, and AI emoji reuse Gemini 3.1 Flash-Lite and send only the needed text—not the recording again.",
+            "启用的转写润色、语音编辑和 AI 表情会复用 Gemini 3.1 Flash-Lite，只发送所需文本，不会再次发送录音。",
+            "啟用的文字潤飾、語音編輯和 AI 表情會重複使用 Gemini 3.1 Flash-Lite，只會傳送所需文字，不會再次傳送錄音。",
+            "有効にした文字起こし修正、音声編集、AI絵文字は Gemini 3.1 Flash-Lite を再利用し、必要なテキストだけを送信します。録音を再送信することはありません。"
+        )
+    }
+
+    func geminiTextEnhancementsLabel() -> String {
+        localized(
+            "Gemini text enhancements",
+            "Gemini 文本增强",
+            "Gemini 文字增強",
+            "Gemini テキスト拡張"
+        )
+    }
+
+    func optionalCloudTextEnhancementsEnabledLabel() -> String {
+        localized(
+            "Enable optional text enhancements",
+            "启用可选文本增强",
+            "啟用選用文字增強",
+            "任意のテキスト拡張を有効にする"
+        )
+    }
+
+    func disabledCloudTextEnhancementsHint() -> String {
+        localized(
+            "Optional cloud text features are off. Transcript retouch, voice edit, and AI emoji will not send text to a cloud model.",
+            "可选云端文本功能已关闭。转写润色、语音编辑和 AI 表情不会将文本发送到云端模型。",
+            "選用雲端文字功能已關閉。文字潤飾、語音編輯和 AI 表情不會將文字傳送至雲端模型。",
+            "任意のクラウドテキスト機能はオフです。文字起こし修正、音声編集、AI 絵文字でテキストがクラウドモデルへ送信されることはありません。"
         )
     }
 
@@ -2372,14 +2428,21 @@ struct AppLocalizer {
 
     func privacyDetail() -> String {
         localized(
-            "Shuo requires no account, sends no telemetry, behavioral analytics, or crash reports to Shuo, and contains no ads. It stores settings, transcript history, local metrics, recordings, downloaded models, project vocabulary indexes, explicit before-and-after edits, and recovery reports on this Mac; recovery reports are never uploaded automatically. Recordings linked to retained History items stay until you delete those items. Confirmed edits are recorded locally. Correction Learning is off by default; only patterns you enable individually and that meet the relevant threshold can become spelling hints or, in Replacement mode, be applied locally when high-confidence and conflict-free. OpenAI-compatible, ElevenLabs, and Alibaba Cloud API keys are stored separately in Keychain. With Local transcription selected, audio, text, corrections, and personal vocabulary do not leave the Mac; cloud text features are unavailable in Local mode. When a cloud transcription provider is selected, current-task audio, settings, enabled context, and provider-supported spelling hints are sent to that provider; correction learning sends only enabled, eligible preferred wording (B) as hints, not the original mistaken wording or complete History. Optional AI/LLM text features, when enabled with a cloud provider, may also send the current transcript and relevant prompt or context to the configured OpenAI-compatible endpoint. Alibaba Cloud transcription uses Model Studio's Beijing endpoint. Historical recordings and the correction dataset are not uploaded for training. Shuo may preserve damaged-file recovery copies locally to prevent data loss; they are never loaded or uploaded automatically, and deleting one History item does not rewrite a recovery copy that cannot be parsed safely.",
-            "Shuo 不需要账号，不会向 Shuo 发送遥测、行为分析或 crash report，也没有广告。它会在这台 Mac 上保存设置、转写历史、本地统计、录音、下载的模型、项目词汇索引、明确修改的前后文本和恢复报告；恢复报告不会自动上传。与保留的 History 记录关联的录音会留在本机，直到你删除对应记录。已确认的修改会保存在本机。纠错学习默认关闭；只有用户逐条开启且达到相应门槛的模式才能成为拼写提示，或在“替换”模式下以高置信且无冲突的规则在本地应用。OpenAI-compatible、ElevenLabs 与阿里云 API 密钥分别保存在钥匙串。选择本地转写时，语音、文字、修正与个人词汇不会离开这台 Mac；本地模式下不可用云端文本功能。选择云端转写时，当前任务所需的音频、设置、启用的上下文和服务商支持的拼写提示会发送给所选服务商；纠错学习只会发送已逐条开启且符合条件的修正后写法（B），不会发送修改前写法或完整历史。另行启用可选的 AI/LLM 文本功能后，当前转写文本和相关提示或上下文还可能发送到你配置的 OpenAI-compatible 接口。阿里云转写使用百炼北京地域接口。历史录音和纠正数据集不会被上传用于训练。为防止数据丢失，Shuo 可能在本机保留损坏文件的恢复副本；它们不会被自动读取或上传，单条 History 删除也不会改写无法安全解析的旧恢复副本。",
-            "Shuo 不需要帳號，不會向 Shuo 傳送遙測資料、使用行為分析資料或當機報告，也不含廣告。設定、轉寫記錄、本機統計、錄音、已下載的模型、專案詞彙索引、明確修正所產生的前後文字，以及復原報告都儲存在這台 Mac 上；復原報告絕不會自動上傳。與保留的「歷史」項目連結的錄音會保留到你刪除該項目為止。已確認的修改會儲存在本機。「人工修正學習」預設為關閉；只有你逐項啟用且達到相應門檻的修正模式，才會用作拼字提示；選擇「替換」時，只有信賴度高且沒有衝突的規則才會在本機套用。OpenAI 相容服務、ElevenLabs 和阿里雲的 API 金鑰會分別儲存在「鑰匙圈」中。選用本機轉寫時，音訊、文字、修正內容與個人詞彙都不會離開這台 Mac；本機模式下無法使用雲端 AI 文字功能。使用雲端轉寫服務時，目前任務所需的音訊、設定、已啟用的上下文，以及服務供應商支援的拼字提示會傳送給該服務；人工修正學習只會傳送已逐項啟用且符合條件的偏好寫法（B）作為提示，不會傳送修正前的錯誤寫法或完整「歷史」內容。另行啟用可選的 AI/LLM 文字功能後，目前的轉寫文字及相關提示詞或上下文還可能傳送至你設定的 OpenAI 相容端點。阿里雲轉寫使用百煉（Model Studio）的北京端點。過去的錄音與修正資料集不會上傳作為訓練用途。為避免資料遺失，Shuo 可能會在本機保留受損檔案的復原副本；這些副本不會自動載入或上傳。若復原副本無法安全解析，刪除單一「歷史」項目時也不會改寫該副本。",
-            "Shuoの利用にアカウントは不要です。Shuoにテレメトリ、利用状況の分析データ、クラッシュレポートを送信せず、広告も表示しません。設定、文字起こし履歴、ローカル統計、録音、ダウンロード済みモデル、プロジェクト語彙の索引、明示的な修正前後のテキスト、復旧レポートは、このMacに保存されます。復旧レポートが自動的にアップロードされることはありません。履歴に残っている項目に紐づく録音は、その項目を削除するまで保存されます。確定した修正もローカルに保存されます。「手動修正からの学習」は初期設定でオフです。個別に有効にし、所定のしきい値を満たしたパターンだけが表記ヒントになります。「置換」方式では、信頼度が高く競合がない場合に限り、ローカルで適用されます。OpenAI互換サービス、ElevenLabs、Alibaba CloudのAPIキーは、キーチェーンに個別に保存されます。ローカル文字起こしを選択している間は、音声、テキスト、修正内容、個人用語がMacの外に送信されることはありません。ローカルモードではクラウドAIのテキスト機能は利用できません。クラウド文字起こしプロバイダを選択すると、現在のタスクの音声、設定、有効なコンテキスト、およびプロバイダが対応する表記ヒントが、そのプロバイダに送信されます。手動修正からの学習で送信されるのは、個別に有効化され、条件を満した推奨表記（B）のみです。誤認識された元の表記や履歴全体は送信されません。クラウドプロバイダでオプションのAI/LLMテキスト機能を有効にした場合は、現在の文字起こしと関連するプロンプトまたはコンテキストが、設定したOpenAI互換エンドポイントに送信されることがあります。Alibaba Cloudの文字起こしには、Model Studioの北京エンドポイントを使用します。過去の録音と修正データセットを学習目的でアップロードすることはありません。データ損失を防ぐため、破損したファイルの復旧コピーをローカルに保存する場合があります。これらが自動的に読み込まれたりアップロードされたりすることはありません。復旧コピーを安全に解析できない場合、履歴項目を1件削除してもそのコピーは書き換えません。"
+            "Shuo requires no account, sends no telemetry, behavioral analytics, or crash reports to Shuo, and contains no ads. It stores settings, transcript history, local metrics, recordings, downloaded models, project vocabulary indexes, explicit before-and-after edits, and recovery reports on this Mac; recovery reports are never uploaded automatically. Recordings linked to retained History items stay until you delete those items. Confirmed edits are recorded locally. Correction Learning is off by default; only patterns you enable individually and that meet the relevant threshold can become spelling hints or, in Replacement mode, be applied locally when high-confidence and conflict-free. OpenAI-compatible, Gemini, ElevenLabs, and Alibaba Cloud API keys are stored separately in Keychain. With Local transcription selected, audio, text, corrections, and personal vocabulary do not leave the Mac; cloud text features are unavailable in Local mode. When a cloud transcription provider is selected, current-task audio, selected model/language, enabled context, and provider-supported spelling hints are sent to that provider; correction learning sends only enabled, eligible preferred wording (B) as hints, not the original mistaken wording or complete History. Optional AI/LLM text features may send the current transcript and relevant prompt or context to the configured OpenAI-compatible endpoint. With Gemini selected, those optional features instead reuse the same Gemini API key and selected model, sending Google only the needed text and instruction—not the recording again. Alibaba Cloud transcription uses Model Studio's Beijing endpoint. Historical recordings and the correction dataset are not uploaded for training. Shuo may preserve damaged-file recovery copies locally to prevent data loss; they are never loaded or uploaded automatically, and deleting one History item does not rewrite a recovery copy that cannot be parsed safely.",
+            "Shuo 不需要账号，不会向 Shuo 发送遥测、行为分析或 crash report，也没有广告。它会在这台 Mac 上保存设置、转写历史、本地统计、录音、下载的模型、项目词汇索引、明确修改的前后文本和恢复报告；恢复报告不会自动上传。与保留的 History 记录关联的录音会留在本机，直到你删除对应记录。已确认的修改会保存在本机。纠错学习默认关闭；只有用户逐条开启且达到相应门槛的模式才能成为拼写提示，或在“替换”模式下以高置信且无冲突的规则在本地应用。OpenAI-compatible、Gemini、ElevenLabs 与阿里云 API 密钥分别保存在钥匙串。选择本地转写时，语音、文字、修正与个人词汇不会离开这台 Mac；本地模式下不可用云端文本功能。选择云端转写时，当前任务所需的音频、所选模型/语言、启用的上下文和服务商支持的拼写提示会发送给所选服务商；纠错学习只会发送已逐条开启且符合条件的修正后写法（B），不会发送修改前写法或完整历史。可选的 AI/LLM 文本功能可能会将当前转写文本和相关提示或上下文发送到你配置的 OpenAI-compatible 接口。选择 Gemini 时，这些可选功能会改为复用同一 Gemini API Key 与所选模型，只向 Google 发送所需文本和指令，不会再次发送录音。阿里云转写使用百炼北京地域接口。历史录音和纠正数据集不会被上传用于训练。为防止数据丢失，Shuo 可能在本机保留损坏文件的恢复副本；它们不会被自动读取或上传，单条 History 删除也不会改写无法安全解析的旧恢复副本。",
+            "Shuo 不需要帳號，不會向 Shuo 傳送遙測資料、使用行為分析資料或當機報告，也不含廣告。設定、轉寫記錄、本機統計、錄音、已下載的模型、專案詞彙索引、明確修正所產生的前後文字，以及復原報告都儲存在這台 Mac 上；復原報告絕不會自動上傳。與保留的「歷史」項目連結的錄音會保留到你刪除該項目為止。已確認的修改會儲存在本機。「人工修正學習」預設為關閉；只有你逐項啟用且達到相應門檻的修正模式，才會用作拼字提示；選擇「替換」時，只有信賴度高且沒有衝突的規則才會在本機套用。OpenAI 相容服務、Gemini、ElevenLabs 和阿里雲的 API 金鑰會分別儲存在「鑰匙圈」中。選用本機轉寫時，音訊、文字、修正內容與個人詞彙都不會離開這台 Mac；本機模式下無法使用雲端 AI 文字功能。使用雲端轉寫服務時，目前任務所需的音訊、所選模型/語言、已啟用的上下文，以及服務供應商支援的拼字提示會傳送給該服務；人工修正學習只會傳送已逐項啟用且符合條件的偏好寫法（B）作為提示，不會傳送修正前的錯誤寫法或完整「歷史」內容。選用的 AI/LLM 文字功能可能會將目前的轉寫文字及相關提示詞或上下文傳送至你設定的 OpenAI 相容端點。選擇 Gemini 時，這些選用功能會改為重複使用相同的 Gemini API 金鑰與所選模型，只會將所需文字與指令傳送給 Google，不會再次傳送錄音。阿里雲轉寫使用百煉（Model Studio）的北京端點。過去的錄音與修正資料集不會上傳作為訓練用途。為避免資料遺失，Shuo 可能會在本機保留受損檔案的復原副本；這些副本不會自動載入或上傳。若復原副本無法安全解析，刪除單一「歷史」項目時也不會改寫該副本。",
+            "Shuoの利用にアカウントは不要です。Shuoにテレメトリ、利用状況の分析データ、クラッシュレポートを送信せず、広告も表示しません。設定、文字起こし履歴、ローカル統計、録音、ダウンロード済みモデル、プロジェクト語彙の索引、明示的な修正前後のテキスト、復旧レポートは、このMacに保存されます。復旧レポートが自動的にアップロードされることはありません。履歴に残っている項目に紐づく録音は、その項目を削除するまで保存されます。確定した修正もローカルに保存されます。「手動修正からの学習」は初期設定でオフです。個別に有効にし、所定のしきい値を満たしたパターンだけが表記ヒントになります。「置換」方式では、信頼度が高く競合がない場合に限り、ローカルで適用されます。OpenAI互換サービス、Gemini、ElevenLabs、Alibaba CloudのAPIキーは、キーチェーンに個別に保存されます。ローカル文字起こしを選択している間は、音声、テキスト、修正内容、個人用語がMacの外に送信されることはありません。ローカルモードではクラウドAIのテキスト機能は利用できません。クラウド文字起こしプロバイダを選択すると、現在のタスクの音声、選択したモデルと言語、有効なコンテキスト、およびプロバイダが対応する表記ヒントが、そのプロバイダに送信されます。手動修正からの学習で送信されるのは、個別に有効化され、条件を満した推奨表記（B）のみです。誤認識された元の表記や履歴全体は送信されません。任意のAI/LLMテキスト機能では、現在の文字起こしと関連するプロンプトまたはコンテキストが、設定したOpenAI互換エンドポイントに送信されることがあります。Geminiを選択した場合、これらの任意機能は同じGemini APIキーと選択したモデルを使用し、必要なテキストと指示だけをGoogleへ送信します。録音を再送信することはありません。Alibaba Cloudの文字起こしには、Model Studioの北京エンドポイントを使用します。過去の録音と修正データセットを学習目的でアップロードすることはありません。データ損失を防ぐため、破損したファイルの復旧コピーをローカルに保存する場合があります。これらが自動的に読み込まれたりアップロードされたりすることはありません。復旧コピーを安全に解析できない場合、履歴項目を1件削除してもそのコピーは書き換えません。"
         )
     }
 
     func releaseNotesDetail() -> String {
+        let onePointTwoNotes = localized(
+            "New in 1.2.0\n\n• Added cloud Gemini API support using Gemini 3.1 Flash-Lite\n• Reduced cases where the Floating Bar disappears immediately after a result is inserted",
+            "1.2.0 更新\n\n• 新增云端 Gemini API 支持，使用 Gemini 3.1 Flash-Lite\n• 降低结果刚插入后悬浮栏立即消失的情况",
+            "1.2.0 更新\n\n• 新增雲端 Gemini API 支援，使用 Gemini 3.1 Flash-Lite\n• 降低結果剛插入後懸浮欄立即消失的情況",
+            "1.2.0 の新機能\n\n• クラウド Gemini API のサポートを追加し、Gemini 3.1 Flash-Lite を使用します\n• 結果の挿入直後にフローティングバーが消えるケースを減らしました"
+        )
+
         let updateBullet = AppRuntime.isCommunityBuild
             ? localized(
                 "• Community source builds do not use Shuo's official automatic updater",
@@ -2393,12 +2456,14 @@ struct AppLocalizer {
                 "• 經簽署的 Sparkle 更新，支援跨使用者協調安裝",
                 "• 署名済みのSparkleアップデートは、複数のmacOSユーザーにまたがるインストール調整に対応"
             )
-        return localized(
+        let currentReleaseDetails = localized(
             "Current release\n\n• Stable Local and OpenAI-compatible transcription; ElevenLabs and Alibaba Cloud adapters remain optional Beta profiles\n• Bundled local whisper.cpp runtime; Local setup requires only a model download\n• Each linked project keeps at most 60 high-priority terms in its local index; every transcription selects hints from all vocabulary sources within a shared request budget of 60 terms and 900 characters\n• Correction Learning is off by default, and each pattern must be enabled individually; choose conservative, conflict-free local Replacement or eligible preferred wording as Cloud AI hints\n• Optional Floating Bar with safe correction\n• Local recordings, raw/final text, and explicit correction capture\n• Adaptive Whisper Mode for quiet speech\n• Safe, quick Copy, Replace, Play, and Redo\n\(updateBullet)\n• Safer clipboard, transcript, and metrics recovery",
             "当前版本\n\n• 稳定支持本地与 OpenAI-compatible 转写；ElevenLabs 和阿里云适配器仍作为可选 Beta profile 提供\n• 内置本地 whisper.cpp runtime；本地设置只需下载模型\n• 每个关联项目的本地索引最多保留 60 个高优先级术语；每次转写会从所有词汇来源中选取提示，总计不超过 60 个、900 字符\n• 人工纠正学习默认关闭，每条修正模式均需单独开启；可选择保守且无冲突的本地“替换”，或把符合条件的偏好写法作为“云端 AI”提示\n• 可选悬浮栏与安全纠正\n• 本地录音、原始/最终文字与明确纠正记录\n• 面向轻声说话的自适应轻声模式\n• 快速且安全的复制、替换、回听与重转\n\(updateBullet)\n• 更安全的剪贴板、转写历史与统计恢复",
             "目前版本\n\n• 穩定支援本機與 OpenAI 相容轉寫；ElevenLabs 與阿里雲介接仍為選用的 Beta 功能\n• 內建本機 whisper.cpp 執行環境；本機設定只需下載模型\n• 每個連結專案的本機索引最多保留 60 個優先術語；每次轉寫會從所有詞彙來源中選取提示，總計不超過 60 個、900 字元\n• 人工修正學習預設關閉，每條修正模式均需個別啟用；可選擇保守且無衝突的本機「替換」，或將符合條件的偏好寫法作為「雲端 AI」提示\n• 可選用懸浮列，安全修正最新內容\n• 在本機儲存錄音、原始與最終文字，以及明確的修正記錄\n• 針對輕聲說話的自適應輕聲模式\n• 快速且安全的複製、替換、播放與重轉\n\(updateBullet)\n• 更安全地復原剪貼簿、轉寫記錄與統計資料",
             "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
         )
+
+        return "\(onePointTwoNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {

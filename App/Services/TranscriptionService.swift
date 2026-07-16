@@ -56,6 +56,8 @@ enum TranscriptionServiceFactory {
             return ElevenLabsTranscriptionService()
         case .alibaba:
             return AlibabaTranscriptionService()
+        case .gemini:
+            return GeminiTranscriptionService()
         case .local:
             return LocalWhisperTranscriptionService()
         case .custom:

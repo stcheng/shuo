@@ -96,6 +96,7 @@
 		F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */; };
 		A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */; };
 		A7BA00000000000000000004 /* AlibabaTranscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */; };
+		A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000005 /* GeminiTranscriptionService.swift */; };
 		G50000000000000000000002 /* SettingsSearchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = G50000000000000000000001 /* SettingsSearchModels.swift */; };
 		H60000000000000000000002 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
 		H60000000000000000000003 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
@@ -136,6 +137,7 @@
 		F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsTranscriptionService.swift; sourceTree = "<group>"; };
 		A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionService.swift; sourceTree = "<group>"; };
 		A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionServiceTests.swift; sourceTree = "<group>"; };
+		A7BA00000000000000000005 /* GeminiTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiTranscriptionService.swift; sourceTree = "<group>"; };
 		G50000000000000000000001 /* SettingsSearchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchModels.swift; sourceTree = "<group>"; };
 		H60000000000000000000001 /* ArchitectureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureView.swift; sourceTree = "<group>"; };
 		E80000000000000000000001 /* CorrectionMappingAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionMappingAggregator.swift; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 				A10000000000000000000011 /* OpenAITranscriptionService.swift */,
 				F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */,
 				A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */,
+				A7BA00000000000000000005 /* GeminiTranscriptionService.swift */,
 				A10000000000000000000012 /* RightOptionPushToTalkMonitor.swift */,
 				A10000000000000000000013 /* SingleInstanceGuard.swift */,
 				A10000000000000000000014 /* AudioActivityAnalyzer.swift */,
@@ -570,6 +573,7 @@
 				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
 				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
 				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */,
 				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
 				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
 				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
@@ -661,6 +665,7 @@
 				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
 				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
 				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */,
 				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
 				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
 				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
@@ -903,7 +908,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -924,7 +929,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = Shuo;
@@ -944,7 +949,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -965,7 +970,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = Shuo;
@@ -986,7 +991,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -996,7 +1001,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.shuo.community;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = "Shuo Community";
@@ -1088,7 +1093,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = NO;
@@ -1099,7 +1104,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = ShuoDirect;
 				PRODUCT_NAME = Shuo;
@@ -1121,7 +1126,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = NO;
@@ -1132,7 +1137,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = ShuoDirect;
 				PRODUCT_NAME = Shuo;

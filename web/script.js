@@ -111,22 +111,22 @@ const documentMetadata = {
   },
   "release-notes": {
     en: {
-      title: "Release Notes — Shuo 1.1.0",
+      title: "Release Notes — Shuo 1.2.0",
       description:
-        "What is new in the Shuo 1.1.0 direct download for macOS."
+        "What is new in the Shuo 1.2.0 direct download for macOS."
     },
     "zh-Hans": {
-      title: "版本说明 — Shuo 说 1.1.0",
-      description: "Shuo 1.1.0 macOS 直装版的本地模型与输入可靠性更新。"
+      title: "版本说明 — Shuo 说 1.2.0",
+      description: "Shuo 1.2.0 macOS 直装版的 Gemini API 与悬浮栏可靠性更新。"
     },
     "zh-Hant": {
-      title: "版本說明 — Shuo 說 1.1.0",
-      description: "Shuo 1.1.0 macOS 直接下載版的本機模型與輸入可靠性更新。"
+      title: "版本說明 — Shuo 說 1.2.0",
+      description: "Shuo 1.2.0 macOS 直接下載版的 Gemini API 與懸浮欄可靠性更新。"
     },
     ja: {
-      title: "リリースノート — Shuo 說 シュオ 1.1.0",
+      title: "リリースノート — Shuo 說 シュオ 1.2.0",
       description:
-        "Shuo 1.1.0 macOS直接配布版のローカルモデルと入力の信頼性に関する更新です。"
+        "Shuo 1.2.0 macOS直接配布版のGemini APIとフローティングバーの信頼性に関する更新です。"
     }
   }
 };

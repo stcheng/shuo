@@ -89,7 +89,7 @@ struct VocabularyView: View {
             return true
         case .local:
             return appState.settings.localTranscriptionEngine?.supportsVocabularyHints == false
-        case .openAI, .elevenLabs, .custom:
+        case .openAI, .elevenLabs, .gemini, .custom:
             return false
         }
     }

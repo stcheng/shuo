@@ -2673,6 +2673,47 @@ final class FloatingWindowBehaviorTests: XCTestCase {
         XCTAssertLessThanOrEqual(long, 16)
     }
 
+    func testAutomaticDismissalIgnoresSyntheticAndQueuedPrePresentationEvents() {
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 102.25,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 103,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 104,
+                presentationTimestamp: 103,
+                isSynthetic: true
+            )
+        )
+    }
+
+    func testAutomaticDismissalStillRespondsToNewUserEvents() {
+        XCTAssertFalse(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 103.01,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertFalse(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: .nan,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+    }
+
     func testWindowWidthAdaptsForOneLineAndHeightGrowsForMultipleLines() {
         let shortLine = FloatingWindowBehavior.windowSize(for: "好的")
         let longerLine = FloatingWindowBehavior.windowSize(
@@ -3344,11 +3385,12 @@ final class FloatingWindowPlacementTests: XCTestCase {
 
 final class FloatingWindowContextMenuCopyTests: XCTestCase {
     func testContextMenuHasExactlyThreeLocalizedRowsInActionOrder() {
+        let appName = AppBuildIdentity.displayName
         let expectations: [(AppLanguage, [String])] = [
-            (.english, ["Hide Floating Bar", "Open Shuo", "Quit Shuo"]),
-            (.simplifiedChinese, ["隐藏悬浮栏", "打开 Shuo", "退出 Shuo"]),
-            (.traditionalChinese, ["隱藏懸浮列", "開啟 Shuo", "結束 Shuo"]),
-            (.japanese, ["フローティングバーを非表示", "Shuoを開く", "Shuoを終了"])
+            (.english, ["Hide Floating Bar", "Open \(appName)", "Quit \(appName)"]),
+            (.simplifiedChinese, ["隐藏悬浮栏", "打开 \(appName)", "退出 \(appName)"]),
+            (.traditionalChinese, ["隱藏懸浮列", "開啟 \(appName)", "結束 \(appName)"]),
+            (.japanese, ["フローティングバーを非表示", "\(appName)を開く", "\(appName)を終了"])
         ]
 
         for (language, expectedTitles) in expectations {

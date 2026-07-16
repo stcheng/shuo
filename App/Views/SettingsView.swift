@@ -435,6 +435,10 @@ struct SettingsView: View {
                appState.settings.provider == .alibaba {
                 appState.loadAlibabaAPIKeyIfNeeded()
             }
+            if (category == .transcription || category == .architectureAIInference),
+               appState.settings.provider == .gemini {
+                appState.loadGeminiAPIKeyIfNeeded()
+            }
         }
         .onChange(of: appState.settings.provider) { _, provider in
             if shouldPrepareOpenAIModels {
@@ -450,6 +454,10 @@ struct SettingsView: View {
             if (category == .transcription || category == .architectureAIInference),
                provider == .alibaba {
                 appState.loadAlibabaAPIKeyIfNeeded()
+            }
+            if (category == .transcription || category == .architectureAIInference),
+               provider == .gemini {
+                appState.loadGeminiAPIKeyIfNeeded()
             }
         }
         .confirmationDialog(
@@ -602,7 +610,7 @@ struct SettingsView: View {
     private var architectureAIInferenceContent: some View {
         recognitionContent(includesAdvancedConfiguration: true)
         localPerformanceContent
-        openAITextModelSelectionSection
+        cloudTextModelSelectionSection
     }
 
     @ViewBuilder
@@ -1077,6 +1085,12 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
+            } else if appState.settings.provider == .gemini {
+                LabeledContent(
+                    localizer.text(.model),
+                    value: GeminiTranscriptionService.defaultModelID
+                )
+                .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
             } else {
                 Picker(localizer.text(.model), selection: $appState.settings.selectedModel) {
                     ForEach(appState.settings.provider.modelOptions, id: \.self) { model in
@@ -1108,6 +1122,10 @@ struct SettingsView: View {
 
         if appState.settings.provider == .alibaba {
             alibabaSettingsSection
+        }
+
+        if appState.settings.provider == .gemini {
+            geminiSettingsSection
         }
 
         if appState.settings.provider == .local {
@@ -1250,7 +1268,7 @@ struct SettingsView: View {
             )
         }
 
-        openAITextModelSelectionSection
+        cloudTextModelSelectionSection
 
         if appState.isPluginEnabled(.outputEmoji) {
             Section(localizer.text(.specialCommands)) {
@@ -1309,6 +1327,55 @@ struct SettingsView: View {
                 .settingsSearchAnchor(.promptContexts, highlightedTarget: highlightedSearchTarget)
         }
 
+    }
+
+    @ViewBuilder
+    private var cloudTextModelSelectionSection: some View {
+        if appState.settings.provider == .gemini {
+            geminiTextEnhancementsSection
+        } else {
+            openAITextModelSelectionSection
+        }
+    }
+
+    private var geminiTextEnhancementsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 7) {
+                Toggle(
+                    localizer.optionalCloudTextEnhancementsEnabledLabel(),
+                    isOn: geminiTextEnhancementsEnabled
+                )
+
+                LabeledContent(
+                    localizer.text(.model),
+                    value: appState.settings.effectiveModel
+                )
+                SettingsRowFeedback(
+                    text: appState.settings.openAITextModelSelectionMode == .disabled
+                        ? localizer.disabledCloudTextEnhancementsHint()
+                        : localizer.geminiTextEnhancementsDetail()
+                )
+            }
+            .settingsSearchAnchor(.geminiAPIKey, highlightedTarget: highlightedSearchTarget)
+        } header: {
+            SettingsSectionHeader(
+                title: localizer.geminiTextEnhancementsLabel(),
+                target: .geminiAPIKey
+            )
+        }
+    }
+
+    private var geminiTextEnhancementsEnabled: Binding<Bool> {
+        Binding(
+            get: {
+                appState.settings.openAITextModelSelectionMode != .disabled
+            },
+            set: { isEnabled in
+                appState.settings.openAITextModelSelectionMode = isEnabled
+                    ? .automatic
+                    : .disabled
+            }
+        )
     }
 
     private var openAITextModelSelectionSection: some View {
@@ -1541,6 +1608,26 @@ struct SettingsView: View {
             SettingsSectionHeader(
                 title: localizer.providerName(.alibaba),
                 target: .alibabaAPIKey
+            )
+        }
+    }
+
+    private var geminiSettingsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 7) {
+                SecureField(localizer.text(.apiKey), text: Binding(
+                    get: { appState.geminiAPIKey },
+                    set: { appState.updateGeminiAPIKey($0) }
+                ))
+                SettingsRowFeedback(text: localizer.geminiAPIKeyDetail())
+            }
+            .settingsSearchAnchor(.geminiAPIKey, highlightedTarget: highlightedSearchTarget)
+
+            apiKeyGuideLink(for: .gemini)
+        } header: {
+            SettingsSectionHeader(
+                title: localizer.providerName(.gemini),
+                target: .geminiAPIKey
             )
         }
     }
@@ -2008,8 +2095,11 @@ struct SettingsView: View {
         if appState.isPluginEnabled(.providerAlibaba) {
             providers.append(.alibaba)
         }
+        if appState.isPluginEnabled(.providerGemini) {
+            providers.append(.gemini)
+        }
         if providers.isEmpty {
-            providers = [.local, .openAI, .elevenLabs, .alibaba]
+            providers = [.local, .openAI, .elevenLabs, .alibaba, .gemini]
         }
         return providers
     }
@@ -2028,6 +2118,10 @@ struct SettingsView: View {
     }
 
     private var shouldPrepareOpenAIModels: Bool {
+        guard appState.settings.provider != .gemini else {
+            return false
+        }
+
         switch category {
         case .aiAndLLM, .architectureAIInference:
             return appState.settings.provider != .local
@@ -2143,7 +2237,7 @@ struct SettingsView: View {
         switch appState.settings.provider {
         case .openAI:
             return appState.settings.effectiveModel != "gpt-4o-transcribe-diarize"
-        case .elevenLabs:
+        case .elevenLabs, .gemini:
             return true
         case .local, .alibaba, .custom:
             return false
@@ -2161,7 +2255,7 @@ struct SettingsView: View {
             return localizer.correctionHintsUnavailableForAlibabaDetail()
         case .openAI where appState.settings.effectiveModel == "gpt-4o-transcribe-diarize":
             return localizer.correctionHintsUnavailableForDiarizationDetail()
-        case .openAI, .elevenLabs, .custom:
+        case .openAI, .elevenLabs, .gemini, .custom:
             return nil
         }
     }

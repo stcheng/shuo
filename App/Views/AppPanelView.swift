@@ -813,6 +813,19 @@ private struct ShuoOnboardingView: View {
                         ))
 
                         apiKeyGuideLink(for: .alibaba)
+                    } else if appState.settings.provider == .gemini {
+                        providerExplanation(
+                            systemImage: "cloud",
+                            title: localizer.providerName(.gemini),
+                            detail: localizer.onboardingGeminiDetail()
+                        )
+
+                        SecureField(localizer.text(.apiKey), text: Binding(
+                            get: { appState.geminiAPIKey },
+                            set: { appState.updateGeminiAPIKey($0) }
+                        ))
+
+                        apiKeyGuideLink(for: .gemini)
                     }
 
                     Spacer(minLength: 8)
@@ -899,7 +912,8 @@ private struct ShuoOnboardingView: View {
             localModelIsReady: selectedOnboardingLocalModelIsReady,
             microphonePermissionGranted: appState.microphonePermissionGranted,
             accessibilityPermissionGranted: appState.accessibilityPermissionGranted,
-            alibabaAPIKey: appState.alibabaAPIKey
+            alibabaAPIKey: appState.alibabaAPIKey,
+            geminiAPIKey: appState.geminiAPIKey
         )
     }
 
@@ -1125,6 +1139,8 @@ private struct ShuoOnboardingView: View {
             appState.loadElevenLabsAPIKeyIfNeeded()
         case .alibaba:
             appState.loadAlibabaAPIKeyIfNeeded()
+        case .gemini:
+            appState.loadGeminiAPIKeyIfNeeded()
         case .local, .custom:
             break
         }
@@ -1144,7 +1160,10 @@ private struct ShuoOnboardingView: View {
         if appState.isPluginEnabled(.providerAlibaba) {
             providers.append(.alibaba)
         }
-        return providers.isEmpty ? [.local, .openAI, .elevenLabs, .alibaba] : providers
+        if appState.isPluginEnabled(.providerGemini) {
+            providers.append(.gemini)
+        }
+        return providers.isEmpty ? [.local, .openAI, .elevenLabs, .alibaba, .gemini] : providers
     }
 
     @ViewBuilder

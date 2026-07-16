@@ -252,3 +252,270 @@ final class AlibabaTranscriptionServiceTests: XCTestCase {
         return url
     }
 }
+
+final class GeminiTranscriptionServiceTests: XCTestCase {
+    func testBuildsNativeGeminiAudioRequestWithSelectedModelAndCredential() throws {
+        let audioURL = try makeTemporaryAudioFile(
+            extension: "wav",
+            data: Data([0x00, 0x01, 0x02, 0x03])
+        )
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+
+        var settings = AppSettings()
+        settings.provider = .gemini
+        settings.selectedModel = "gemini-3.1-flash-lite"
+        settings.selectedTranscriptionLanguages = [.chinese]
+        settings.openAIBaseURL = "https://openai.example.invalid/v1"
+        let request = try GeminiTranscriptionService().makeURLRequest(
+            TranscriptionRequest(
+                audioFileURL: audioURL,
+                settings: settings,
+                context: "Project context",
+                vocabulary: TranscriptionVocabularySnapshot(terms: ["ShuoTerm"]),
+                apiKey: "  gemini-secret  "
+            )
+        )
+
+        XCTAssertEqual(
+            request.url,
+            URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent")
+        )
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-goog-api-key"), "gemini-secret")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertNotNil(request.value(forHTTPHeaderField: "x-goog-api-client"))
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+
+        let bodyData = try XCTUnwrap(request.httpBody)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+        XCTAssertEqual(Set(body.keys), ["contents", "generationConfig"])
+        let generationConfig = try XCTUnwrap(body["generationConfig"] as? [String: Any])
+        XCTAssertEqual(generationConfig["maxOutputTokens"] as? Int, 8_192)
+        let thinkingConfig = try XCTUnwrap(generationConfig["thinkingConfig"] as? [String: Any])
+        XCTAssertEqual(thinkingConfig["thinkingLevel"] as? String, "minimal")
+        XCTAssertNil(generationConfig["temperature"])
+        let contents = try XCTUnwrap(body["contents"] as? [[String: Any]])
+        let parts = try XCTUnwrap(contents.first?["parts"] as? [[String: Any]])
+        let inlineData = try XCTUnwrap(parts.last?["inline_data"] as? [String: Any])
+        XCTAssertEqual(inlineData["mime_type"] as? String, "audio/wav")
+        XCTAssertEqual(inlineData["data"] as? String, "AAECAw==")
+
+        let prompt = try XCTUnwrap(parts.first?["text"] as? String)
+        XCTAssertTrue(prompt.contains("Project context"))
+        XCTAssertTrue(prompt.contains("ShuoTerm"))
+        XCTAssertFalse(String(data: bodyData, encoding: .utf8)?.contains("openai.example.invalid") ?? true)
+    }
+
+    func testGeminiTextRequestUsesSameGeminiModelAndNeverOpenAIConnection() throws {
+        var settings = AppSettings()
+        settings.provider = .gemini
+        settings.selectedModel = "gemini-3.1-flash-lite"
+        settings.openAIBaseURL = "https://openai.example.invalid/v1"
+        settings.openAIOrganizationID = "org-should-not-leave"
+        settings.openAIProjectID = "project-should-not-leave"
+
+        let request = try GeminiTextCompletionService().makeURLRequest(
+            systemInstruction: "Return only the edited transcript.",
+            userContent: "Hello world",
+            settings: settings,
+            apiKey: "gemini-secret"
+        )
+
+        XCTAssertEqual(
+            request.url,
+            URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent")
+        )
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-goog-api-key"), "gemini-secret")
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+        let bodyData = try XCTUnwrap(request.httpBody)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+        XCTAssertNotNil(body["systemInstruction"])
+        let generationConfig = try XCTUnwrap(body["generationConfig"] as? [String: Any])
+        XCTAssertEqual(generationConfig["maxOutputTokens"] as? Int, 8_192)
+        let thinkingConfig = try XCTUnwrap(generationConfig["thinkingConfig"] as? [String: Any])
+        XCTAssertEqual(thinkingConfig["thinkingLevel"] as? String, "minimal")
+        XCTAssertNil(generationConfig["temperature"])
+        let serializedBody = try XCTUnwrap(String(data: bodyData, encoding: .utf8))
+        XCTAssertFalse(serializedBody.contains("openai.example.invalid"))
+        XCTAssertFalse(serializedBody.contains("org-should-not-leave"))
+        XCTAssertFalse(serializedBody.contains("project-should-not-leave"))
+    }
+
+    func testParsesTextAndRejectsTruncatedGeminiResponses() throws {
+        let response = Data(
+            #"{"candidates":[{"content":{"parts":[{"text":"  你好，Shuo。  "}]},"finishReason":"STOP"}]}"#.utf8
+        )
+        XCTAssertEqual(try GeminiTranscriptionService.parseResponse(response).text, "你好，Shuo。")
+        XCTAssertEqual(try GeminiTextCompletionService.parseResponse(response), "你好，Shuo。")
+
+        let truncated = Data(
+            #"{"candidates":[{"content":{"parts":[{"text":"partial"}]},"finishReason":"MAX_TOKENS"}]}"#.utf8
+        )
+        XCTAssertThrowsError(try GeminiTranscriptionService.parseResponse(truncated)) { error in
+            guard case GeminiTranscriptionError.truncatedResponse = error else {
+                return XCTFail("Expected truncatedResponse, got \(error)")
+            }
+        }
+        XCTAssertThrowsError(try GeminiTextCompletionService.parseResponse(truncated)) { error in
+            guard case VoiceEditLLMError.requestFailed = error else {
+                return XCTFail("Expected requestFailed, got \(error)")
+            }
+        }
+
+        XCTAssertThrowsError(try GeminiTranscriptionService.parseResponse(Data("{}".utf8)))
+        XCTAssertThrowsError(
+            try GeminiTranscriptionService.parseResponse(
+                Data(#"{"candidates":[{"content":{"parts":[{"text":"   "}]}}]}"#.utf8)
+            )
+        ) { error in
+            guard case GeminiTranscriptionError.emptyResponse = error else {
+                return XCTFail("Expected emptyResponse, got \(error)")
+            }
+        }
+    }
+
+    func testGeminiTextFeaturesRespectCloudTextOptOutAndReuseSelectedModelWhenEnabled() {
+        var settings = AppSettings()
+        settings.provider = .gemini
+        settings.selectedModel = "gemini-3.1-flash-lite"
+        settings.openAITextModelSelectionMode = .disabled
+        settings.transcriptRetouchEnabled = true
+        settings.aiEmojiResolverEnabled = true
+        settings.voiceEditCommandMode = .llmOnly
+
+        XCTAssertFalse(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
+        let disabledRuntimeSettings = CloudTextAICapabilityPolicy.applying(to: settings)
+        XCTAssertFalse(disabledRuntimeSettings.transcriptRetouchEnabled)
+        XCTAssertFalse(disabledRuntimeSettings.aiEmojiResolverEnabled)
+        XCTAssertEqual(disabledRuntimeSettings.voiceEditCommandMode, .localOnly)
+
+        settings.openAITextModelSelectionMode = .automatic
+        XCTAssertTrue(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
+        XCTAssertEqual(settings.effectiveVoiceEditLLMModel, "gemini-3.1-flash-lite")
+        XCTAssertEqual(settings.effectiveTranscriptRetouchLLMModel, "gemini-3.1-flash-lite")
+        XCTAssertEqual(settings.effectiveEmojiResolverLLMModel, "gemini-3.1-flash-lite")
+    }
+
+    func testGeminiFeatureVisibilityRespectsCloudTextOptOutWithoutEnablingFeaturesByDefault() {
+        let disabled = SettingsFeatureVisibility(
+            pluginConfiguration: .fullDevelopment,
+            provider: .gemini,
+            transcriptRetouchEnabled: true,
+            emojiPostProcessingEnabled: true,
+            aiEmojiResolverEnabled: true,
+            voiceEditCommandsEnabled: true,
+            voiceEditCommandMode: .llmOnly,
+            openAITextModelSelectionMode: .disabled
+        )
+        XCTAssertFalse(disabled.isTranscriptRetouchEnabled)
+        XCTAssertFalse(disabled.isAIEmojiResolverEnabled)
+        XCTAssertEqual(disabled.voiceEditCommandMode, .localOnly)
+
+        let automaticWithFeaturesOff = SettingsFeatureVisibility(
+            pluginConfiguration: .fullDevelopment,
+            provider: .gemini,
+            transcriptRetouchEnabled: false,
+            emojiPostProcessingEnabled: false,
+            aiEmojiResolverEnabled: false,
+            voiceEditCommandsEnabled: false,
+            voiceEditCommandMode: .localOnly,
+            openAITextModelSelectionMode: .automatic
+        )
+        XCTAssertFalse(automaticWithFeaturesOff.isTranscriptRetouchEnabled)
+        XCTAssertFalse(automaticWithFeaturesOff.isAIEmojiResolverEnabled)
+        XCTAssertFalse(automaticWithFeaturesOff.isVoiceEditEnabled)
+    }
+
+    func testRejectsOversizedSerializedInlineRequestBeforeSending() throws {
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("wav")
+        XCTAssertTrue(FileManager.default.createFile(atPath: audioURL.path, contents: nil))
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+
+        let handle = try FileHandle(forWritingTo: audioURL)
+        try handle.truncate(atOffset: 15_000_000)
+        try handle.close()
+
+        XCTAssertThrowsError(
+            try GeminiTranscriptionService().makeURLRequest(
+                makeTranscriptionRequest(audioURL: audioURL)
+            )
+        ) { error in
+            guard case GeminiTranscriptionError.audioFileTooLarge(
+                let actualByteCount,
+                let maximumByteCount
+            ) = error else {
+                return XCTFail("Expected audioFileTooLarge, got \(error)")
+            }
+            XCTAssertGreaterThan(actualByteCount, maximumByteCount)
+            XCTAssertEqual(maximumByteCount, GeminiTranscriptionService.maximumInlineRequestByteCount)
+        }
+    }
+
+    func testFactorySelectsGeminiService() {
+        XCTAssertTrue(
+            TranscriptionServiceFactory.makeService(for: .gemini) is GeminiTranscriptionService
+        )
+    }
+
+    func testGeminiSettingsMigrateOtherModelSelectionsToTheSingleSupportedModel() {
+        for obsoleteModel in ["gemini-2.5-flash", "gemini-3.5-flash"] {
+            var settings = AppSettings()
+            settings.provider = .gemini
+            settings.selectedModel = obsoleteModel
+
+            settings.normalizeSelections()
+
+            XCTAssertEqual(settings.selectedModel, GeminiTranscriptionService.defaultModelID)
+        }
+
+        XCTAssertEqual(GeminiTranscriptionService.defaultModelID, "gemini-3.1-flash-lite")
+        XCTAssertEqual(GeminiTranscriptionService.modelIDs, ["gemini-3.1-flash-lite"])
+        XCTAssertNil(GeminiTranscriptionService.endpoint(for: "gemini-3.5-flash"))
+    }
+
+    func testSettingsSearchUsesGeminiTextTargetInsteadOfOpenAITextModel() {
+        let items = SettingsSearchIndex.items(
+            localizer: AppLocalizer(language: .english),
+            context: SettingsSearchContext(
+                provider: .gemini,
+                pluginConfiguration: .fullDevelopment,
+                transcriptRetouchEnabled: true,
+                emojiPostProcessingEnabled: true,
+                aiEmojiResolverEnabled: true,
+                voiceEditCommandsEnabled: true,
+                voiceEditCommandMode: .llmOnly,
+                openAITextModelSelectionMode: .disabled
+            )
+        )
+
+        XCTAssertTrue(items.contains { $0.target == .geminiAPIKey })
+        XCTAssertFalse(items.contains { $0.target == .openAITextModel })
+        XCTAssertFalse(items.contains { $0.target == .openAIAPIKey })
+    }
+
+    private func makeTranscriptionRequest(audioURL: URL) -> TranscriptionRequest {
+        var settings = AppSettings()
+        settings.provider = .gemini
+        settings.selectedModel = "gemini-3.1-flash-lite"
+        return TranscriptionRequest(
+            audioFileURL: audioURL,
+            settings: settings,
+            context: "",
+            vocabulary: .empty,
+            apiKey: "gemini-secret"
+        )
+    }
+
+    private func makeTemporaryAudioFile(
+        extension fileExtension: String,
+        data: Data
+    ) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+}

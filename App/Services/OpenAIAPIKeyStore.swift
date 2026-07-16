@@ -22,8 +22,12 @@ enum AppCredentialServices {
         AppBuildIdentity.credentialService("alibaba-api-key")
     }
 
+    static var gemini: String {
+        AppBuildIdentity.credentialService("gemini-api-key")
+    }
+
     static var all: [String] {
-        [openAI, elevenLabs, alibaba]
+        [openAI, elevenLabs, alibaba, gemini]
     }
 }
 
@@ -128,6 +132,8 @@ struct DevelopmentFileCredentialStore: SecureCredentialStoring {
             fileName = "elevenlabs-api-key"
         case AppCredentialServices.alibaba:
             fileName = "alibaba-api-key"
+        case AppCredentialServices.gemini:
+            fileName = "gemini-api-key"
         default:
             let safeService = service.map { $0.isLetter || $0.isNumber ? $0 : "_" }
             let safeAccount = account.map { $0.isLetter || $0.isNumber ? $0 : "_" }
@@ -223,6 +229,8 @@ struct KeychainCredentialStore: SecureCredentialStoring {
             descriptor = "Shuo ElevenLabs API Key"
         case AppCredentialServices.alibaba:
             descriptor = "Shuo Alibaba Model Studio API Key"
+        case AppCredentialServices.gemini:
+            descriptor = "Shuo Gemini API Key"
         default:
             descriptor = "Shuo Secure Credential"
         }
@@ -510,6 +518,133 @@ enum AlibabaAPIKeyStore {
             }
             CredentialStorageLog.logger.info(
                 "Updated Alibaba credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
+            )
+            return
+        }
+
+        if trimmed.isEmpty {
+            try credentialStore.remove(service: service, account: account)
+            userDefaults.removeObject(forKey: accessMigrationKey)
+        } else {
+            try credentialStore.set(Data(trimmed.utf8), service: service, account: account)
+        }
+    }
+
+    private static func normalized(_ apiKey: String) -> String {
+        apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+enum GeminiAPIKeyStore {
+    private static var service: String { AppCredentialServices.gemini }
+    private static let account = "default"
+    private static var accessMigrationKey: String {
+        scopedAccessMigrationKey("credentialAccess.gemini.version")
+    }
+
+    static func load(
+        userDefaults: UserDefaults = .standard,
+        credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
+        developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
+            .activeForCurrentBuild
+    ) throws -> String {
+        try ProviderAPIKeyStore.load(
+            service: service,
+            account: account,
+            accessMigrationKey: accessMigrationKey,
+            providerName: "Gemini",
+            userDefaults: userDefaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: developmentCredentialStore
+        )
+    }
+
+    static func save(
+        _ apiKey: String,
+        userDefaults: UserDefaults = .standard,
+        credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
+        developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
+            .activeForCurrentBuild
+    ) throws {
+        try ProviderAPIKeyStore.save(
+            apiKey,
+            service: service,
+            account: account,
+            accessMigrationKey: accessMigrationKey,
+            providerName: "Gemini",
+            userDefaults: userDefaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: developmentCredentialStore
+        )
+    }
+}
+
+private enum ProviderAPIKeyStore {
+    static func load(
+        service: String,
+        account: String,
+        accessMigrationKey: String,
+        providerName: String,
+        userDefaults: UserDefaults,
+        credentialStore: SecureCredentialStoring,
+        developmentCredentialStore: SecureCredentialStoring?
+    ) throws -> String {
+        if let developmentCredentialStore {
+            if let data = try developmentCredentialStore.data(service: service, account: account),
+               let storedKey = String(data: data, encoding: .utf8) {
+                CredentialStorageLog.logger.info(
+                    "Loaded \(providerName, privacy: .public) credential from development storage"
+                )
+                return normalized(storedKey)
+            }
+            guard let data = try credentialStore.data(service: service, account: account),
+                  let storedKey = String(data: data, encoding: .utf8) else {
+                return ""
+            }
+            try developmentCredentialStore.set(data, service: service, account: account)
+            CredentialStorageLog.logger.notice(
+                "Migrated \(providerName, privacy: .public) credential from Keychain to development storage"
+            )
+            return normalized(storedKey)
+        }
+
+        guard let data = try credentialStore.data(service: service, account: account),
+              let storedKey = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        CredentialAccessMigration.runIfNeeded(
+            service: service,
+            account: account,
+            defaultsKey: accessMigrationKey,
+            userDefaults: userDefaults,
+            credentialStore: credentialStore
+        )
+        return normalized(storedKey)
+    }
+
+    static func save(
+        _ apiKey: String,
+        service: String,
+        account: String,
+        accessMigrationKey: String,
+        providerName: String,
+        userDefaults: UserDefaults,
+        credentialStore: SecureCredentialStoring,
+        developmentCredentialStore: SecureCredentialStoring?
+    ) throws {
+        let trimmed = normalized(apiKey)
+        if let developmentCredentialStore {
+            if trimmed.isEmpty {
+                try developmentCredentialStore.remove(service: service, account: account)
+            } else {
+                try developmentCredentialStore.set(
+                    Data(trimmed.utf8),
+                    service: service,
+                    account: account
+                )
+            }
+            CredentialStorageLog.logger.info(
+                "Updated \(providerName, privacy: .public) credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
             )
             return
         }

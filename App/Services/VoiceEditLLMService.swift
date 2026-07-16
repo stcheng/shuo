@@ -11,7 +11,7 @@ enum VoiceEditLLMError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            return "Add an OpenAI API key in Settings before using LLM voice edit."
+            return "Add an API key for the selected cloud provider in Settings before using LLM voice edit."
         case .unavailableInLocalMode:
             return "Cloud AI text processing is unavailable while Local transcription is selected."
         case .disabledInSettings:
@@ -48,39 +48,41 @@ struct VoiceEditLLMService {
                 ? VoiceEditLLMError.unavailableInLocalMode
                 : VoiceEditLLMError.disabledInSettings
         }
-        guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(request.apiKey) else {
-            throw VoiceEditLLMError.missingAPIKey
-        }
 
-        guard let endpoint = OpenAICompatibleRequestBuilder.endpoint(
-            baseURLString: request.settings.openAIBaseURL,
-            path: "chat/completions"
-        ) else {
-            throw VoiceEditLLMError.invalidBaseURL(request.settings.openAIBaseURL)
-        }
-        var urlRequest = OpenAICompatibleRequestBuilder.authenticatedPOSTRequest(
-            endpoint: endpoint,
-            apiKey: apiKey,
-            settings: request.settings,
-            contentType: "application/json"
-        )
+        let systemInstruction = """
+        You edit exactly one previously inserted dictation transcript according to a voice edit command.
+        Return only the complete corrected transcript.
+        Do not explain, quote, format as Markdown, translate, summarize, or improve unrelated wording.
+        Preserve the original language, spacing style, punctuation style, and casing unless the command explicitly changes them.
+        If the command is underspecified or cannot be applied safely, return the original transcript unchanged.
+        """
+        let userContent = """
+        Previous transcript:
+        \(request.previousText)
 
-        urlRequest.httpBody = try JSONEncoder().encode(makePayload(for: request))
+        Voice edit command:
+        \(request.commandText)
 
-        let (data, response) = try await SensitiveRequestURLSession.shared.data(for: urlRequest)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        let bodyText = String(data: data, encoding: .utf8) ?? ""
+        Corrected transcript:
+        """
 
-        guard (200 ..< 300).contains(statusCode) else {
-            throw VoiceEditLLMError.requestFailed(
-                statusCode: statusCode,
-                message: OpenAICompatibleRequestBuilder.errorMessage(from: data, fallback: bodyText)
+        let rewritten: String
+        if request.settings.provider == .gemini {
+            rewritten = try await GeminiTextCompletionService().complete(
+                systemInstruction: systemInstruction,
+                userContent: userContent,
+                settings: request.settings,
+                apiKey: request.apiKey
+            )
+        } else {
+            rewritten = try await completeWithOpenAICompatibleAPI(
+                systemInstruction: systemInstruction,
+                userContent: userContent,
+                settings: request.settings,
+                apiKey: request.apiKey,
+                model: request.settings.effectiveVoiceEditLLMModel
             )
         }
-
-        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-        let content = decoded.choices.first?.message.content ?? ""
-        let rewritten = OpenAICompatibleRequestBuilder.cleanedModelOutput(content)
 
         guard !rewritten.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw VoiceEditLLMError.emptyResponse
@@ -88,37 +90,6 @@ struct VoiceEditLLMService {
 
         return rewritten
     }
-
-    private func makePayload(for request: VoiceEditLLMRequest) -> ChatCompletionRequest {
-        return ChatCompletionRequest(
-            model: request.settings.effectiveVoiceEditLLMModel,
-            messages: [
-                ChatMessage(
-                    role: "system",
-                    content: """
-                    You edit exactly one previously inserted dictation transcript according to a voice edit command.
-                    Return only the complete corrected transcript.
-                    Do not explain, quote, format as Markdown, translate, summarize, or improve unrelated wording.
-                    Preserve the original language, spacing style, punctuation style, and casing unless the command explicitly changes them.
-                    If the command is underspecified or cannot be applied safely, return the original transcript unchanged.
-                    """
-                ),
-                ChatMessage(
-                    role: "user",
-                    content: """
-                    Previous transcript:
-                    \(request.previousText)
-
-                    Voice edit command:
-                    \(request.commandText)
-
-                    Corrected transcript:
-                    """
-                )
-            ]
-        )
-    }
-
 }
 
 struct TranscriptRetouchLLMService {
@@ -128,39 +99,39 @@ struct TranscriptRetouchLLMService {
                 ? VoiceEditLLMError.unavailableInLocalMode
                 : VoiceEditLLMError.disabledInSettings
         }
-        guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(request.apiKey) else {
-            throw VoiceEditLLMError.missingAPIKey
-        }
 
-        guard let endpoint = OpenAICompatibleRequestBuilder.endpoint(
-            baseURLString: request.settings.openAIBaseURL,
-            path: "chat/completions"
-        ) else {
-            throw VoiceEditLLMError.invalidBaseURL(request.settings.openAIBaseURL)
-        }
-        var urlRequest = OpenAICompatibleRequestBuilder.authenticatedPOSTRequest(
-            endpoint: endpoint,
-            apiKey: apiKey,
-            settings: request.settings,
-            contentType: "application/json"
-        )
+        let systemInstruction = """
+        You conservatively retouch one raw speech-to-text transcript.
+        Fix only obvious ASR mistakes: misspellings, missing possessive apostrophes, contractions, casing, spacing, and punctuation.
+        Preserve the speaker's wording, meaning, language mix, names, code, numbers, slang, and style.
+        Do not translate, summarize, rewrite for style, add new facts, remove content, or make uncertain corrections.
+        If unsure, return the original transcript unchanged.
+        Return only the complete retouched transcript.
+        """
+        let userContent = """
+        Raw transcript:
+        \(request.text)
 
-        urlRequest.httpBody = try JSONEncoder().encode(makePayload(for: request))
+        Retouched transcript:
+        """
 
-        let (data, response) = try await SensitiveRequestURLSession.shared.data(for: urlRequest)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        let bodyText = String(data: data, encoding: .utf8) ?? ""
-
-        guard (200 ..< 300).contains(statusCode) else {
-            throw VoiceEditLLMError.requestFailed(
-                statusCode: statusCode,
-                message: OpenAICompatibleRequestBuilder.errorMessage(from: data, fallback: bodyText)
+        let retouched: String
+        if request.settings.provider == .gemini {
+            retouched = try await GeminiTextCompletionService().complete(
+                systemInstruction: systemInstruction,
+                userContent: userContent,
+                settings: request.settings,
+                apiKey: request.apiKey
+            )
+        } else {
+            retouched = try await completeWithOpenAICompatibleAPI(
+                systemInstruction: systemInstruction,
+                userContent: userContent,
+                settings: request.settings,
+                apiKey: request.apiKey,
+                model: request.settings.effectiveTranscriptRetouchLLMModel
             )
         }
-
-        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-        let content = decoded.choices.first?.message.content ?? ""
-        let retouched = OpenAICompatibleRequestBuilder.cleanedModelOutput(content)
 
         guard !retouched.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw VoiceEditLLMError.emptyResponse
@@ -168,35 +139,55 @@ struct TranscriptRetouchLLMService {
 
         return retouched
     }
+}
 
-    private func makePayload(for request: TranscriptRetouchLLMRequest) -> ChatCompletionRequest {
-        return ChatCompletionRequest(
-            model: request.settings.effectiveTranscriptRetouchLLMModel,
+private func completeWithOpenAICompatibleAPI(
+    systemInstruction: String,
+    userContent: String,
+    settings: AppSettings,
+    apiKey: String?,
+    model: String
+) async throws -> String {
+    guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(apiKey) else {
+        throw VoiceEditLLMError.missingAPIKey
+    }
+
+    guard let endpoint = OpenAICompatibleRequestBuilder.endpoint(
+        baseURLString: settings.openAIBaseURL,
+        path: "chat/completions"
+    ) else {
+        throw VoiceEditLLMError.invalidBaseURL(settings.openAIBaseURL)
+    }
+    var urlRequest = OpenAICompatibleRequestBuilder.authenticatedPOSTRequest(
+        endpoint: endpoint,
+        apiKey: apiKey,
+        settings: settings,
+        contentType: "application/json"
+    )
+    urlRequest.httpBody = try JSONEncoder().encode(
+        ChatCompletionRequest(
+            model: model,
             messages: [
-                ChatMessage(
-                    role: "system",
-                    content: """
-                    You conservatively retouch one raw speech-to-text transcript.
-                    Fix only obvious ASR mistakes: misspellings, missing possessive apostrophes, contractions, casing, spacing, and punctuation.
-                    Preserve the speaker's wording, meaning, language mix, names, code, numbers, slang, and style.
-                    Do not translate, summarize, rewrite for style, add new facts, remove content, or make uncertain corrections.
-                    If unsure, return the original transcript unchanged.
-                    Return only the complete retouched transcript.
-                    """
-                ),
-                ChatMessage(
-                    role: "user",
-                    content: """
-                    Raw transcript:
-                    \(request.text)
-
-                    Retouched transcript:
-                    """
-                )
+                .init(role: "system", content: systemInstruction),
+                .init(role: "user", content: userContent)
             ]
+        )
+    )
+
+    let (data, response) = try await SensitiveRequestURLSession.shared.data(for: urlRequest)
+    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+    let bodyText = String(data: data, encoding: .utf8) ?? ""
+
+    guard (200 ..< 300).contains(statusCode) else {
+        throw VoiceEditLLMError.requestFailed(
+            statusCode: statusCode,
+            message: OpenAICompatibleRequestBuilder.errorMessage(from: data, fallback: bodyText)
         )
     }
 
+    let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
+    let content = decoded.choices.first?.message.content ?? ""
+    return OpenAICompatibleRequestBuilder.cleanedModelOutput(content)
 }
 
 private struct ChatCompletionRequest: Encodable {

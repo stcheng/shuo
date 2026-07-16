@@ -2210,6 +2210,28 @@ final class AlibabaAPIKeyStoreTests: XCTestCase {
     }
 }
 
+final class GeminiAPIKeyStoreTests: XCTestCase {
+    func testSaveTrimsAndDeleteRemovesSecureValue() throws {
+        let credentialStore = InMemoryCredentialStore()
+
+        try GeminiAPIKeyStore.save(
+            "  gemini-secret  ",
+            credentialStore: credentialStore
+        )
+        XCTAssertEqual(
+            try GeminiAPIKeyStore.load(credentialStore: credentialStore),
+            "gemini-secret"
+        )
+
+        try GeminiAPIKeyStore.save("   ", credentialStore: credentialStore)
+        XCTAssertEqual(
+            try GeminiAPIKeyStore.load(credentialStore: credentialStore),
+            ""
+        )
+        XCTAssertTrue(credentialStore.values.isEmpty)
+    }
+}
+
 final class ElevenLabsTranscriptionServiceTests: XCTestCase {
     func testBuildsScribeMultipartRequestWithLanguageAndKeyterms() throws {
         let audioURL = FileManager.default.temporaryDirectory
@@ -3426,7 +3448,7 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeCorrectionLearningAndVocabularyBudgetsInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointTwoAndCurrentCapabilitiesInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
                 "at most 60 high-priority terms",
@@ -3434,7 +3456,11 @@ final class AppLocalizerTests: XCTestCase {
                 "enabled individually",
                 "local Replacement",
                 "Cloud AI hints",
-                "Adaptive Whisper Mode"
+                "Adaptive Whisper Mode",
+                "New in 1.2.0",
+                "cloud Gemini API support",
+                "Gemini 3.1 Flash-Lite",
+                "Floating Bar"
             ],
             .simplifiedChinese: [
                 "最多保留 60 个高优先级术语",
@@ -3442,7 +3468,11 @@ final class AppLocalizerTests: XCTestCase {
                 "均需单独开启",
                 "本地“替换”",
                 "“云端 AI”提示",
-                "自适应轻声模式"
+                "自适应轻声模式",
+                "1.2.0 更新",
+                "云端 Gemini API 支持",
+                "Gemini 3.1 Flash-Lite",
+                "悬浮栏"
             ],
             .traditionalChinese: [
                 "最多保留 60 個優先術語",
@@ -3450,7 +3480,11 @@ final class AppLocalizerTests: XCTestCase {
                 "均需個別啟用",
                 "本機「替換」",
                 "「雲端 AI」提示",
-                "自適應輕聲模式"
+                "自適應輕聲模式",
+                "1.2.0 更新",
+                "雲端 Gemini API 支援",
+                "Gemini 3.1 Flash-Lite",
+                "懸浮欄"
             ],
             .japanese: [
                 "最大60件保存",
@@ -3458,7 +3492,11 @@ final class AppLocalizerTests: XCTestCase {
                 "各パターンを個別に有効化",
                 "ローカル「置換」",
                 "「クラウドAI」へのヒント",
-                "適応型のささやきモード"
+                "適応型のささやきモード",
+                "1.2.0 の新機能",
+                "クラウド Gemini API のサポート",
+                "Gemini 3.1 Flash-Lite",
+                "フローティングバー"
             ]
         ]
 
@@ -3467,7 +3505,7 @@ final class AppLocalizerTests: XCTestCase {
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                10,
+                12,
                 "Unexpected release-note bullet count for \(language)"
             )
             XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))
@@ -5597,6 +5635,7 @@ final class PluginConfigurationTests: XCTestCase {
         let configuration = PluginConfiguration.mvp
 
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.historyBasic))
         XCTAssertTrue(configuration.isEnabled(.metricsBasic))
@@ -5632,6 +5671,7 @@ final class PluginConfigurationTests: XCTestCase {
 
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
         XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
         XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
@@ -5685,6 +5725,7 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
         XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
     }
 
     func testVersionThreePublicProfilePreservesExplicitlyDisabledProvider() throws {
@@ -5708,6 +5749,7 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
         XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
     }
 
     func testExistingEnabledBetaProvidersRemainEnabledAcrossSchemaUpgrade() throws {
@@ -5730,6 +5772,39 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
         XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
+    }
+
+    func testVersionFourConfigurationPreservesExplicitGeminiOptOut() throws {
+        let json = """
+        {
+          "schemaVersion": 4,
+          "profile": "public",
+          "enabledPlugins": ["provider.openai", "provider.localWhisper"],
+          "disabledPlugins": ["provider.gemini"]
+        }
+        """.data(using: .utf8)!
+
+        let configuration = try PluginConfigurationStore.configuration(from: json)
+
+        XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
+        XCTAssertFalse(configuration.isEnabled(.providerGemini))
+    }
+
+    func testVersionFourCustomProfileDoesNotGainGeminiImplicitly() throws {
+        let json = """
+        {
+          "schemaVersion": 4,
+          "profile": "custom-team",
+          "enabledPlugins": ["provider.openai", "provider.localWhisper"],
+          "disabledPlugins": []
+        }
+        """.data(using: .utf8)!
+
+        let configuration = try PluginConfigurationStore.configuration(from: json)
+
+        XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
+        XCTAssertFalse(configuration.isEnabled(.providerGemini))
     }
 
     func testFreshProfilePreservesAProviderSelectedByAnExistingUser() {
@@ -5745,7 +5820,8 @@ final class PluginConfigurationTests: XCTestCase {
 
         for (provider, pluginID) in [
             (TranscriptionProvider.elevenLabs, PluginID.providerElevenLabs),
-            (.alibaba, .providerAlibaba)
+            (.alibaba, .providerAlibaba),
+            (.gemini, .providerGemini)
         ] {
             defaults.removeObject(forKey: PluginConfigurationStore.userDefaultsKey)
 
@@ -5780,7 +5856,7 @@ final class PluginConfigurationTests: XCTestCase {
     }
 
     func testOptionalCloudProvidersAreMarkedAsPublicBetaCapabilities() throws {
-        for pluginID in [PluginID.providerElevenLabs, .providerAlibaba] {
+        for pluginID in [PluginID.providerElevenLabs, .providerAlibaba, .providerGemini] {
             let descriptor = try XCTUnwrap(PluginCatalog.descriptor(for: pluginID))
             XCTAssertTrue(descriptor.isPublic)
             XCTAssertTrue(descriptor.isExperimental)

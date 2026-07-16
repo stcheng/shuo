@@ -208,15 +208,15 @@ struct AppSettings: Codable, Equatable {
     }
 
     var effectiveVoiceEditLLMModel: String {
-        effectiveTextModel
+        provider == .gemini ? effectiveModel : effectiveTextModel
     }
 
     var effectiveTranscriptRetouchLLMModel: String {
-        effectiveTextModel
+        provider == .gemini ? effectiveModel : effectiveTextModel
     }
 
     var effectiveEmojiResolverLLMModel: String {
-        effectiveTextModel
+        provider == .gemini ? effectiveModel : effectiveTextModel
     }
 
     var appliesPunctuationPostProcessing: Bool {
@@ -361,8 +361,15 @@ struct AppSettings: Codable, Equatable {
 /// when they later select a cloud transcription provider.
 enum CloudTextAICapabilityPolicy {
     static func isCloudTextAIAvailable(for settings: AppSettings) -> Bool {
-        settings.provider != .local
-            && settings.openAITextModelSelectionMode != .disabled
+        guard settings.provider != .local else {
+            return false
+        }
+
+        // This persisted field predates Gemini, but `.disabled` is the
+        // provider-neutral, explicit opt-out for every optional cloud text
+        // feature. Gemini still uses its own credential and selected model;
+        // this switch only controls whether optional text is sent at all.
+        return settings.openAITextModelSelectionMode != .disabled
     }
 
     static func applying(to source: AppSettings) -> AppSettings {

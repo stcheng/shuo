@@ -27,6 +27,7 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
     case openAI
     case elevenLabs
     case alibaba
+    case gemini
     case custom
 
     var id: String { rawValue }
@@ -44,6 +45,8 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
             self = .elevenLabs
         case "alibaba":
             self = .alibaba
+        case "gemini":
+            self = .gemini
         case "custom":
             self = .custom
         default:
@@ -61,6 +64,8 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
             return "ElevenLabs"
         case .alibaba:
             return "Alibaba Cloud"
+        case .gemini:
+            return "Google Gemini"
         case .custom:
             return "Custom"
         }
@@ -76,6 +81,8 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
             return ["scribe_v2"]
         case .alibaba:
             return [AlibabaTranscriptionService.modelID]
+        case .gemini:
+            return GeminiTranscriptionService.modelIDs
         case .custom:
             return ["custom"]
         }
@@ -89,6 +96,8 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
             return URL(string: "https://elevenlabs.io/docs/overview/administration/workspaces/api-keys")
         case .alibaba:
             return URL(string: "https://www.alibabacloud.com/help/en/model-studio/get-api-key")
+        case .gemini:
+            return URL(string: "https://aistudio.google.com/apikey")
         case .local, .custom:
             return nil
         }
@@ -451,7 +460,8 @@ struct OnboardingReadiness: Equatable {
         localModelIsReady: Bool,
         microphonePermissionGranted: Bool,
         accessibilityPermissionGranted: Bool,
-        alibabaAPIKey: String = ""
+        alibabaAPIKey: String = "",
+        geminiAPIKey: String = ""
     ) -> OnboardingReadiness {
         let providerIsReady: Bool
         switch provider {
@@ -467,6 +477,10 @@ struct OnboardingReadiness: Equatable {
                 .isEmpty
         case .alibaba:
             providerIsReady = !alibabaAPIKey
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty
+        case .gemini:
+            providerIsReady = !geminiAPIKey
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .isEmpty
         case .custom:

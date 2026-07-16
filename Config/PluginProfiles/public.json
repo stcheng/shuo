@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "profile": "public",
   "enabledPlugins": [
     "provider.openai",
+    "provider.gemini",
     "provider.localWhisper",
     "history.basic",
     "metrics.basic",

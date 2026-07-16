@@ -36,6 +36,7 @@ enum SettingsSearchTarget: String, CaseIterable, Hashable {
     case openAIProjectID
     case elevenLabsAPIKey
     case alibabaAPIKey
+    case geminiAPIKey
     case localModelManagement
     case localManualSetup
     case advancedAudio
@@ -107,7 +108,8 @@ enum SettingsSearchTarget: String, CaseIterable, Hashable {
             return SettingsPipelinePlacement(stage: .contextPreparation, appearsInBasicSettings: false)
 
         case .transcriptionLanguage, .transcriptionProvider, .transcriptionModel,
-             .openAIAPIKey, .elevenLabsAPIKey, .alibabaAPIKey, .localModelManagement:
+             .openAIAPIKey, .elevenLabsAPIKey, .alibabaAPIKey, .geminiAPIKey,
+             .localModelManagement:
             return SettingsPipelinePlacement(stage: .aiInference, appearsInBasicSettings: true)
         case .openAIConnectionDetails, .openAIBaseURL, .openAIOrganizationID,
              .openAIProjectID, .localManualSetup, .localWhisperPerformance,
@@ -170,6 +172,7 @@ struct SettingsFeatureVisibility: Equatable {
     let isVoiceEditEnabled: Bool
     let isVoiceModifyEnabled: Bool
     let voiceEditCommandMode: VoiceEditCommandMode
+    private let cloudTextProvider: TranscriptionProvider
 
     init(
         pluginConfiguration: PluginConfiguration,
@@ -181,6 +184,7 @@ struct SettingsFeatureVisibility: Equatable {
         voiceEditCommandMode: VoiceEditCommandMode = .localOnly,
         openAITextModelSelectionMode: OpenAITextModelSelectionMode = .automatic
     ) {
+        cloudTextProvider = provider
         let allowsCloudTextAI = provider != .local
             && openAITextModelSelectionMode != .disabled
         isTranscriptRetouchEnabled = allowsCloudTextAI
@@ -200,9 +204,10 @@ struct SettingsFeatureVisibility: Equatable {
     }
 
     var usesOpenAITextFeatures: Bool {
-        isTranscriptRetouchEnabled
+        cloudTextProvider != .gemini
+            && (isTranscriptRetouchEnabled
             || isAIEmojiResolverEnabled
-            || (isVoiceModifyEnabled && voiceEditCommandMode != .localOnly)
+            || (isVoiceModifyEnabled && voiceEditCommandMode != .localOnly))
     }
 }
 
@@ -368,7 +373,7 @@ enum SettingsSearchIndex {
             localizer.text(.provider),
             section: .transcription,
             target: .transcriptionProvider,
-            keywords: ["cloud", "local", "OpenAI", "ElevenLabs", "Alibaba", "Qwen", "阿里云", "通义", "service", "服务商", "本地", "云端", "服務商", "本機"]
+            keywords: ["cloud", "local", "OpenAI", "Gemini", "Google", "ElevenLabs", "Alibaba", "Qwen", "阿里云", "通义", "service", "服务商", "本地", "云端", "服務商", "本機"]
         )
         add(
             localizer.text(.audioInputDevice),
@@ -386,7 +391,7 @@ enum SettingsSearchIndex {
             localizer.text(.model),
             section: .transcription,
             target: .transcriptionModel,
-            keywords: ["model", "Whisper", "Scribe", "Qwen", "qwen3-asr-flash", "gpt-4o-transcribe", "模型"]
+            keywords: ["model", "Whisper", "Scribe", "Gemini", "gemini-3.1-flash-lite", "Qwen", "qwen3-asr-flash", "gpt-4o-transcribe", "模型"]
         )
 
         let openAIIsAvailable = context.provider == .openAI
@@ -434,6 +439,12 @@ enum SettingsSearchIndex {
             section: .transcription,
             target: context.provider == .alibaba ? .alibabaAPIKey : .transcriptionProvider,
             keywords: ["Alibaba", "Qwen", "DashScope", "Model Studio", "阿里云", "通义", "百炼", "API", "key", "密钥", "金鑰"]
+        )
+        add(
+            "Google Gemini · \(localizer.text(.apiKey))",
+            section: .transcription,
+            target: context.provider == .gemini ? .geminiAPIKey : .transcriptionProvider,
+            keywords: ["Gemini", "Google", "AI Studio", "API", "key", "credential", "密钥", "金鑰"]
         )
         add(
             localizer.text(.modelManagement),
@@ -682,15 +693,27 @@ enum SettingsSearchIndex {
                 )
             }
         }
-        add(
-            localizer.openAITextModelSelectionLabel(),
-            section: .aiAndLLM,
-            target: .openAITextModel,
-            keywords: [
-                "chat model", "LLM model", "automatic model", "fixed model", "disable AI",
-                "AI 模型", "自动选择", "固定模型", "不使用", "自動選択", "固定モデル"
-            ]
-        )
+        if context.provider == .gemini {
+            add(
+                localizer.geminiTextEnhancementsLabel(),
+                section: .aiAndLLM,
+                target: .geminiAPIKey,
+                keywords: [
+                    "Gemini", "Gemini Flash", "text enhancement", "LLM model", "retouch",
+                    "Gemini 文本增强", "文本润色", "Gemini 文字增強", "文字潤飾", "Gemini テキスト拡張"
+                ]
+            )
+        } else {
+            add(
+                localizer.openAITextModelSelectionLabel(),
+                section: .aiAndLLM,
+                target: .openAITextModel,
+                keywords: [
+                    "chat model", "LLM model", "automatic model", "fixed model", "disable AI",
+                    "AI 模型", "自动选择", "固定模型", "不使用", "自動選択", "固定モデル"
+                ]
+            )
+        }
 
         add(
             localizer.advancedLabel(),
