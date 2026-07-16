@@ -111,20 +111,20 @@ PAGES = {
         "x_default": "/release-notes.html",
         "metadata": {
             "en": (
-                "Release Notes — Shuo 1.2.0",
-                "What is new in the Shuo 1.2.0 direct download for macOS.",
+                "Release Notes — Shuo 1.2.1",
+                "What is new in the Shuo 1.2.1 direct download for macOS.",
             ),
             "zh-Hans": (
-                "版本说明 — Shuo 说 1.2.0",
-                "Shuo 1.2.0 macOS 直装版的 Gemini API 与悬浮栏可靠性更新。",
+                "版本说明 — Shuo 说 1.2.1",
+                "Shuo 1.2.1 macOS 直装版的菜单栏启动可靠性更新。",
             ),
             "zh-Hant": (
-                "版本說明 — Shuo 說 1.2.0",
-                "Shuo 1.2.0 macOS 直接下載版的 Gemini API 與懸浮欄可靠性更新。",
+                "版本說明 — Shuo 說 1.2.1",
+                "Shuo 1.2.1 macOS 直接下載版的選單列啟動可靠性更新。",
             ),
             "ja": (
-                "リリースノート — Shuo 說 シュオ 1.2.0",
-                "Shuo 1.2.0 macOS直接配布版のGemini APIとフローティングバーの信頼性に関する更新です。",
+                "リリースノート — Shuo 說 シュオ 1.2.1",
+                "Shuo 1.2.1 macOS直接配布版のメニューバー起動の信頼性に関する更新です。",
             ),
         },
     },
@@ -172,7 +172,7 @@ def structured_data(page_name: str, language: str, page: dict[str, object]) -> d
         **common,
         "@type": "WebPage",
         "isPartOf": {"@type": "WebSite", "name": "Shuo", "url": f"{SITE_URL}/"},
-        "dateModified": "2026-07-15",
+        "dateModified": "2026-07-16",
     }
 
 

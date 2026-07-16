@@ -2436,11 +2436,11 @@ struct AppLocalizer {
     }
 
     func releaseNotesDetail() -> String {
-        let onePointTwoNotes = localized(
-            "New in 1.2.0\n\n• Added cloud Gemini API support using Gemini 3.1 Flash-Lite\n• Reduced cases where the Floating Bar disappears immediately after a result is inserted",
-            "1.2.0 更新\n\n• 新增云端 Gemini API 支持，使用 Gemini 3.1 Flash-Lite\n• 降低结果刚插入后悬浮栏立即消失的情况",
-            "1.2.0 更新\n\n• 新增雲端 Gemini API 支援，使用 Gemini 3.1 Flash-Lite\n• 降低結果剛插入後懸浮欄立即消失的情況",
-            "1.2.0 の新機能\n\n• クラウド Gemini API のサポートを追加し、Gemini 3.1 Flash-Lite を使用します\n• 結果の挿入直後にフローティングバーが消えるケースを減らしました"
+        let onePointTwoOneNotes = localized(
+            "New in 1.2.1\n\n• Fixed a launch crash that could occur before the menu bar item appeared",
+            "1.2.1 更新\n\n• 修复了极少数情况下菜单栏图标出现前的启动崩溃",
+            "1.2.1 更新\n\n• 修正極少數情況下選單列圖示出現前發生的啟動當機",
+            "1.2.1 の新機能\n\n• メニューバーアイコンが表示される前に起動時クラッシュが発生することがある問題を修正"
         )
 
         let updateBullet = AppRuntime.isCommunityBuild
@@ -2463,7 +2463,7 @@ struct AppLocalizer {
             "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
         )
 
-        return "\(onePointTwoNotes)\n\n\(currentReleaseDetails)"
+        return "\(onePointTwoOneNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {

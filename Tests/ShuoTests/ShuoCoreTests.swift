@@ -3448,7 +3448,7 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeOnePointTwoAndCurrentCapabilitiesInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointTwoOneAndCurrentCapabilitiesInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
                 "at most 60 high-priority terms",
@@ -3457,9 +3457,8 @@ final class AppLocalizerTests: XCTestCase {
                 "local Replacement",
                 "Cloud AI hints",
                 "Adaptive Whisper Mode",
-                "New in 1.2.0",
-                "cloud Gemini API support",
-                "Gemini 3.1 Flash-Lite",
+                "New in 1.2.1",
+                "launch crash",
                 "Floating Bar"
             ],
             .simplifiedChinese: [
@@ -3469,9 +3468,8 @@ final class AppLocalizerTests: XCTestCase {
                 "本地“替换”",
                 "“云端 AI”提示",
                 "自适应轻声模式",
-                "1.2.0 更新",
-                "云端 Gemini API 支持",
-                "Gemini 3.1 Flash-Lite",
+                "1.2.1 更新",
+                "启动崩溃",
                 "悬浮栏"
             ],
             .traditionalChinese: [
@@ -3481,10 +3479,9 @@ final class AppLocalizerTests: XCTestCase {
                 "本機「替換」",
                 "「雲端 AI」提示",
                 "自適應輕聲模式",
-                "1.2.0 更新",
-                "雲端 Gemini API 支援",
-                "Gemini 3.1 Flash-Lite",
-                "懸浮欄"
+                "1.2.1 更新",
+                "啟動當機",
+                "懸浮列"
             ],
             .japanese: [
                 "最大60件保存",
@@ -3493,9 +3490,8 @@ final class AppLocalizerTests: XCTestCase {
                 "ローカル「置換」",
                 "「クラウドAI」へのヒント",
                 "適応型のささやきモード",
-                "1.2.0 の新機能",
-                "クラウド Gemini API のサポート",
-                "Gemini 3.1 Flash-Lite",
+                "1.2.1 の新機能",
+                "起動時クラッシュ",
                 "フローティングバー"
             ]
         ]
@@ -3505,7 +3501,7 @@ final class AppLocalizerTests: XCTestCase {
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                12,
+                11,
                 "Unexpected release-note bullet count for \(language)"
             )
             XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))

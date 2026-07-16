@@ -15,11 +15,51 @@ final class ShuoApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        appState?.startUpdateController()
-        if appState?.shouldShowOnboarding == true {
+#if DIRECT_DISTRIBUTION
+        if !AppRuntime.isRunningUnderXCTest,
+           MachineUpdateCoordinator.shared.shouldBlockLaunch(
+               currentBuildVersion: MachineUpdateCoordinator.currentBuildVersion
+           ) {
             DispatchQueue.main.async { [weak self] in
-                self?.statusItemController?.showMainPanelFromExternalActivation()
+                self?.presentBlockedLaunchAlertAndTerminate()
             }
+            return
+        }
+#endif
+
+        appState?.startUpdateController()
+
+        // NSStatusItem talks to the system menu bar through AppKit/SkyLight.  A
+        // SwiftUI App initializer runs before that connection is reliably ready
+        // on every launch path, so create the controller only after launch has
+        // completed and yielded once to the main event loop.
+        DispatchQueue.main.async { [weak self] in
+            self?.installStatusItemControllerAfterLaunch()
+        }
+    }
+
+#if DIRECT_DISTRIBUTION
+    private func presentBlockedLaunchAlertAndTerminate() {
+        let copy = MachineUpdateCoordinator.blockedLaunchCopy
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = copy.title
+        alert.informativeText = copy.detail
+        alert.addButton(withTitle: copy.button)
+        alert.runModal()
+        NSApp.terminate(nil)
+    }
+#endif
+
+    private func installStatusItemControllerAfterLaunch() {
+        guard statusItemController == nil, let appState else {
+            return
+        }
+
+        statusItemController = StatusItemController(appState: appState)
+
+        if appState.shouldShowOnboarding {
+            statusItemController?.showMainPanelFromExternalActivation()
         }
     }
 
@@ -39,35 +79,16 @@ struct ShuoApp: App {
     @NSApplicationDelegateAdaptor(ShuoApplicationDelegate.self) private var appDelegate
 
     private let singleInstanceGuard: SingleInstanceGuard
-    private let statusItemController: StatusItemController
     @StateObject private var appState: AppState
 
     init() {
-#if DIRECT_DISTRIBUTION
-        if !AppRuntime.isRunningUnderXCTest,
-           MachineUpdateCoordinator.shared.shouldBlockLaunch(
-               currentBuildVersion: MachineUpdateCoordinator.currentBuildVersion
-           ) {
-            let copy = MachineUpdateCoordinator.blockedLaunchCopy
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = copy.title
-            alert.informativeText = copy.detail
-            alert.addButton(withTitle: copy.button)
-            alert.runModal()
-            exit(0)
-        }
-#endif
         let singleInstanceGuard = SingleInstanceGuard.shared
         singleInstanceGuard.acquireOrActivateExistingAndExit()
         self.singleInstanceGuard = singleInstanceGuard
 
         let appState = AppState()
         _appState = StateObject(wrappedValue: appState)
-        let statusItemController = StatusItemController(appState: appState)
-        self.statusItemController = statusItemController
         appDelegate.appState = appState
-        appDelegate.statusItemController = statusItemController
     }
 
     var body: some Scene {
@@ -78,13 +99,13 @@ struct ShuoApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button(AppLocalizer(language: appState.settings.appLanguage).aboutAppLabel()) {
-                    statusItemController.showMainPanelFromExternalActivation(selectedSection: .about)
+                    appDelegate.statusItemController?.showMainPanelFromExternalActivation(selectedSection: .about)
                 }
             }
 
             CommandGroup(replacing: .appSettings) {
                 Button(AppLocalizer(language: appState.settings.appLanguage).text(.settings)) {
-                    statusItemController.showMainPanelFromExternalActivation(selectedSection: .transcription)
+                    appDelegate.statusItemController?.showMainPanelFromExternalActivation(selectedSection: .transcription)
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
