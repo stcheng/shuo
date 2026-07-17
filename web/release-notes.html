@@ -27,11 +27,11 @@
     <meta name="twitter:description" content="Release notes and version history for the Shuo macOS direct download.">
     <meta name="twitter:image" content="https://stcheng.github.io/shuo/assets/shuo-icon.png">
     <title>Release Notes &amp; Version History — Shuo</title>
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Release Notes & Version History — Shuo","description":"Release notes and version history for the Shuo macOS direct download.","url":"https://stcheng.github.io/shuo/release-notes.html","inLanguage":["en","zh-Hans","zh-Hant","ja"],"isPartOf":{"@type":"WebSite","name":"Shuo","url":"https://stcheng.github.io/shuo/"},"dateModified":"2026-07-16"}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Release Notes & Version History — Shuo","description":"Release notes and version history for the Shuo macOS direct download.","url":"https://stcheng.github.io/shuo/release-notes.html","inLanguage":["en","zh-Hans","zh-Hant","ja"],"isPartOf":{"@type":"WebSite","name":"Shuo","url":"https://stcheng.github.io/shuo/"},"dateModified":"2026-07-17"}</script>
     <script defer src="https://cloud.umami.is/script.js" data-website-id="bcb36453-df04-4498-aa66-6ae00ed1094f" data-domains="stcheng.github.io" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true"></script>
     <link rel="icon" href="assets/shuo-icon.png">
     <link rel="apple-touch-icon" href="assets/shuo-icon.png">
-    <link rel="stylesheet" href="styles.css?v=20260716-history">
+    <link rel="stylesheet" href="styles.css?v=20260717-122">
   </head>
   <body data-language="en">
     <header class="site-header">
@@ -67,7 +67,8 @@
           <h1><span class="lang lang-zh">版本说明<br>与更新历史</span><span class="lang lang-zh-hant">版本說明<br>與更新歷史</span><span class="lang lang-ja">リリースノート<br>と更新履歴</span><span class="lang lang-en">Release Notes<br>&amp; History</span></h1>
           <p><span class="lang lang-zh">每个已发布 macOS 直装版的更新内容，按时间倒序保存于此。</span><span class="lang lang-zh-hant">每個已發佈 macOS 直接下載版的更新內容，依時間倒序保存於此。</span><span class="lang lang-ja">公開済みの macOS 直接配布版について、更新内容を新しい順に記録しています。</span><span class="lang lang-en">Every published macOS direct-download update, kept here newest first.</span></p>
           <nav class="release-version-index" aria-label="Release version index" data-aria-label-zh="版本索引" data-aria-label-zh-hant="版本索引" data-aria-label-ja="バージョン一覧" data-aria-label-en="Release version index">
-            <a href="#v1-2-1"><span class="lang lang-zh">1.2.1（当前）</span><span class="lang lang-zh-hant">1.2.1（目前）</span><span class="lang lang-ja">1.2.1（最新）</span><span class="lang lang-en">1.2.1 (current)</span></a>
+            <a href="#v1-2-2"><span class="lang lang-zh">1.2.2（当前）</span><span class="lang lang-zh-hant">1.2.2（目前）</span><span class="lang lang-ja">1.2.2（最新）</span><span class="lang lang-en">1.2.2 (current)</span></a>
+            <a href="#v1-2-1"><span class="lang lang-zh">1.2.1</span><span class="lang lang-zh-hant">1.2.1</span><span class="lang lang-ja">1.2.1</span><span class="lang lang-en">1.2.1</span></a>
             <a href="#v1-2-0"><span class="lang lang-zh">1.2.0</span><span class="lang lang-zh-hant">1.2.0</span><span class="lang lang-ja">1.2.0</span><span class="lang lang-en">1.2.0</span></a>
             <a href="#v1-1-0"><span class="lang lang-zh">1.1.0</span><span class="lang lang-zh-hant">1.1.0</span><span class="lang lang-ja">1.1.0</span><span class="lang lang-en">1.1.0</span></a>
             <a href="#v1-0-0"><span class="lang lang-zh">1.0.0</span><span class="lang lang-zh-hant">1.0.0</span><span class="lang lang-ja">1.0.0</span><span class="lang lang-en">1.0.0</span></a>
@@ -76,6 +77,28 @@
         </aside>
 
         <article class="document-content">
+          <section class="document-block" id="v1-2-2">
+            <p class="document-meta"><span class="lang lang-zh">1.2.2 / macOS 直装 / 2026 年 7 月 17 日</span><span class="lang lang-zh-hant">1.2.2 / macOS 直接下載 / 2026 年 7 月 17 日</span><span class="lang lang-ja">1.2.2 / macOS直接配布 / 2026年7月17日</span><span class="lang lang-en">1.2.2 / macOS direct download / July 17, 2026</span></p>
+            <h2><span class="lang lang-zh">Dock、更新检查与悬浮栏细节优化</span><span class="lang lang-zh-hant">Dock、更新檢查與懸浮列細節最佳化</span><span class="lang lang-ja">Dock、アップデート確認、フローティングバーの改善</span><span class="lang lang-en">Dock, update-check, and Floating Bar polish</span></h2>
+            <h3><span class="lang lang-zh">Dock 与菜单栏行为</span><span class="lang lang-zh-hant">Dock 與選單列行為</span><span class="lang lang-ja">Dock とメニューバーの動作</span><span class="lang lang-en">Dock and menu-bar behavior</span></h3>
+            <ul>
+              <li><span class="lang lang-zh">Shuo 现在默认仅显示在菜单栏；如果希望在 Dock 中显示图标，可以在设置中开启。</span><span class="lang lang-zh-hant">Shuo 現在預設僅顯示於選單列；若希望在 Dock 中顯示圖示，可以在設定中開啟。</span><span class="lang lang-ja">Shuo は初期設定でメニューバーのみの表示になり、Dock アイコンを表示したい場合は設定で有効にできます。</span><span class="lang lang-en">Shuo now stays menu-bar-only by default, with a Settings toggle for users who prefer to show the Dock icon.</span></li>
+            </ul>
+            <h3><span class="lang lang-zh">更清爽的更新检查</span><span class="lang lang-zh-hant">更清爽的更新檢查</span><span class="lang lang-ja">より自然なアップデート確認</span><span class="lang lang-en">Cleaner update checks</span></h3>
+            <ul>
+              <li><span class="lang lang-zh">没有可用更新时，“检查更新”会直接在设置页面显示“已是最新版本”，并支持本地化。</span><span class="lang lang-zh-hant">沒有可用更新時，「檢查更新」會直接在設定頁面顯示「已是最新版本」，並支援在地化。</span><span class="lang lang-ja">利用可能なアップデートがない場合、「アップデートを確認」は設定画面内に最新状態を表示し、その文言もローカライズされます。</span><span class="lang lang-en">Check for Updates now shows “You're up to date” directly in Settings when no update is available, and the message is localized.</span></li>
+            </ul>
+            <h3><span class="lang lang-zh">更好的混合语言标点</span><span class="lang lang-zh-hant">更好的混合語言標點</span><span class="lang lang-ja">混在言語での句読点を改善</span><span class="lang lang-en">Better mixed-language punctuation</span></h3>
+            <ul>
+              <li><span class="lang lang-zh">中英文混合转写会保留模型已经给出的句末标点，不再只根据最后一个词的语言改写标点。</span><span class="lang lang-zh-hant">中英文混合轉寫會保留模型已給出的句末標點，不再只依最後一個詞的語言改寫標點。</span><span class="lang lang-ja">中国語と英語が混在する文字起こしで、最後の単語の言語だけを見て文末句読点を書き換えず、モデルが出力した文末句読点を保持します。</span><span class="lang lang-en">Mixed Chinese/English transcripts now preserve model-provided sentence-ending punctuation instead of rewriting it based only on the final token's language.</span></li>
+            </ul>
+            <h3><span class="lang lang-zh">悬浮栏细节优化</span><span class="lang lang-zh-hant">懸浮列細節最佳化</span><span class="lang lang-ja">フローティングバーの細部を改善</span><span class="lang lang-en">Floating Bar polish</span></h3>
+            <ul>
+              <li><span class="lang lang-zh">悬浮栏只显示 logo 时，鼠标悬停会保持箭头光标。</span><span class="lang lang-zh-hant">懸浮列只顯示 logo 時，滑鼠懸停會維持箭頭游標。</span><span class="lang lang-ja">コンパクトなフローティングバーでロゴだけが表示されているとき、ホバー中のカーソルを矢印のまま維持します。</span><span class="lang lang-en">The compact Floating Bar now keeps the arrow cursor when hovering over the logo-only state.</span></li>
+            </ul>
+            <p><a href="https://github.com/stcheng/shuo/releases/tag/v1.2.2"><span class="lang lang-zh">在 GitHub 查看 1.2.2 ↗</span><span class="lang lang-zh-hant">在 GitHub 查看 1.2.2 ↗</span><span class="lang lang-ja">GitHub で 1.2.2 を見る ↗</span><span class="lang lang-en">View 1.2.2 on GitHub ↗</span></a></p>
+          </section>
+
           <section class="document-block" id="v1-2-1">
             <p class="document-meta"><span class="lang lang-zh">1.2.1 / macOS 直装 / 2026 年 7 月 16 日</span><span class="lang lang-zh-hant">1.2.1 / macOS 直接下載 / 2026 年 7 月 16 日</span><span class="lang lang-ja">1.2.1 / macOS直接配布 / 2026年7月16日</span><span class="lang lang-en">1.2.1 / macOS direct download / July 16, 2026</span></p>
             <h2><span class="lang lang-zh">更可靠地启动菜单栏应用</span><span class="lang lang-zh-hant">更可靠地啟動選單列應用程式</span><span class="lang lang-ja">メニューバーアプリの起動をより安定化</span><span class="lang lang-en">A more reliable menu bar app launch</span></h2>
@@ -186,14 +209,14 @@
 
           <section class="document-block" id="release-status">
             <h2><span class="lang lang-zh">发布状态</span><span class="lang lang-zh-hant">發佈狀態</span><span class="lang lang-ja">リリース状況</span><span class="lang lang-en">Release status</span></h2>
-            <p><span class="lang lang-zh">Shuo 1.2.1 已作为 macOS 直装版发布。每个官方 ZIP 和 DMG 都与公开源码标签、校验和及签名更新源一一对应。</span><span class="lang lang-zh-hant">Shuo 1.2.1 已作為 macOS 直接下載版發佈。每個官方 ZIP 與 DMG 都與公開原始碼標籤、校驗和及簽署更新來源一一對應。</span><span class="lang lang-ja">Shuo 1.2.1 は macOS 直接配布版として公開されています。公式 ZIP と DMG はすべて、公開ソースタグ、チェックサム、署名済みアップデートフィードに対応しています。</span><span class="lang lang-en">Shuo 1.2.1 is released as a direct download for macOS. Every official ZIP and DMG corresponds to its public source tag, checksum, and signed update feed.</span></p>
+            <p><span class="lang lang-zh">Shuo 1.2.2 已作为 macOS 直装版发布。每个官方 ZIP 和 DMG 都与公开源码标签、校验和及签名更新源一一对应。</span><span class="lang lang-zh-hant">Shuo 1.2.2 已作為 macOS 直接下載版發佈。每個官方 ZIP 與 DMG 都與公開原始碼標籤、校驗和及簽署更新來源一一對應。</span><span class="lang lang-ja">Shuo 1.2.2 は macOS 直接配布版として公開されています。公式 ZIP と DMG はすべて、公開ソースタグ、チェックサム、署名済みアップデートフィードに対応しています。</span><span class="lang lang-en">Shuo 1.2.2 is released as a direct download for macOS. Every official ZIP and DMG corresponds to its public source tag, checksum, and signed update feed.</span></p>
           </section>
         </article>
       </div>
     </main>
 
     <footer class="site-footer">
-      <p><span class="lang lang-zh">Shuo 说 / 1.2.1</span><span class="lang lang-zh-hant">Shuo 說 / 1.2.1</span><span class="lang lang-ja">說 シュオ / 1.2.1</span><span class="lang lang-en">Shuo / 1.2.1</span></p>
+      <p><span class="lang lang-zh">Shuo 说 / 1.2.2</span><span class="lang lang-zh-hant">Shuo 說 / 1.2.2</span><span class="lang lang-ja">說 シュオ / 1.2.2</span><span class="lang lang-en">Shuo / 1.2.2</span></p>
       <div>
         <a href="./"><span class="lang lang-zh">首页</span><span class="lang lang-zh-hant">首頁</span><span class="lang lang-ja">ホーム</span><span class="lang lang-en">Home</span></a>
         <a href="https://github.com/stcheng/shuo"><span class="lang lang-zh">源码</span><span class="lang lang-zh-hant">原始碼</span><span class="lang lang-ja">ソース</span><span class="lang lang-en">Source</span></a>
@@ -202,6 +225,6 @@
         <a href="https://github.com/stcheng/shuo/releases"><span class="lang lang-zh">更新</span><span class="lang lang-zh-hant">更新</span><span class="lang lang-ja">更新</span><span class="lang lang-en">Releases</span></a>
       </div>
     </footer>
-    <script src="script.js?v=20260716-history"></script>
+    <script src="script.js?v=20260717-122"></script>
   </body>
 </html>

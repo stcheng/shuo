@@ -35,6 +35,18 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(decoded.hasCompletedOnboarding)
     }
 
+    func testDockIconIsHiddenByDefaultAndPersists() throws {
+        XCTAssertFalse(AppSettings().showDockIcon)
+
+        var settings = AppSettings()
+        settings.showDockIcon = true
+
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+
+        XCTAssertTrue(decoded.showDockIcon)
+    }
+
     func testLegacyTerminologyPresetIDsMigrateIntoEditableVocabularies() throws {
         let legacyData = Data(
             #"{"appLanguage":"english","enabledTerminologyPresetIDs":["coding","future-specialty"]}"#.utf8
@@ -3448,7 +3460,7 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeOnePointTwoOneAndCurrentCapabilitiesInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointTwoTwoAndCurrentCapabilitiesInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
                 "at most 60 high-priority terms",
@@ -3457,8 +3469,11 @@ final class AppLocalizerTests: XCTestCase {
                 "local Replacement",
                 "Cloud AI hints",
                 "Adaptive Whisper Mode",
-                "New in 1.2.1",
-                "launch crash",
+                "New in 1.2.2",
+                "Dock",
+                "You’re up to date",
+                "mixed Chinese/English",
+                "arrow",
                 "Floating Bar"
             ],
             .simplifiedChinese: [
@@ -3468,8 +3483,11 @@ final class AppLocalizerTests: XCTestCase {
                 "本地“替换”",
                 "“云端 AI”提示",
                 "自适应轻声模式",
-                "1.2.1 更新",
-                "启动崩溃",
+                "1.2.2 更新",
+                "Dock",
+                "已是最新版本",
+                "句末标点",
+                "箭头光标",
                 "悬浮栏"
             ],
             .traditionalChinese: [
@@ -3479,8 +3497,11 @@ final class AppLocalizerTests: XCTestCase {
                 "本機「替換」",
                 "「雲端 AI」提示",
                 "自適應輕聲模式",
-                "1.2.1 更新",
-                "啟動當機",
+                "1.2.2 更新",
+                "Dock",
+                "已是最新版本",
+                "句末標點",
+                "箭頭游標",
                 "懸浮列"
             ],
             .japanese: [
@@ -3490,8 +3511,11 @@ final class AppLocalizerTests: XCTestCase {
                 "ローカル「置換」",
                 "「クラウドAI」へのヒント",
                 "適応型のささやきモード",
-                "1.2.1 の新機能",
-                "起動時クラッシュ",
+                "1.2.2 の新機能",
+                "Dock",
+                "最新状態",
+                "文末句読点",
+                "矢印",
                 "フローティングバー"
             ]
         ]
@@ -3501,7 +3525,7 @@ final class AppLocalizerTests: XCTestCase {
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                11,
+                14,
                 "Unexpected release-note bullet count for \(language)"
             )
             XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))
@@ -3539,6 +3563,7 @@ final class AppLocalizerTests: XCTestCase {
 
         XCTAssertEqual(simplifiedChinese.checkingForUpdates(), "正在检查更新…")
         XCTAssertEqual(simplifiedChinese.updateCheckFinished(), "更新检查已完成。")
+        XCTAssertEqual(simplifiedChinese.updateCheckUpToDate(), "已是最新版本。")
         XCTAssertEqual(simplifiedChinese.updateCheckAlreadyInProgress(), "正在检查更新。")
     }
 
@@ -3917,6 +3942,7 @@ final class ArchitectureStageTests: XCTestCase {
 
         let intentionallyOutsidePipeline: Set<SettingsSearchTarget> = [
             .appLanguage,
+            .showDockIcon,
             .launchAtLogin,
             .updates,
             .exportSettings,
@@ -4427,6 +4453,41 @@ final class TranscriptPostProcessorTests: XCTestCase {
         )
     }
 
+    func testAutomaticSentenceEndingUsesCJKPunctuationForMixedCJKClause() {
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "这个先用 Cursor",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "这个先用 Cursor。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "先 deploy 到 staging",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "先 deploy 到 staging。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "版本 2",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "版本 2。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "你好。Ship it",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "你好。Ship it. "
+        )
+    }
+
     func testAutomaticSentenceEndingPreservesPunctuationAndInsertsBeforeQuotes() {
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
@@ -4462,14 +4523,14 @@ final class TranscriptPostProcessorTests: XCTestCase {
         )
     }
 
-    func testAutomaticSentenceEndingConvertsContinuationPunctuationToAFullStop() {
+    func testAutomaticSentenceEndingPreservesExistingContinuationPunctuation() {
         let cases: [(String, String)] = [
-            ("Hello,", "Hello. "),
-            ("Hello:", "Hello. "),
-            ("Hello;", "Hello. "),
-            ("你好，", "你好。"),
-            ("你好：", "你好。"),
-            ("これは良い、", "これは良い。")
+            ("Hello,", "Hello, "),
+            ("Hello:", "Hello: "),
+            ("Hello;", "Hello; "),
+            ("你好，", "你好，"),
+            ("你好：", "你好："),
+            ("これは良い、", "これは良い、")
         ]
 
         for (input, expected) in cases {
@@ -4484,14 +4545,14 @@ final class TranscriptPostProcessorTests: XCTestCase {
         }
     }
 
-    func testAutomaticSentenceEndingNormalizesMismatchedFullStops() {
+    func testAutomaticSentenceEndingPreservesExistingTerminalPunctuation() {
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
                 to: "Hello。",
                 punctuationMode: .automatic,
                 mode: .smartSpace
             ),
-            "Hello. "
+            "Hello。"
         )
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
@@ -4499,7 +4560,15 @@ final class TranscriptPostProcessorTests: XCTestCase {
                 punctuationMode: .automatic,
                 mode: .smartSpace
             ),
-            "你好。"
+            "你好."
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "这个先用 Cursor。",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "这个先用 Cursor。"
         )
     }
 

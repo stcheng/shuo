@@ -28,6 +28,9 @@ final class ShuoApplicationDelegate: NSObject, NSApplicationDelegate {
 #endif
 
         appState?.startUpdateController()
+        if let appState {
+            AppDockIconController.apply(showDockIcon: appState.settings.showDockIcon)
+        }
 
         // NSStatusItem talks to the system menu bar through AppKit/SkyLight.  A
         // SwiftUI App initializer runs before that connection is reliably ready

@@ -36,6 +36,22 @@ if [[ "$(git -C "$ROOT_DIR" rev-parse --is-inside-work-tree 2>/dev/null || true)
   exit 2
 fi
 
+public_release_version="${SHUO_PUBLIC_RELEASE_VERSION:-}"
+if [[ -z "$public_release_version" ]]; then
+  public_release_version="$(awk '
+    /MARKETING_VERSION = / {
+      value = $3
+      gsub(/;/, "", value)
+      print value
+      exit
+    }
+  ' "$ROOT_DIR/Shuo.xcodeproj/project.pbxproj")"
+fi
+if [[ -z "$public_release_version" ]]; then
+  public_release_version="<version>"
+fi
+public_release_anchor="v${public_release_version//./-}"
+
 source_status="$(git -C "$ROOT_DIR" status --porcelain --untracked-files=all)"
 if [[ -n "$source_status" ]]; then
   echo "Commit and verify the private source before creating public history." >&2
@@ -74,6 +90,14 @@ The repository-local author identity is:
 Override it before committing only with a deliberately public address, or set
 SHUO_PUBLIC_GIT_NAME and SHUO_PUBLIC_GIT_EMAIL when running this initializer.
 
-After review, create the one curated initial commit:
-  git -C "$DESTINATION" commit -m "Initial public source release"
+After review, create one curated public release commit. Suggested message:
+
+  Release Shuo $public_release_version
+
+  Changelog: https://stcheng.github.io/shuo/release-notes.html#$public_release_anchor
+  Release: https://github.com/stcheng/shuo/releases/tag/v$public_release_version
+  Appcast: https://stcheng.github.io/shuo/appcast.xml
+
+Override SHUO_PUBLIC_RELEASE_VERSION if the public source version intentionally
+differs from the current private project version.
 EOF

@@ -2786,11 +2786,23 @@ final class SettingsSearchIndexTests: XCTestCase {
     func testBasicApplicationSettingsRouteToSettingsPage() throws {
         let items = makeItems(configuration: .mvp)
         let language = try XCTUnwrap(items.first { $0.target == .appLanguage })
+        let dockIcon = try XCTUnwrap(items.first { $0.target == .showDockIcon })
         let launchAtLogin = try XCTUnwrap(items.first { $0.target == .launchAtLogin })
 
         XCTAssertEqual(language.section, .transcription)
+        XCTAssertEqual(dockIcon.section, .transcription)
         XCTAssertEqual(launchAtLogin.section, .transcription)
         XCTAssertEqual(language.pageTitle, "Settings")
+        XCTAssertEqual(dockIcon.pageTitle, "Settings")
+    }
+
+    func testDockIconSearchFindsApplicationSetting() {
+        let items = makeItems(configuration: .mvp)
+
+        let results = SettingsSearchIndex.search("dock icon", in: items)
+
+        XCTAssertEqual(results.first?.target, .showDockIcon)
+        XCTAssertEqual(results.first?.section, .transcription)
     }
 
     func testArchitectureSearchRoutesToSignalChainPage() {

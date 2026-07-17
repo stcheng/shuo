@@ -263,6 +263,9 @@ final class AppState: ObservableObject {
                 || settings.appLanguage != oldValue.appLanguage {
                 configurePushToTalkMonitor()
             }
+            if settings.showDockIcon != oldValue.showDockIcon {
+                AppDockIconController.apply(showDockIcon: settings.showDockIcon)
+            }
             appUpdateController.appLanguage = settings.appLanguage
         }
     }

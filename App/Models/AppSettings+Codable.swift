@@ -4,6 +4,7 @@ extension AppSettings {
     enum CodingKeys: String, CodingKey {
         case hasCompletedOnboarding
         case appLanguage
+        case showDockIcon
         case provider
         case selectedModel
         case openAITranscriptionModelSelectionMode
@@ -79,6 +80,7 @@ extension AppSettings {
         )
         try container.encode(hasCompletedOnboarding, forKey: .hasCompletedOnboarding)
         try container.encode(appLanguage, forKey: .appLanguage)
+        try container.encode(showDockIcon, forKey: .showDockIcon)
         try container.encode(provider, forKey: .provider)
         try container.encode(selectedModel, forKey: .selectedModel)
         try container.encode(
@@ -169,6 +171,8 @@ extension AppSettings {
             forKey: .hasCompletedOnboarding
         ) ?? true
         appLanguage = try container.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? defaults.appLanguage
+        showDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon)
+            ?? defaults.showDockIcon
         provider = try container.decodeIfPresent(TranscriptionProvider.self, forKey: .provider) ?? defaults.provider
         selectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel) ?? defaults.selectedModel
         openAITranscriptionModelSelectionMode = try container.decodeIfPresent(

@@ -1331,7 +1331,9 @@ final class StatusItemController: NSObject {
                 )
             }
         )
-        return FirstMouseHostingView(rootView: content)
+        let hostingView = FirstMouseHostingView(rootView: content)
+        hostingView.forcesArrowCursor = mode.forcesArrowCursor
+        return hostingView
     }
 
     private func collapseFloatingWindow(
@@ -1950,6 +1952,15 @@ private enum FloatingWindowMode: Equatable {
         return false
     }
 
+    var forcesArrowCursor: Bool {
+        switch self {
+        case .idle, .collapsed:
+            return true
+        case .hidden, .transcript, .editing:
+            return false
+        }
+    }
+
     func updatingSession(_ session: FloatingCorrectionSession) -> FloatingWindowMode {
         guard sessionID == session.id else {
             return self
@@ -2108,8 +2119,50 @@ private final class FloatingWindowPanel: NSPanel {
 }
 
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var forcesArrowCursor = false {
+        didSet {
+            guard oldValue != forcesArrowCursor else {
+                return
+            }
+            window?.invalidateCursorRects(for: self)
+            if forcesArrowCursor {
+                NSCursor.arrow.set()
+            }
+        }
+    }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard forcesArrowCursor else {
+            return
+        }
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard forcesArrowCursor else {
+            super.cursorUpdate(with: event)
+            return
+        }
+        NSCursor.arrow.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if forcesArrowCursor {
+            NSCursor.arrow.set()
+        }
+        super.mouseEntered(with: event)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        if forcesArrowCursor {
+            NSCursor.arrow.set()
+        }
+        super.mouseMoved(with: event)
     }
 }
 

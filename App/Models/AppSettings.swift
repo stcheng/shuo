@@ -5,6 +5,7 @@ struct AppSettings: Codable, Equatable {
 
     var hasCompletedOnboarding = false
     var appLanguage: AppLanguage = .english
+    var showDockIcon = false
     var provider: TranscriptionProvider = .local
     var selectedModel: String = "local.medium"
     var openAITranscriptionModelSelectionMode: OpenAIModelSelectionMode = .automatic

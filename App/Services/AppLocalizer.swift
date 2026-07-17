@@ -18,6 +18,7 @@ enum AppTextKey: String, CaseIterable {
     case aboutDiagnosticsHint
     case general
     case appLanguage
+    case showDockIcon
     case dictation
     case transcription
     case provider
@@ -2436,11 +2437,11 @@ struct AppLocalizer {
     }
 
     func releaseNotesDetail() -> String {
-        let onePointTwoOneNotes = localized(
-            "New in 1.2.1\n\n• Fixed a launch crash that could occur before the menu bar item appeared",
-            "1.2.1 更新\n\n• 修复了极少数情况下菜单栏图标出现前的启动崩溃",
-            "1.2.1 更新\n\n• 修正極少數情況下選單列圖示出現前發生的啟動當機",
-            "1.2.1 の新機能\n\n• メニューバーアイコンが表示される前に起動時クラッシュが発生することがある問題を修正"
+        let onePointTwoTwoNotes = localized(
+            "New in 1.2.2\n\n• Added a Settings toggle for showing Shuo in the Dock while keeping the default menu-bar-only behavior\n• Check for Updates now shows “You’re up to date” inline when no update is available\n• Preserved model-provided sentence punctuation in mixed Chinese/English transcripts\n• Kept the compact Floating Bar cursor as an arrow over the logo",
+            "1.2.2 更新\n\n• 新增是否在 Dock 中显示 Shuo 的设置开关，同时默认保持仅菜单栏显示\n• 没有可用更新时，“检查更新”会直接在设置页面显示“已是最新版本”\n• 中英文混合转写会保留模型已经给出的句末标点\n• 悬浮栏只显示 logo 时，鼠标悬停会保持箭头光标",
+            "1.2.2 更新\n\n• 新增是否在 Dock 中顯示 Shuo 的設定開關，同時預設維持僅顯示於選單列\n• 沒有可用更新時，「檢查更新」會直接在設定頁面顯示「已是最新版本」\n• 中英文混合轉寫會保留模型已給出的句末標點\n• 懸浮列只顯示 logo 時，滑鼠懸停會維持箭頭游標",
+            "1.2.2 の新機能\n\n• 初期設定はメニューバーのみのまま、Dock に Shuo を表示する設定を追加\n• 利用可能なアップデートがない場合、「アップデートを確認」は設定画面内に最新状態を表示\n• 中国語と英語が混在する文字起こしで、モデルが出力した文末句読点を保持\n• コンパクトなフローティングバーでは、ロゴ上のカーソルを矢印のまま維持"
         )
 
         let updateBullet = AppRuntime.isCommunityBuild
@@ -2463,7 +2464,7 @@ struct AppLocalizer {
             "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
         )
 
-        return "\(onePointTwoOneNotes)\n\n\(currentReleaseDetails)"
+        return "\(onePointTwoTwoNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {
@@ -2842,6 +2843,15 @@ struct AppLocalizer {
             "更新检查已完成。",
             "更新檢查已完成。",
             "アップデートの確認が完了しました。"
+        )
+    }
+
+    func updateCheckUpToDate() -> String {
+        localized(
+            "You’re up to date.",
+            "已是最新版本。",
+            "已是最新版本。",
+            "最新バージョンです。"
         )
     }
 

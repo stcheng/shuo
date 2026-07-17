@@ -926,6 +926,9 @@ struct SettingsView: View {
             }
             .settingsSearchAnchor(.appLanguage, highlightedTarget: highlightedSearchTarget)
 
+            Toggle(localizer.text(.showDockIcon), isOn: $appState.settings.showDockIcon)
+                .settingsSearchAnchor(.showDockIcon, highlightedTarget: highlightedSearchTarget)
+
             Toggle(
                 localizer.launchAtLoginLabel(),
                 isOn: Binding(

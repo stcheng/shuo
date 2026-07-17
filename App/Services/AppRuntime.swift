@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 struct AppBuildIdentityMetadata: Equatable {
@@ -82,6 +83,27 @@ enum AppRuntime {
 
     static var isCommunityBuild: Bool {
         AppBuildIdentity.isCommunityBuild
+    }
+}
+
+@MainActor
+enum AppDockIconController {
+    static func apply(showDockIcon: Bool) {
+        guard !AppRuntime.isRunningUnderXCTest else {
+            return
+        }
+        guard let app = NSApp else {
+            return
+        }
+
+        let desiredPolicy: NSApplication.ActivationPolicy = showDockIcon
+            ? .regular
+            : .accessory
+        guard app.activationPolicy() != desiredPolicy else {
+            return
+        }
+
+        app.setActivationPolicy(desiredPolicy)
     }
 }
 

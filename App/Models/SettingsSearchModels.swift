@@ -80,6 +80,7 @@ enum SettingsSearchTarget: String, CaseIterable, Hashable {
     case promptContexts
 
     case appLanguage
+    case showDockIcon
     case launchAtLogin
     case updates
     case exportSettings
@@ -132,6 +133,7 @@ enum SettingsSearchTarget: String, CaseIterable, Hashable {
 
         case .microphonePermission, .accessibilityPermission,
              .appLanguage, .launchAtLogin, .updates, .exportSettings,
+             .showDockIcon,
              .architectureOverview, .aboutInformation, .reportFeedback,
              .privacy, .releaseNotes, .uninstallAndData, .localData:
             return nil
@@ -730,6 +732,15 @@ enum SettingsSearchIndex {
             section: .transcription,
             target: .appLanguage,
             keywords: ["interface language", "English", "中文", "日本語", "界面语言", "介面語言"]
+        )
+        add(
+            localizer.text(.showDockIcon),
+            section: .transcription,
+            target: .showDockIcon,
+            keywords: [
+                "Dock", "dock icon", "Cmd-Tab", "Command Tab", "app switcher", "menu bar",
+                "程序坞", "图标", "選單列", "Dockアイコン"
+            ]
         )
         add(
             localizer.launchAtLoginLabel(),
