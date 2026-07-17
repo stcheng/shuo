@@ -1013,13 +1013,58 @@ struct AppLocalizer {
         }
     }
 
-    func shortcutName(_ shortcut: PushToTalkShortcut) -> String {
+    func shortcutName(
+        _ shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
         switch shortcut {
         case .rightOption:
             return localized("Right Option", "右 Option", "右 Option", "右Option")
         case .rightCommand:
             return localized("Right Command", "右 Command", "右 Command", "右Command")
+        case .custom:
+            return customShortcut?.displayName
+                ?? localized("Custom", "自定义", "自訂", "カスタム")
         }
+    }
+
+    func customShortcutTitle() -> String {
+        localized("Custom shortcut", "自定义快捷键", "自訂快速鍵", "カスタムショートカット")
+    }
+
+    func customShortcutRecordButton() -> String {
+        return localized("Record Shortcut", "录制快捷键", "錄製快速鍵", "ショートカットを記録")
+    }
+
+    func customShortcutRecordingButton() -> String {
+        localized("Recording…", "正在录制…", "正在錄製…", "記録中…")
+    }
+
+    func customShortcutRecordPrompt() -> String {
+        localized(
+            "Press the shortcut you want to hold. Release a modifier to use it alone. Esc cancels.",
+            "按下你想按住使用的快捷键。松开修饰键可将它单独设为快捷键。按 Esc 取消。",
+            "按下你想按住使用的快速鍵。放開修飾鍵可將它單獨設為快速鍵。按 Esc 取消。",
+            "押したまま使いたいショートカットを押します。修飾キーだけで使う場合は離します。Escでキャンセル。"
+        )
+    }
+
+    func customShortcutInvalid() -> String {
+        localized(
+            "Use a modifier combination or a non-text key such as F13.",
+            "请使用带修饰键的组合，或 F13 这类非文本按键。",
+            "請使用帶修飾鍵的組合，或 F13 這類非文字按鍵。",
+            "修飾キーの組み合わせ、またはF13などの非文字キーを使ってください。"
+        )
+    }
+
+    func customShortcutNotRecorded() -> String {
+        localized(
+            "Record a custom shortcut to use push-to-talk.",
+            "请先录制一个自定义快捷键，再使用按住说话。",
+            "請先錄製一個自訂快速鍵，再使用按住說話。",
+            "プッシュトゥトークを使うには、カスタムショートカットを記録してください。"
+        )
     }
 
     func advancedLabel() -> String {
@@ -2437,11 +2482,11 @@ struct AppLocalizer {
     }
 
     func releaseNotesDetail() -> String {
-        let onePointTwoTwoNotes = localized(
-            "New in 1.2.2\n\n• Added a Settings toggle for showing Shuo in the Dock while keeping the default menu-bar-only behavior\n• Check for Updates now shows “You’re up to date” inline when no update is available\n• Preserved model-provided sentence punctuation in mixed Chinese/English transcripts\n• Kept the compact Floating Bar cursor as an arrow over the logo",
-            "1.2.2 更新\n\n• 新增是否在 Dock 中显示 Shuo 的设置开关，同时默认保持仅菜单栏显示\n• 没有可用更新时，“检查更新”会直接在设置页面显示“已是最新版本”\n• 中英文混合转写会保留模型已经给出的句末标点\n• 悬浮栏只显示 logo 时，鼠标悬停会保持箭头光标",
-            "1.2.2 更新\n\n• 新增是否在 Dock 中顯示 Shuo 的設定開關，同時預設維持僅顯示於選單列\n• 沒有可用更新時，「檢查更新」會直接在設定頁面顯示「已是最新版本」\n• 中英文混合轉寫會保留模型已給出的句末標點\n• 懸浮列只顯示 logo 時，滑鼠懸停會維持箭頭游標",
-            "1.2.2 の新機能\n\n• 初期設定はメニューバーのみのまま、Dock に Shuo を表示する設定を追加\n• 利用可能なアップデートがない場合、「アップデートを確認」は設定画面内に最新状態を表示\n• 中国語と英語が混在する文字起こしで、モデルが出力した文末句読点を保持\n• コンパクトなフローティングバーでは、ロゴ上のカーソルを矢印のまま維持"
+        let onePointTwoThreeNotes = localized(
+            "New in 1.2.3\n\n• Added Custom push-to-talk shortcuts in onboarding and Settings\n• Supports modifier-only shortcuts, modifier chords, and function keys while blocking bare text keys that would interfere with typing\n• Shows the selected custom shortcut directly in Settings instead of generic button text\n• Improves shortcut labels so keys such as Command + ` are displayed clearly",
+            "1.2.3 更新\n\n• 新增自定义按住说话快捷键，可在首次引导和设置中配置\n• 支持单独修饰键、修饰键组合和功能键，同时避免使用会干扰输入的单个文字按键\n• 设置页会直接显示已选择的自定义快捷键，不再显示通用按钮文案\n• 改进快捷键显示，Command + ` 等按键不再显示成 Key 50",
+            "1.2.3 更新\n\n• 新增自訂按住說話快捷鍵，可在首次引導和設定中配置\n• 支援單獨修飾鍵、修飾鍵組合和功能鍵，同時避免使用會干擾輸入的單一文字按鍵\n• 設定頁會直接顯示已選擇的自訂快捷鍵，不再顯示通用按鈕文案\n• 改進快捷鍵顯示，Command + ` 等按鍵不再顯示成 Key 50",
+            "1.2.3 の新機能\n\n• 初回設定と設定画面で、カスタムのプッシュトゥトークショートカットを設定できるようにしました\n• 修飾キーのみ、修飾キーとの組み合わせ、ファンクションキーに対応し、入力の邪魔になる文字キー単独の設定は防ぎます\n• 設定画面では、汎用的なボタン文言ではなく、選択中のカスタムショートカットを直接表示します\n• Command + ` などのキー表示を改善し、Key 50 のような分かりにくい表示を避けます"
         )
 
         let updateBullet = AppRuntime.isCommunityBuild
@@ -2464,7 +2509,7 @@ struct AppLocalizer {
             "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
         )
 
-        return "\(onePointTwoTwoNotes)\n\n\(currentReleaseDetails)"
+        return "\(onePointTwoThreeNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {
@@ -2503,8 +2548,11 @@ struct AppLocalizer {
         }
     }
 
-    func pushToTalkDisabled(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func pushToTalkDisabled(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "\(shortcutName) push-to-talk is disabled.",
             "\(shortcutName) 按住说话已关闭。",
@@ -2513,8 +2561,11 @@ struct AppLocalizer {
         )
     }
 
-    func holdToDictate(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func holdToDictate(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "Hold \(shortcutName) to dictate.",
             "按住 \(shortcutName) 开始听写。",
@@ -2523,8 +2574,11 @@ struct AppLocalizer {
         )
     }
 
-    func waitingForAccessibility(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func waitingForAccessibility(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "Waiting for Accessibility permission to use \(shortcutName) dictation.",
             "正在等待辅助功能权限，以使用 \(shortcutName) 听写。",
@@ -2533,8 +2587,11 @@ struct AppLocalizer {
         )
     }
 
-    func shortcutMonitorCouldNotStart(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func shortcutMonitorCouldNotStart(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "\(shortcutName) shortcut monitor could not start. Try Retry Shortcut or relaunch Shuo.",
             "\(shortcutName) 快捷键监听无法启动。请重试快捷键或重新启动 Shuo。",

@@ -342,7 +342,7 @@ private struct ShuoHomeView: View {
                         set: { appState.setPushToTalkShortcut($0) }
                     )
                 ) {
-                    ForEach(PushToTalkShortcut.allCases) { shortcut in
+                    ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                         Text(localizer.shortcutName(shortcut)).tag(shortcut)
                     }
                 }
@@ -355,6 +355,17 @@ private struct ShuoHomeView: View {
             .font(.title3)
             .foregroundStyle(.secondary)
             .padding(.top, 20)
+
+            if appState.settings.pushToTalkShortcut == .custom {
+                CustomPushToTalkShortcutRecorder(
+                    currentShortcut: appState.settings.customPushToTalkShortcut,
+                    localizer: localizer,
+                    onRecord: appState.setCustomPushToTalkShortcut
+                )
+                .frame(maxWidth: 520)
+                .padding(.top, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             if shouldShowPushToTalkStatus {
                 Text(appState.pushToTalkStatusMessage)
@@ -371,7 +382,10 @@ private struct ShuoHomeView: View {
     }
 
     private var shouldShowPushToTalkStatus: Bool {
-        let readyMessage = localizer.holdToDictate(shortcut: appState.settings.pushToTalkShortcut)
+        let readyMessage = localizer.holdToDictate(
+            shortcut: appState.settings.pushToTalkShortcut,
+            customShortcut: appState.settings.customPushToTalkShortcut
+        )
         return !appState.pushToTalkStatusMessage.isEmpty
             && appState.pushToTalkStatusMessage != readyMessage
     }
@@ -699,12 +713,22 @@ private struct ShuoOnboardingView: View {
                         get: { appState.settings.pushToTalkShortcut },
                         set: { appState.setPushToTalkShortcut($0) }
                     )) {
-                        ForEach(PushToTalkShortcut.allCases) { shortcut in
+                        ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                             Text(localizer.shortcutName(shortcut)).tag(shortcut)
                         }
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 360)
+
+                    if appState.settings.pushToTalkShortcut == .custom {
+                        CustomPushToTalkShortcutRecorder(
+                            currentShortcut: appState.settings.customPushToTalkShortcut,
+                            localizer: localizer,
+                            onRecord: appState.setCustomPushToTalkShortcut
+                        )
+                        .frame(maxWidth: 360)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
                     onboardingSectionTitle("2", localizer.onboardingPermissionsTitle())
                     permissionRow(

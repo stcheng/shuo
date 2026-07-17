@@ -1,4 +1,5 @@
 import AVFoundation
+import ApplicationServices
 import CoreAudio
 import XCTest
 @testable import Shuo
@@ -159,15 +160,88 @@ final class AppSettingsTests: XCTestCase {
     func testPushToTalkShortcutChoicesPersistAndUseRightSideKeyCodes() throws {
         XCTAssertEqual(PushToTalkShortcut.rightOption.keyCode, 0x3D)
         XCTAssertEqual(PushToTalkShortcut.rightCommand.keyCode, 0x36)
+        XCTAssertEqual(PushToTalkShortcut.pickerCases, [.rightCommand, .rightOption, .custom])
 
         var settings = AppSettings()
-        settings.pushToTalkShortcut = .rightCommand
+        let customShortcut = CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control])
+        settings.pushToTalkShortcut = .custom
+        settings.customPushToTalkShortcut = customShortcut
         let decoded = try JSONDecoder().decode(
             AppSettings.self,
             from: JSONEncoder().encode(settings)
         )
 
-        XCTAssertEqual(decoded.pushToTalkShortcut, .rightCommand)
+        XCTAssertEqual(decoded.pushToTalkShortcut, .custom)
+        XCTAssertEqual(decoded.customPushToTalkShortcut, customShortcut)
+    }
+
+    func testCustomPushToTalkShortcutValidationAvoidsBareTextKeys() {
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x00).isValidHoldShortcut)
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x31).isValidHoldShortcut)
+
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x00, modifiers: [.control]).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control]).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x69).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x3E).isValidHoldShortcut)
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x32).isValidHoldShortcut)
+        XCTAssertEqual(
+            CustomPushToTalkShortcut(keyCode: 0x32, modifiers: [.command]).displayName,
+            "Command + `"
+        )
+    }
+
+    func testCustomPushToTalkShortcutNameUsesRecordedShortcut() {
+        let localizer = AppLocalizer(language: .english)
+        let customShortcut = CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control])
+
+        XCTAssertEqual(
+            localizer.shortcutName(.custom, customShortcut: customShortcut),
+            "Control + Space"
+        )
+        XCTAssertEqual(localizer.shortcutName(.custom), "Custom")
+    }
+
+    func testModifierShortcutStateFallsBackToEventFlags() {
+        let rightCommand = ResolvedPushToTalkShortcut(
+            keyCode: PushToTalkShortcut.rightCommand.keyCode
+        )
+
+        XCTAssertTrue(
+            rightCommand.downState(
+                keyStateDown: false,
+                eventFlags: .maskCommand,
+                previousDown: false
+            )
+        )
+        XCTAssertFalse(
+            rightCommand.downState(
+                keyStateDown: false,
+                eventFlags: [],
+                previousDown: true
+            )
+        )
+    }
+
+    func testModifierComboShortcutStateRequiresBothKeyAndModifiers() {
+        let rightOptionWithControl = ResolvedPushToTalkShortcut(
+            keyCode: PushToTalkShortcut.rightOption.keyCode,
+            modifiers: [.control]
+        )
+
+        XCTAssertTrue(
+            rightOptionWithControl.downState(
+                keyStateDown: false,
+                eventFlags: [.maskAlternate, .maskControl],
+                previousDown: false
+            )
+        )
+        XCTAssertFalse(
+            rightOptionWithControl.downState(
+                keyStateDown: true,
+                eventFlags: .maskAlternate,
+                previousDown: false
+            )
+        )
     }
 
     func testFreshLanguageSelectionPrioritizesChineseAndEnglish() {
@@ -3460,7 +3534,7 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeOnePointTwoTwoAndCurrentCapabilitiesInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointTwoThreeAndCurrentCapabilitiesInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
                 "at most 60 high-priority terms",
@@ -3469,12 +3543,13 @@ final class AppLocalizerTests: XCTestCase {
                 "local Replacement",
                 "Cloud AI hints",
                 "Adaptive Whisper Mode",
-                "New in 1.2.2",
-                "Dock",
-                "You’re up to date",
-                "mixed Chinese/English",
-                "arrow",
-                "Floating Bar"
+                "New in 1.2.3",
+                "Custom push-to-talk shortcuts",
+                "onboarding",
+                "modifier chords",
+                "function keys",
+                "bare text keys",
+                "Command + `"
             ],
             .simplifiedChinese: [
                 "最多保留 60 个高优先级术语",
@@ -3483,12 +3558,13 @@ final class AppLocalizerTests: XCTestCase {
                 "本地“替换”",
                 "“云端 AI”提示",
                 "自适应轻声模式",
-                "1.2.2 更新",
-                "Dock",
-                "已是最新版本",
-                "句末标点",
-                "箭头光标",
-                "悬浮栏"
+                "1.2.3 更新",
+                "自定义按住说话快捷键",
+                "首次引导",
+                "修饰键组合",
+                "功能键",
+                "单个文字按键",
+                "Key 50"
             ],
             .traditionalChinese: [
                 "最多保留 60 個優先術語",
@@ -3497,12 +3573,13 @@ final class AppLocalizerTests: XCTestCase {
                 "本機「替換」",
                 "「雲端 AI」提示",
                 "自適應輕聲模式",
-                "1.2.2 更新",
-                "Dock",
-                "已是最新版本",
-                "句末標點",
-                "箭頭游標",
-                "懸浮列"
+                "1.2.3 更新",
+                "自訂按住說話快捷鍵",
+                "首次引導",
+                "修飾鍵組合",
+                "功能鍵",
+                "單一文字按鍵",
+                "Key 50"
             ],
             .japanese: [
                 "最大60件保存",
@@ -3511,12 +3588,13 @@ final class AppLocalizerTests: XCTestCase {
                 "ローカル「置換」",
                 "「クラウドAI」へのヒント",
                 "適応型のささやきモード",
-                "1.2.2 の新機能",
-                "Dock",
-                "最新状態",
-                "文末句読点",
-                "矢印",
-                "フローティングバー"
+                "1.2.3 の新機能",
+                "カスタムのプッシュトゥトークショートカット",
+                "初回設定",
+                "修飾キーとの組み合わせ",
+                "ファンクションキー",
+                "文字キー単独",
+                "Key 50"
             ]
         ]
 

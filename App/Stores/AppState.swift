@@ -260,6 +260,7 @@ final class AppState: ObservableObject {
 
             if settings.pushToTalkEnabled != oldValue.pushToTalkEnabled
                 || settings.pushToTalkShortcut != oldValue.pushToTalkShortcut
+                || settings.customPushToTalkShortcut != oldValue.customPushToTalkShortcut
                 || settings.appLanguage != oldValue.appLanguage {
                 configurePushToTalkMonitor()
             }
@@ -3817,6 +3818,17 @@ final class AppState: ObservableObject {
         settings.pushToTalkShortcut = shortcut
     }
 
+    func setCustomPushToTalkShortcut(_ shortcut: CustomPushToTalkShortcut) {
+        guard settings.customPushToTalkShortcut != shortcut
+            || settings.pushToTalkShortcut != .custom else {
+            return
+        }
+
+        cancelActiveRecording()
+        settings.customPushToTalkShortcut = shortcut
+        settings.pushToTalkShortcut = .custom
+    }
+
     func openAccessibilitySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
             return
@@ -3871,17 +3883,30 @@ final class AppState: ObservableObject {
         pushToTalkMonitor = nil
 
         guard !AppRuntime.isRunningUnderXCTest else {
-            pushToTalkStatusMessage = localizer.pushToTalkDisabled(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.pushToTalkDisabled(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
             return
         }
 
         guard settings.pushToTalkEnabled else {
-            pushToTalkStatusMessage = localizer.pushToTalkDisabled(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.pushToTalkDisabled(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
+            return
+        }
+
+        if settings.pushToTalkShortcut == .custom,
+           settings.customPushToTalkShortcut == nil {
+            pushToTalkStatusMessage = localizer.customShortcutNotRecorded()
             return
         }
 
         pushToTalkMonitor = RightOptionPushToTalkMonitor(
             shortcut: settings.pushToTalkShortcut,
+            customShortcut: settings.customPushToTalkShortcut,
             onPress: { [weak self] in
                 Task { @MainActor in
                     self?.beginPushToTalkRecording()
@@ -3896,11 +3921,20 @@ final class AppState: ObservableObject {
 
         if pushToTalkMonitor?.start() == true {
             stopPermissionRetryTimer()
-            pushToTalkStatusMessage = localizer.holdToDictate(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.holdToDictate(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         } else if !RightOptionPushToTalkMonitor.hasAccessibilityPermission {
-            pushToTalkStatusMessage = localizer.waitingForAccessibility(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.waitingForAccessibility(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         } else {
-            pushToTalkStatusMessage = localizer.shortcutMonitorCouldNotStart(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.shortcutMonitorCouldNotStart(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         }
     }
 

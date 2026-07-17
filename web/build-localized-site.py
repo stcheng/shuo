@@ -172,7 +172,7 @@ def structured_data(page_name: str, language: str, page: dict[str, object]) -> d
         **common,
         "@type": "WebPage",
         "isPartOf": {"@type": "WebSite", "name": "Shuo", "url": f"{SITE_URL}/"},
-        "dateModified": "2026-07-16",
+        "dateModified": "2026-07-17",
     }
 
 

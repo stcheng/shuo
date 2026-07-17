@@ -383,6 +383,152 @@ struct SettingsCollectionEmptyRow: View {
     }
 }
 
+struct CustomPushToTalkShortcutRecorder: View {
+    let currentShortcut: CustomPushToTalkShortcut?
+    let localizer: AppLocalizer
+    let onRecord: (CustomPushToTalkShortcut) -> Void
+
+    @State private var isRecording = false
+    @State private var eventMonitor: Any?
+    @State private var pendingModifierShortcut: CustomPushToTalkShortcut?
+    @State private var validationMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                SettingsRowLabel(
+                    title: localizer.customShortcutTitle(),
+                    detail: currentShortcut == nil ? localizer.customShortcutNotRecorded() : ""
+                )
+
+                Spacer(minLength: 12)
+
+                Button(recordButtonTitle) {
+                    if isRecording {
+                        stopRecording()
+                    } else {
+                        startRecording()
+                    }
+                }
+            }
+
+            if isRecording {
+                SettingsRowFeedback(text: localizer.customShortcutRecordPrompt())
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let validationMessage {
+                SettingsRowFeedback(text: validationMessage, style: .warning)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onDisappear {
+            stopRecording()
+        }
+    }
+
+    private var recordButtonTitle: String {
+        if isRecording {
+            return localizer.customShortcutRecordingButton()
+        }
+        return currentShortcut?.displayName ?? localizer.customShortcutRecordButton()
+    }
+
+    private func startRecording() {
+        stopRecording()
+        pendingModifierShortcut = nil
+        validationMessage = nil
+        isRecording = true
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            handleRecordingEvent(event)
+        }
+    }
+
+    private func stopRecording() {
+        if let eventMonitor {
+            NSEvent.removeMonitor(eventMonitor)
+        }
+        eventMonitor = nil
+        pendingModifierShortcut = nil
+        isRecording = false
+    }
+
+    private func handleRecordingEvent(_ event: NSEvent) -> NSEvent? {
+        if event.type == .keyDown,
+           event.keyCode == 0x35 {
+            stopRecording()
+            return nil
+        }
+
+        if event.type == .flagsChanged {
+            handleModifierRecordingEvent(event)
+            return nil
+        }
+
+        guard event.type == .keyDown else {
+            return nil
+        }
+
+        let shortcut = CustomPushToTalkShortcut(
+            keyCode: UInt16(event.keyCode),
+            modifiers: Self.modifiers(from: event.modifierFlags)
+        )
+        guard shortcut.isValidHoldShortcut else {
+            validationMessage = localizer.customShortcutInvalid()
+            NSSound.beep()
+            return nil
+        }
+
+        validationMessage = nil
+        onRecord(shortcut)
+        stopRecording()
+        return nil
+    }
+
+    private func handleModifierRecordingEvent(_ event: NSEvent) {
+        let keyCode = UInt16(event.keyCode)
+        guard CustomPushToTalkShortcut.modifierKeyCodes.contains(keyCode) else {
+            return
+        }
+
+        if CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(keyCode)) {
+            var modifiers = Self.modifiers(from: event.modifierFlags)
+            if let currentModifier = PushToTalkShortcutModifier.modifier(forKeyCode: keyCode) {
+                modifiers.remove(currentModifier)
+            }
+            pendingModifierShortcut = CustomPushToTalkShortcut(
+                keyCode: keyCode,
+                modifiers: modifiers
+            )
+            validationMessage = nil
+        } else if let pendingModifierShortcut {
+            validationMessage = nil
+            onRecord(pendingModifierShortcut)
+            stopRecording()
+        }
+    }
+
+    private static func modifiers(from flags: NSEvent.ModifierFlags) -> Set<PushToTalkShortcutModifier> {
+        var modifiers: Set<PushToTalkShortcutModifier> = []
+        if flags.contains(.control) {
+            modifiers.insert(.control)
+        }
+        if flags.contains(.option) {
+            modifiers.insert(.option)
+        }
+        if flags.contains(.shift) {
+            modifiers.insert(.shift)
+        }
+        if flags.contains(.command) {
+            modifiers.insert(.command)
+        }
+        if flags.contains(.function) {
+            modifiers.insert(.function)
+        }
+        return modifiers
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -845,9 +991,20 @@ struct SettingsView: View {
                     get: { appState.settings.pushToTalkShortcut },
                     set: { appState.setPushToTalkShortcut($0) }
                 )) {
-                    ForEach(PushToTalkShortcut.allCases) { shortcut in
+                    ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                         Text(localizer.shortcutName(shortcut)).tag(shortcut)
                     }
+                }
+
+                if appState.settings.pushToTalkShortcut == .custom {
+                    Divider()
+
+                    CustomPushToTalkShortcutRecorder(
+                        currentShortcut: appState.settings.customPushToTalkShortcut,
+                        localizer: localizer,
+                        onRecord: appState.setCustomPushToTalkShortcut
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 if let controlsStatusFooter {
@@ -908,7 +1065,10 @@ struct SettingsView: View {
             return nil
         }
 
-        let readyMessage = localizer.holdToDictate(shortcut: appState.settings.pushToTalkShortcut)
+        let readyMessage = localizer.holdToDictate(
+            shortcut: appState.settings.pushToTalkShortcut,
+            customShortcut: appState.settings.customPushToTalkShortcut
+        )
         let message = appState.pushToTalkStatusMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, message != readyMessage else {
             return nil

@@ -27,6 +27,7 @@ extension AppSettings {
         case sendContextPrompt
         case pushToTalkEnabled
         case pushToTalkShortcut
+        case customPushToTalkShortcut
         case recordingStartSoundEnabled
         case recordingStartSound
         case rightOptionPushToTalkEnabled
@@ -115,6 +116,7 @@ extension AppSettings {
         try container.encode(sendContextPrompt, forKey: .sendContextPrompt)
         try container.encode(pushToTalkEnabled, forKey: .pushToTalkEnabled)
         try container.encode(pushToTalkShortcut, forKey: .pushToTalkShortcut)
+        try container.encodeIfPresent(customPushToTalkShortcut, forKey: .customPushToTalkShortcut)
         try container.encode(recordingStartSoundEnabled, forKey: .recordingStartSoundEnabled)
         try container.encode(recordingStartSound, forKey: .recordingStartSound)
         try container.encode(voiceActivityGateEnabled, forKey: .voiceActivityGateEnabled)
@@ -262,6 +264,10 @@ extension AppSettings {
             ?? container.decodeIfPresent(Bool.self, forKey: .rightOptionPushToTalkEnabled)
             ?? defaults.pushToTalkEnabled
         pushToTalkShortcut = try container.decodeIfPresent(PushToTalkShortcut.self, forKey: .pushToTalkShortcut) ?? defaults.pushToTalkShortcut
+        customPushToTalkShortcut = try container.decodeIfPresent(
+            CustomPushToTalkShortcut.self,
+            forKey: .customPushToTalkShortcut
+        )
         recordingStartSoundEnabled = try container.decodeIfPresent(
             Bool.self,
             forKey: .recordingStartSoundEnabled

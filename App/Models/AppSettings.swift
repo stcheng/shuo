@@ -35,6 +35,7 @@ struct AppSettings: Codable, Equatable {
     var sendContextPrompt = true
     var pushToTalkEnabled = true
     var pushToTalkShortcut: PushToTalkShortcut = .rightOption
+    var customPushToTalkShortcut: CustomPushToTalkShortcut?
     var recordingStartSoundEnabled = true
     var recordingStartSound: RecordingCueSound = .doubleTap
     var voiceActivityGateEnabled = true
