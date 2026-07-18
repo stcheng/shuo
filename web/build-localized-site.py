@@ -165,7 +165,7 @@ def structured_data(page_name: str, language: str, page: dict[str, object]) -> d
             "name": "Shuo",
             "applicationCategory": "UtilitiesApplication",
             "operatingSystem": "macOS 14 or later",
-            "downloadUrl": "https://github.com/stcheng/shuo/releases/latest/download/Shuo-latest-macOS.dmg",
+            "downloadUrl": "https://github.com/stcheng/shuo/releases/download/v1.2.4/Shuo-1.2.4-macOS.dmg",
             "image": IMAGE_URL,
         }
     return {

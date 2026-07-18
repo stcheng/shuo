@@ -370,6 +370,20 @@ h3 {
   margin-left: auto;
 }
 
+.hero-download {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.hero-download-version {
+  padding-left: 2px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -1902,6 +1916,10 @@ html .hero .button {
     justify-content: flex-start;
     width: min(330px, 100%);
     margin-left: 0;
+  }
+
+  .hero-download {
+    width: 100%;
   }
 
   .button {
