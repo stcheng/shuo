@@ -370,17 +370,19 @@ h3 {
   margin-left: auto;
 }
 
-.hero-download {
-  display: grid;
-  justify-items: start;
-  gap: 6px;
+.hero-download-button {
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.05;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .hero-download-version {
-  padding-left: 2px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 760;
+  color: rgba(17, 17, 15, 0.65);
+  font-size: 0.64rem;
+  font-weight: 720;
+  line-height: 1;
   letter-spacing: 0.04em;
 }
 
@@ -1916,10 +1918,6 @@ html .hero .button {
     justify-content: flex-start;
     width: min(330px, 100%);
     margin-left: 0;
-  }
-
-  .hero-download {
-    width: 100%;
   }
 
   .button {
