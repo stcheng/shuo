@@ -1,5 +1,10 @@
 import SwiftUI
 
+private enum CloudTextModelPickerSelection: Hashable {
+    case automatic
+    case fixed(String)
+}
+
 struct LLMRequirementBadge: View {
     let accessibilityLabel: String
 
@@ -25,6 +30,7 @@ struct PostProcessingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightedSearchTarget: SettingsSearchTarget?
     @State private var highlightedSearchRequestID: UUID?
+    @State private var isConfirmingCloudTextRelayTest = false
 
     private let presentation: Presentation
     private let navigationSection: AppPanelSection
@@ -98,10 +104,19 @@ struct PostProcessingView: View {
                 pluginIDs: [.outputLLMRetouch],
                 target: .featureTranscriptRetouch,
                 requiresLLM: true,
-                isAvailable: isCloudTextAIAvailable,
+                isAvailable: true,
                 isRuntimeEnabled: { appState.settings.transcriptRetouchEnabled }
             ) { isEnabled in
                 appState.settings.transcriptRetouchEnabled = isEnabled
+                if isEnabled,
+                   appState.settings.openAITextModelSelectionMode == .disabled {
+                    appState.settings.openAITextModelSelectionMode = .automatic
+                }
+            }
+
+            if appState.settings.transcriptRetouchEnabled {
+                transcriptRetouchCloudConfiguration
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
         } header: {
@@ -114,6 +129,276 @@ struct PostProcessingView: View {
             reduceMotion ? nil : .easeOut(duration: 0.16),
             value: appState.settings.transcriptRetouchEnabled
         )
+        .alert(
+            localizer.cloudTextRelayTestConfirmationTitle(),
+            isPresented: $isConfirmingCloudTextRelayTest
+        ) {
+            Button(localizer.cancelLabel(), role: .cancel) {}
+            Button(localizer.testSelectedOpenAIModelLabel()) {
+                appState.acknowledgeCloudTextRelayAndTestModel()
+            }
+        } message: {
+            Text(localizer.cloudTextRelayTestConfirmationDetail())
+        }
+    }
+
+    @ViewBuilder
+    private var transcriptRetouchCloudConfiguration: some View {
+        Toggle(localizer.useSameCloudServiceLabel(), isOn: $appState.settings.cloudTextUsesTranscriptionService)
+            .onChange(of: appState.settings.cloudTextUsesTranscriptionService) {
+                appState.cloudTextConnectionConfigurationDidChange()
+            }
+
+        if appState.settings.cloudTextUsesTranscriptionService,
+           appState.settings.cloudTextServiceProvider == nil {
+            SettingsRowFeedback(
+                text: localizer.sameCloudTextServiceUnavailableDetail(),
+                style: .warning
+            )
+        }
+
+        if !appState.settings.cloudTextUsesTranscriptionService {
+            Picker(localizer.cloudServiceLabel(), selection: cloudTextServicePreset) {
+                ForEach(CloudTextServicePreset.allCases) { preset in
+                    Text(localizer.cloudTextServicePresetName(preset)).tag(preset)
+                }
+            }
+
+            cloudTextConnectionControls
+        }
+
+        cloudTextModelControls
+            .onAppear {
+                appState.loadCloudTextCredentialsIfNeeded()
+            }
+    }
+
+    @ViewBuilder
+    private var cloudTextConnectionControls: some View {
+        switch appState.settings.cloudTextServicePreset {
+        case .openAI, .groq, .siliconFlow, .custom:
+            let preset = appState.settings.cloudTextServicePreset
+            TextField(
+                localizer.text(.baseURL),
+                text: cloudTextBaseURL,
+                prompt: Text(AppSettings.defaultOpenAIBaseURL)
+            )
+            .textContentType(.URL)
+            .disabled(preset != .custom)
+            .onSubmit {
+                appState.refreshCloudTextModels()
+            }
+
+            SecureField(localizer.text(.apiKey), text: Binding(
+                get: { appState.cloudTextOpenAIAPIKey },
+                set: { appState.updateCloudTextOpenAIAPIKey($0) }
+            ))
+            .onSubmit {
+                appState.refreshCloudTextModels()
+            }
+            .onAppear {
+                appState.loadCloudTextOpenAIAPIKeyIfNeeded()
+            }
+
+            Button(localizer.refreshOpenAIModelsLabel()) {
+                appState.refreshCloudTextModels()
+            }
+            .disabled(
+                appState.isRefreshingCloudTextModels
+                    || appState.cloudTextOpenAIAPIKey.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ).isEmpty
+            )
+
+            if appState.isRefreshingCloudTextModels {
+                SettingsRowFeedback(
+                    text: localizer.refreshingOpenAIModels(),
+                    showsProgress: true
+                )
+            } else if let error = appState.cloudTextModelAvailabilityError {
+                SettingsRowFeedback(
+                    text: localizer.openAIModelRefreshFailed(error),
+                    style: .warning
+                )
+            }
+
+        case .gemini:
+            fixedBaseURLRow(CloudTranscriptionProviderConfiguration.gemini.endpoint.fixedURL!)
+            SecureField(localizer.text(.apiKey), text: Binding(
+                get: { appState.geminiAPIKey },
+                set: { appState.updateGeminiAPIKey($0) }
+            ))
+            .onAppear {
+                appState.loadGeminiAPIKeyIfNeeded()
+            }
+        }
+    }
+
+    private func fixedBaseURLRow(_ baseURL: URL) -> some View {
+        TextField(localizer.text(.baseURL), text: .constant(baseURL.absoluteString))
+            .textContentType(.URL)
+            .disabled(true)
+    }
+
+    @ViewBuilder
+    private var cloudTextModelControls: some View {
+        if appState.settings.cloudTextUsesGemini {
+            Picker(localizer.text(.model), selection: $appState.settings.cloudTextGeminiModel) {
+                ForEach(GeminiTranscriptionService.modelIDs, id: \.self) { modelID in
+                    Text(modelID).tag(modelID)
+                }
+            }
+        } else if appState.settings.cloudTextServiceProvider == .openAI {
+            Picker(selection: cloudTextModelSelection) {
+                Text(localizer.automaticCloudTextModelLabel())
+                    .tag(CloudTextModelPickerSelection.automatic)
+
+                if !cloudTextModelOptions.isEmpty {
+                    Divider()
+                    ForEach(cloudTextModelOptions, id: \.self) { model in
+                        Text(appState.cloudTextModelOptionLabel(model))
+                            .tag(CloudTextModelPickerSelection.fixed(model))
+                    }
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(localizer.text(.model))
+                    if appState.settings.openAITextModelSelectionMode == .automatic {
+                        Text(appState.openAIAutomaticTextModelMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+
+        Button(localizer.testSelectedOpenAIModelLabel()) {
+            if appState.settings.cloudTextRequiresRelayAcknowledgement,
+               !appState.settings.hasAcknowledgedCloudTextRelay {
+                isConfirmingCloudTextRelayTest = true
+            } else {
+                appState.testCloudTextModel()
+            }
+        }
+        .disabled(
+            appState.isTestingCloudTextModel
+                || !cloudTextHasAPIKey
+                || appState.settings.cloudTextServiceProvider == nil
+        )
+
+        if let message = appState.cloudTextModelTestMessage {
+            SettingsRowFeedback(
+                text: message,
+                style: appState.cloudTextModelTestSucceeded
+                    ? .success
+                    : (appState.cloudTextModelTestError == nil ? .neutral : .warning),
+                showsProgress: appState.isTestingCloudTextModel
+            )
+        }
+    }
+
+    private var cloudTextServicePreset: Binding<CloudTextServicePreset> {
+        Binding(
+            get: { appState.settings.cloudTextServicePreset },
+            set: { preset in
+                var updatedSettings = appState.settings
+                updatedSettings.cloudTextServicePreset = preset
+                switch preset {
+                case .openAI, .groq, .siliconFlow:
+                    updatedSettings.cloudTextOpenAIBaseURL = preset.baseURL ?? AppSettings.defaultOpenAIBaseURL
+                case .custom:
+                    updatedSettings.cloudTextOpenAIBaseURL = updatedSettings
+                        .lastCustomCloudTextOpenAIBaseURL
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if updatedSettings.cloudTextOpenAIBaseURL.isEmpty {
+                        updatedSettings.cloudTextOpenAIBaseURL = AppSettings.defaultOpenAIBaseURL
+                    }
+                case .gemini:
+                    break
+                }
+                appState.settings = updatedSettings
+                appState.cloudTextConnectionConfigurationDidChange()
+            }
+        )
+    }
+
+    private var cloudTextBaseURL: Binding<String> {
+        Binding(
+            get: { appState.settings.cloudTextOpenAIBaseURL },
+            set: { baseURL in
+                var updatedSettings = appState.settings
+                updatedSettings.cloudTextOpenAIBaseURL = baseURL
+                if updatedSettings.cloudTextServicePreset == .custom {
+                    updatedSettings.lastCustomCloudTextOpenAIBaseURL = baseURL
+                }
+                appState.settings = updatedSettings
+                appState.cloudTextConnectionConfigurationDidChange()
+            }
+        )
+    }
+
+    private var cloudTextModelSelection: Binding<CloudTextModelPickerSelection> {
+        Binding(
+            get: {
+                appState.settings.openAITextModelSelectionMode == .automatic
+                    ? .automatic
+                    : .fixed(appState.settings.fixedOpenAITextModel)
+            },
+            set: { selection in
+                switch selection {
+                case .automatic:
+                    appState.settings.openAITextModelSelectionMode = .automatic
+                    let availableModelIDs = appState.settings.cloudTextUsesTranscriptionService
+                        ? appState.openAIAvailableModelIDs
+                        : appState.cloudTextAvailableModelIDs
+                    if let recommendedModelID = OpenAIModelCatalog.recommendedTextModelID(
+                        availableModelIDs: availableModelIDs
+                    ) {
+                        appState.settings.automaticOpenAITextModel = recommendedModelID
+                    }
+                case let .fixed(modelID):
+                    appState.settings.fixedOpenAITextModel = modelID
+                    appState.settings.openAITextModelSelectionMode = .fixed
+                }
+            }
+        )
+    }
+
+    private var cloudTextModelOptions: [String] {
+        guard appState.settings.cloudTextServiceProvider == .openAI else {
+            return []
+        }
+
+        let availableModelIDs: Set<String>
+        let didRefresh: Bool
+        if appState.settings.cloudTextUsesTranscriptionService {
+            availableModelIDs = appState.openAIAvailableModelIDs
+            didRefresh = appState.openAIModelAvailabilityFetchedAt != nil
+        } else {
+            availableModelIDs = appState.cloudTextAvailableModelIDs
+            didRefresh = appState.cloudTextModelAvailabilityFetchedAt != nil
+        }
+
+        guard didRefresh else {
+            return OpenAIModelCatalog.textModels.map(\.id)
+        }
+        return availableModelIDs
+            .filter(OpenAIModelCatalog.supportsTextGeneration)
+            .sorted()
+    }
+
+    private var cloudTextHasAPIKey: Bool {
+        switch appState.settings.cloudTextServiceProvider {
+        case .gemini:
+            return !appState.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .openAI:
+            let apiKey = appState.settings.cloudTextUsesTranscriptionService
+                ? appState.openAIAPIKey
+                : appState.cloudTextOpenAIAPIKey
+            return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .none, .some(.local), .some(.elevenLabs), .some(.alibaba), .some(.custom):
+            return false
+        }
     }
 
     @ViewBuilder
@@ -755,24 +1040,32 @@ struct PromptConfigurationSections: View {
         AppLocalizer(language: appState.settings.appLanguage)
     }
 
+    private var isUnavailableForSenseVoice: Bool {
+        appState.settings.usesSenseVoiceLocalTranscription
+    }
+
     var body: some View {
         if appState.isPluginEnabled(.smartPromptContext) {
             Section {
-                SettingsCollection(
-                    addLabel: localizer.text(.addPromptContext),
-                    addAction: addPromptContext
-                ) {
-                    if appState.settings.promptContextItems.isEmpty {
-                        SettingsCollectionEmptyRow(text: localizer.promptContextsEmptyDetail())
-                    } else {
-                        ForEach(appState.settings.promptContextItems) { item in
-                            PromptContextSourceRow(
-                                item: bindingForPromptContext(id: item.id),
-                                localizer: localizer,
-                                remove: { removePromptContext(id: item.id) }
-                            )
-                            if item.id != appState.settings.promptContextItems.last?.id {
-                                Divider()
+                if isUnavailableForSenseVoice {
+                    SettingsRowFeedback(text: localizer.senseVoiceVocabularyUnavailableDetail())
+                } else {
+                    SettingsCollection(
+                        addLabel: localizer.text(.addPromptContext),
+                        addAction: addPromptContext
+                    ) {
+                        if appState.settings.promptContextItems.isEmpty {
+                            SettingsCollectionEmptyRow(text: localizer.promptContextsEmptyDetail())
+                        } else {
+                            ForEach(appState.settings.promptContextItems) { item in
+                                PromptContextSourceRow(
+                                    item: bindingForPromptContext(id: item.id),
+                                    localizer: localizer,
+                                    remove: { removePromptContext(id: item.id) }
+                                )
+                                if item.id != appState.settings.promptContextItems.last?.id {
+                                    Divider()
+                                }
                             }
                         }
                     }

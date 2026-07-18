@@ -70,25 +70,52 @@ enum LocalWhisperBackupPolicy {
     // them out of backup without treating arbitrary custom .bin files as cache.
     private static let legacyManagedAssets = [
         ManagedAsset(
+            filename: "ggml-base.bin",
+            expectedByteCount: 147_951_465
+        ),
+        ManagedAsset(
+            filename: "ggml-base.en.bin",
+            expectedByteCount: 147_964_211
+        ),
+        ManagedAsset(
             filename: "ggml-base.en-q5_1.bin",
             expectedByteCount: 59_721_011
+        ),
+        ManagedAsset(
+            filename: "ggml-small.en.bin",
+            expectedByteCount: 487_614_201
         ),
         ManagedAsset(
             filename: "ggml-small-q5_1.bin",
             expectedByteCount: 190_085_487
         ),
         ManagedAsset(
+            filename: "ggml-medium.bin",
+            expectedByteCount: 1_533_763_059
+        ),
+        ManagedAsset(
             filename: "ggml-medium-q5_0.bin",
             expectedByteCount: 539_212_467
+        ),
+        ManagedAsset(
+            filename: "ggml-large-v3-turbo-q8_0.bin",
+            expectedByteCount: 874_188_075
         )
     ]
 
     private static var managedAssets: [ManagedAsset] {
-        LocalWhisperModelCatalog.managedModels.map {
-            ManagedAsset(
-                filename: $0.filename,
-                expectedByteCount: $0.expectedByteCount
-            )
+        LocalWhisperModelCatalog.managedModels.flatMap { model in
+            [
+                ManagedAsset(
+                    filename: model.filename,
+                    expectedByteCount: model.expectedByteCount
+                )
+            ] + model.supportingAssets.map {
+                ManagedAsset(
+                    filename: $0.filename,
+                    expectedByteCount: $0.expectedByteCount
+                )
+            }
         } + legacyManagedAssets
     }
 
@@ -128,6 +155,22 @@ enum LocalWhisperBackupPolicy {
 }
 
 struct LocalWhisperAssetInstaller {
+    private struct DownloadableModelAsset {
+        let filename: String
+        let downloadURL: URL
+        let expectedByteCount: Int64
+        let expectedSHA256: String
+        let destinationURL: URL
+
+        func hasExpectedFileSize(fileManager: FileManager = .default) -> Bool {
+            guard let attributes = try? fileManager.attributesOfItem(atPath: destinationURL.path),
+                  let size = attributes[.size] as? NSNumber else {
+                return false
+            }
+            return size.int64Value == expectedByteCount
+        }
+    }
+
     static func installEngineWithHomebrew() async throws -> URL {
         if let executableURL = LocalWhisperExecutableResolver.resolvedExecutableURL(configuredPath: "") {
             return executableURL
@@ -170,20 +213,31 @@ struct LocalWhisperAssetInstaller {
             withIntermediateDirectories: true
         )
 
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            do {
-                try await LocalWhisperModelIntegrity.validate(model: model, at: destinationURL)
-                try? LocalWhisperBackupPolicy.excludeManagedModel(at: destinationURL)
-                return destinationURL
-            } catch {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
+        let assets = [
+            DownloadableModelAsset(
+                filename: model.filename,
+                downloadURL: model.downloadURL,
+                expectedByteCount: model.expectedByteCount,
+                expectedSHA256: model.expectedSHA256,
+                destinationURL: destinationURL
+            )
+        ] + model.supportingAssets.map {
+            DownloadableModelAsset(
+                filename: $0.filename,
+                downloadURL: $0.downloadURL,
+                expectedByteCount: $0.expectedByteCount,
+                expectedSHA256: $0.expectedSHA256,
+                destinationURL: $0.destinationURL(in: directoryURL.path)
+            )
         }
 
         let requiredByteCount = LocalWhisperDiskSpace.requiredByteCount(
-            forDownloadByteCount: model.expectedByteCount
+            forDownloadByteCount: assets
+                .filter { !$0.hasExpectedFileSize() }
+                .reduce(0) { $0 + $1.expectedByteCount }
         )
-        if let availableByteCount = try LocalWhisperDiskSpace.availableByteCount(at: directoryURL),
+        if requiredByteCount > LocalWhisperDiskSpace.minimumReserveByteCount,
+           let availableByteCount = try LocalWhisperDiskSpace.availableByteCount(at: directoryURL),
            availableByteCount < requiredByteCount {
             throw LocalWhisperAssetInstallerError.insufficientDiskSpace(
                 requiredBytes: requiredByteCount,
@@ -191,15 +245,67 @@ struct LocalWhisperAssetInstaller {
             )
         }
 
-        let partialURL = directoryURL.appendingPathComponent(".\(model.filename).download")
+        var completedByteCount: Int64 = 0
+        for asset in assets {
+            try await installAsset(
+                asset,
+                totalByteCount: model.totalDownloadByteCount,
+                completedByteCount: completedByteCount,
+                progress: progress
+            )
+            completedByteCount += asset.expectedByteCount
+        }
+
+        return destinationURL
+    }
+
+    static func deleteModel(at modelURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: modelURL.path) else {
+            return
+        }
+
+        try FileManager.default.removeItem(at: modelURL)
+    }
+
+    private static func installAsset(
+        _ asset: DownloadableModelAsset,
+        totalByteCount: Int64,
+        completedByteCount: Int64,
+        progress: @escaping @Sendable (LocalWhisperDownloadProgress) -> Void
+    ) async throws {
+        if FileManager.default.fileExists(atPath: asset.destinationURL.path) {
+            do {
+                try await LocalWhisperModelIntegrity.validate(
+                    filename: asset.filename,
+                    expectedByteCount: asset.expectedByteCount,
+                    expectedSHA256: asset.expectedSHA256,
+                    at: asset.destinationURL
+                )
+                try? LocalWhisperBackupPolicy.excludeManagedModel(at: asset.destinationURL)
+                progress(
+                    LocalWhisperDownloadProgress(
+                        receivedByteCount: completedByteCount + asset.expectedByteCount,
+                        totalByteCount: totalByteCount
+                    )
+                )
+                return
+            } catch {
+                try? FileManager.default.removeItem(at: asset.destinationURL)
+            }
+        }
+
+        let partialURL = asset.destinationURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".\(asset.filename).download")
         try? FileManager.default.removeItem(at: partialURL)
+
         let downloader = LocalWhisperModelDownloader()
-        let (temporaryURL, response) = try await downloader.download(from: model.downloadURL) {
+        let (temporaryURL, response) = try await downloader.download(from: asset.downloadURL) {
             receivedByteCount in
             progress(
                 LocalWhisperDownloadProgress(
-                    receivedByteCount: receivedByteCount,
-                    totalByteCount: model.expectedByteCount
+                    receivedByteCount: completedByteCount + receivedByteCount,
+                    totalByteCount: totalByteCount
                 )
             )
         }
@@ -215,24 +321,19 @@ struct LocalWhisperAssetInstaller {
 
         try FileManager.default.moveItem(at: temporaryURL, to: partialURL)
         do {
-            try await LocalWhisperModelIntegrity.validate(model: model, at: partialURL)
+            try await LocalWhisperModelIntegrity.validate(
+                filename: asset.filename,
+                expectedByteCount: asset.expectedByteCount,
+                expectedSHA256: asset.expectedSHA256,
+                at: partialURL
+            )
             try Task.checkCancellation()
         } catch {
             try? FileManager.default.removeItem(at: partialURL)
             throw error
         }
-        try FileManager.default.moveItem(at: partialURL, to: destinationURL)
-        try? LocalWhisperBackupPolicy.excludeManagedModel(at: destinationURL)
-
-        return destinationURL
-    }
-
-    static func deleteModel(at modelURL: URL) throws {
-        guard FileManager.default.fileExists(atPath: modelURL.path) else {
-            return
-        }
-
-        try FileManager.default.removeItem(at: modelURL)
+        try FileManager.default.moveItem(at: partialURL, to: asset.destinationURL)
+        try? LocalWhisperBackupPolicy.excludeManagedModel(at: asset.destinationURL)
     }
 
     private static func homebrewURL() -> URL? {
@@ -298,12 +399,25 @@ struct LocalWhisperAssetInstaller {
 
 enum LocalWhisperModelIntegrity {
     static func validate(model: LocalWhisperManagedModel, at url: URL) async throws {
-        let expectedByteCount = model.expectedByteCount
-        let expectedSHA256 = model.expectedSHA256
-        let filename = model.filename
+        try await validate(
+            filename: model.filename,
+            expectedByteCount: model.expectedByteCount,
+            expectedSHA256: model.expectedSHA256,
+            at: url
+        )
+    }
+
+    static func validate(
+        filename: String,
+        expectedByteCount: Int64,
+        expectedSHA256: String,
+        at url: URL
+    ) async throws {
 
         let validationTask = Task.detached(priority: .utility) {
-            guard model.hasExpectedFileSize(at: url) else {
+            guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+                  let size = attributes[.size] as? NSNumber,
+                  size.int64Value == expectedByteCount else {
                 let actualSize = ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?
                     .int64Value ?? -1
                 throw LocalWhisperAssetInstallerError.invalidModelFile(

@@ -18,6 +18,7 @@ extension PluginID {
     static let providerOpenAI = PluginID(rawValue: "provider.openai")
     static let providerElevenLabs = PluginID(rawValue: "provider.elevenLabs")
     static let providerAlibaba = PluginID(rawValue: "provider.alibaba")
+    static let providerGemini = PluginID(rawValue: "provider.gemini")
     static let providerLocalWhisper = PluginID(rawValue: "provider.localWhisper")
     static let historyBasic = PluginID(rawValue: "history.basic")
     static let metricsBasic = PluginID(rawValue: "metrics.basic")
@@ -69,7 +70,7 @@ struct PluginDescriptor: Identifiable, Codable, Equatable {
 }
 
 struct PluginConfiguration: Codable, Equatable {
-    static let currentSchemaVersion = 4
+    static let currentSchemaVersion = 5
 
     var schemaVersion: Int
     var profile: String
@@ -112,6 +113,7 @@ extension PluginConfiguration {
         profile: "mvp",
         enabledPlugins: [
             .providerOpenAI,
+            .providerGemini,
             .providerLocalWhisper,
             .historyBasic,
             .metricsBasic,
@@ -155,6 +157,7 @@ extension PluginConfiguration {
         profile: "public",
         enabledPlugins: [
             .providerOpenAI,
+            .providerGemini,
             .providerLocalWhisper,
             .historyBasic,
             .metricsBasic,
@@ -196,6 +199,8 @@ struct PluginCapabilityPolicy {
             return configuration.isEnabled(.providerElevenLabs)
         case .alibaba:
             return configuration.isEnabled(.providerAlibaba)
+        case .gemini:
+            return configuration.isEnabled(.providerGemini)
         }
     }
 
@@ -219,6 +224,9 @@ struct PluginCapabilityPolicy {
         }
         if configuration.isEnabled(.providerAlibaba) {
             return .alibaba
+        }
+        if configuration.isEnabled(.providerGemini) {
+            return .gemini
         }
         return nil
     }
@@ -306,6 +314,15 @@ enum PluginCatalog {
             name: "Alibaba Cloud Qwen ASR",
             category: .provider,
             summary: "Qwen3-ASR-Flash transcription through Model Studio's Beijing endpoint.",
+            isCore: false,
+            isPublic: true,
+            isExperimental: true
+        ),
+        PluginDescriptor(
+            id: .providerGemini,
+            name: "Google Gemini Transcription",
+            category: .provider,
+            summary: "Gemini audio understanding for cloud transcription through Google's native API.",
             isCore: false,
             isPublic: true,
             isExperimental: true
@@ -629,6 +646,15 @@ enum PluginConfigurationStore {
                 }
             }
         }
+        if normalized.schemaVersion < 5,
+           ["mvp", "public", "full-dev"].contains(normalized.profile) {
+            // Gemini is surfaced in the default profiles so users can try the
+            // requested cloud provider without manually editing a profile.
+            // Preserve an explicit opt-out in imported configurations.
+            if !normalized.disabledPlugins.contains(.providerGemini) {
+                normalized.enabledPlugins.insert(.providerGemini)
+            }
+        }
         normalized.schemaVersion = PluginConfiguration.currentSchemaVersion
         normalized.disabledPlugins.subtract(normalized.enabledPlugins)
         return normalized
@@ -646,6 +672,8 @@ enum PluginConfigurationStore {
             return .providerElevenLabs
         case .alibaba:
             return .providerAlibaba
+        case .gemini:
+            return .providerGemini
         case nil:
             return nil
         }

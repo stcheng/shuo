@@ -22,7 +22,10 @@ struct LocalWhisperSetupService {
         currentSettings: AppSettings
     ) -> AppSettings? {
         let modelURL = model.destinationURL(in: currentSettings.localWhisperModelDirectoryPath)
-        guard model.hasExpectedFileSize(at: modelURL) else {
+        guard LocalWhisperModelCatalog.isInstalled(
+            model,
+            in: currentSettings.localWhisperModelDirectoryPath
+        ) else {
             return nil
         }
 
@@ -60,14 +63,26 @@ struct LocalWhisperSetupService {
         let modelURL = model.destinationURL(in: currentSettings.localWhisperModelDirectoryPath)
         try LocalWhisperAssetInstaller.deleteModel(at: modelURL)
         LocalWhisperModelCatalog.invalidateCache(for: modelURL.deletingLastPathComponent().path)
+        for asset in model.supportingAssets {
+            guard !LocalWhisperModelCatalog.hasAnotherModelUsing(
+                supportingAsset: asset,
+                excludingModelURL: modelURL,
+                in: currentSettings.localWhisperModelDirectoryPath
+            ) else {
+                continue
+            }
+            try LocalWhisperAssetInstaller.deleteModel(
+                at: asset.destinationURL(in: currentSettings.localWhisperModelDirectoryPath)
+            )
+        }
+        LocalWhisperModelCatalog.invalidateCache(for: modelURL.deletingLastPathComponent().path)
 
         var updatedSettings = currentSettings
         let selectedModelPath = updatedSettings.localWhisperModelPath
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !selectedModelPath.isEmpty,
            URL(fileURLWithPath: selectedModelPath).standardizedFileURL == modelURL.standardizedFileURL {
-            let fallbackModels = LocalWhisperModelCatalog.featuredModels
-                + LocalWhisperModelCatalog.additionalModels
+            let fallbackModels = LocalWhisperModelCatalog.managedModels
             if let fallbackModel = fallbackModels.first(where: { candidate in
                 candidate.id != model.id
                     && isModelInstalled(
@@ -79,6 +94,13 @@ struct LocalWhisperSetupService {
                     at: fallbackModel.destinationURL(
                         in: updatedSettings.localWhisperModelDirectoryPath
                     ),
+                    currentSettings: updatedSettings
+                )
+            } else if let existingModelURL = LocalWhisperModelCatalog
+                .modelURLs(in: updatedSettings.localWhisperModelDirectoryPath)
+                .first(where: { $0.standardizedFileURL != modelURL.standardizedFileURL }) {
+                updatedSettings = settingsSelectingModel(
+                    at: existingModelURL,
                     currentSettings: updatedSettings
                 )
             } else {

@@ -24,9 +24,15 @@ for required_path in \
   SECURITY.md \
   THIRD_PARTY_NOTICES.md \
   App/Resources/ThirdParty/OpenAI-Whisper-LICENSE.txt \
+  App/Resources/ThirdParty/SenseVoice-LICENSE.txt \
+  App/Resources/ThirdParty/SenseVoiceSmall-GGUF-LICENSE.txt \
   App/Resources/ThirdParty/Sparkle-LICENSE.txt \
   App/Resources/ThirdParty/Unicode-CLDR-LICENSE.txt \
+  App/Resources/ThirdParty/llama.cpp-LICENSE.txt \
   Scripts/package-app.sh \
+  Scripts/embed-sensevoice-runtime.sh \
+  Scripts/patches/sensevoice-segment-delimiters.patch \
+  Scripts/prepare-sensevoice-runtime.sh \
   Scripts/prepare-whisper-runtime.sh \
   Shuo.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; do
   [[ -f "$ROOT_DIR/$required_path" ]] \
@@ -43,6 +49,28 @@ rg -Fq 'f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c' \
 rg -Fq 'PINNED_WHISPER_CPP_VERSION="1.8.6"' \
   "$ROOT_DIR/Scripts/package-app.sh" \
   || fail "formal release does not pin whisper.cpp 1.8.6"
+rg -Fq 'RUNTIME_VERSION="${SHUO_SENSEVOICE_RUNTIME_VERSION:-0.1.4}"' \
+  "$ROOT_DIR/Scripts/prepare-sensevoice-runtime.sh" \
+  || fail "SenseVoice runtime development default is no longer 0.1.4"
+rg -Fq '9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af' \
+  "$ROOT_DIR/Scripts/prepare-sensevoice-runtime.sh" \
+  "$ROOT_DIR/Scripts/package-app.sh" \
+  || fail "SenseVoice runtime source hash pin is missing"
+rg -Fq '1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5' \
+  "$ROOT_DIR/Scripts/prepare-sensevoice-runtime.sh" \
+  "$ROOT_DIR/Scripts/package-app.sh" \
+  || fail "SenseVoice llama.cpp source hash pin is missing"
+rg -Fq 'PINNED_SENSEVOICE_RUNTIME_VERSION="0.1.4"' \
+  "$ROOT_DIR/Scripts/package-app.sh" \
+  || fail "formal release does not pin SenseVoice runtime 0.1.4"
+rg -Fq '16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a' \
+  "$ROOT_DIR/Scripts/prepare-sensevoice-runtime.sh" \
+  "$ROOT_DIR/Scripts/package-app.sh" \
+  "$ROOT_DIR/Scripts/verify-release-artifacts.sh" \
+  || fail "SenseVoice segment-delimiter patch pin is missing"
+[[ "$(shasum -a 256 "$ROOT_DIR/Scripts/patches/sensevoice-segment-delimiters.patch" | awk '{print $1}')" \
+    == "16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a" ]] \
+  || fail "SenseVoice segment-delimiter patch changed without a pin update"
 
 rg -Fq 'GNU GENERAL PUBLIC LICENSE' "$ROOT_DIR/LICENSE" \
   || fail "LICENSE is not the GPL text"
@@ -70,6 +98,8 @@ rg -Fq 'version = 2.9.4;' "$ROOT_DIR/Shuo.xcodeproj/project.pbxproj" \
 for notice in \
   'Sparkle 2.9.4' \
   'whisper.cpp 1.8.6' \
+  'SenseVoice llama.cpp runtime 0.1.4' \
+  'SenseVoiceSmall GGUF and FSMN-VAD model weights' \
   'OpenAI Whisper model weights' \
   'Unicode CLDR annotation data'; do
   rg -Fq "$notice" "$ROOT_DIR/THIRD_PARTY_NOTICES.md" \
@@ -85,6 +115,15 @@ rg -Fq 'Permission is hereby granted, free of charge' \
 rg -Fq 'UNICODE LICENSE V3' \
   "$ROOT_DIR/App/Resources/ThirdParty/Unicode-CLDR-LICENSE.txt" \
   || fail "Unicode CLDR license text is incomplete"
+rg -Fq 'Permission is hereby granted, free of charge' \
+  "$ROOT_DIR/App/Resources/ThirdParty/SenseVoice-LICENSE.txt" \
+  || fail "SenseVoice license text is incomplete"
+rg -Fq 'Apache License' \
+  "$ROOT_DIR/App/Resources/ThirdParty/SenseVoiceSmall-GGUF-LICENSE.txt" \
+  || fail "SenseVoiceSmall GGUF license text is incomplete"
+rg -Fq 'Permission is hereby granted, free of charge' \
+  "$ROOT_DIR/App/Resources/ThirdParty/llama.cpp-LICENSE.txt" \
+  || fail "llama.cpp license text is incomplete"
 
 while IFS=' ' read -r expected_hash relative_path; do
   actual_hash="$(shasum -a 256 "$ROOT_DIR/$relative_path" | awk '{print $1}')"
@@ -95,6 +134,9 @@ done <<'HASHES'
 b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d App/Resources/ThirdParty/OpenAI-Whisper-LICENSE.txt
 389a4e4e9a32f059775b13a06e25a591445ba229d2838d26dd3e7c0c45127cfe App/Resources/ThirdParty/Sparkle-LICENSE.txt
 220ba0e1c43b99530d2d5bdb892a99dca0989414f51ab695ecd90163eaa1ec3b App/Resources/ThirdParty/Unicode-CLDR-LICENSE.txt
+4bc3bffe14ebe38cc67309991e04f92866835eac1c5e2e1abd37163f67c6de5f App/Resources/ThirdParty/SenseVoice-LICENSE.txt
+7ac4eb17fc25e904a4935e43ac31cebea0597c7c06210292699af1eb2d96551d App/Resources/ThirdParty/SenseVoiceSmall-GGUF-LICENSE.txt
+94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d App/Resources/ThirdParty/llama.cpp-LICENSE.txt
 HASHES
 
 prohibited_file="$(find "$ROOT_DIR" \

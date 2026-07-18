@@ -70,6 +70,16 @@ final class PasteboardContentsSnapshotTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "new user copy")
     }
 
+    func testMalformedPrivatePasteboardTypesAreSkippedOnlyWhenUnreadable() {
+        let malformed = NSPasteboard.PasteboardType(
+            "com.trolltech.anymime.WeChat_RichEdit_Format"
+        )
+
+        XCTAssertTrue(PasteboardContentsSnapshot.shouldSkipUnreadableMalformedType(malformed))
+        XCTAssertFalse(PasteboardContentsSnapshot.shouldSkipUnreadableMalformedType(.string))
+        XCTAssertEqual(PasteboardContentsSnapshot.captureTimeout, 0.35, accuracy: 0.001)
+    }
+
     func testSlowPasteboardOwnerTimesOutWithoutBlockingMainActor() async throws {
         let pasteboard = makePasteboard()
         defer { pasteboard.releaseGlobally() }
@@ -1946,8 +1956,44 @@ final class LocalWhisperModelIntegrityTests: XCTestCase {
         )
         XCTAssertTrue(
             LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "ggml-base.en.bin",
+                byteCount: 147_964_211
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "ggml-small.en.bin",
+                byteCount: 487_614_201
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "ggml-medium.bin",
+                byteCount: 1_533_763_059
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "ggml-large-v3-turbo-q8_0.bin",
+                byteCount: 874_188_075
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
                 filename: "ggml-small-q5_1.bin",
                 byteCount: 190_085_487
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "sensevoice-small-q8.gguf",
+                byteCount: 254_208_320
+            )
+        )
+        XCTAssertTrue(
+            LocalWhisperBackupPolicy.isManagedAsset(
+                filename: "fsmn-vad.gguf",
+                byteCount: 1_720_512
             )
         )
         XCTAssertFalse(
@@ -2627,6 +2673,47 @@ final class FloatingWindowBehaviorTests: XCTestCase {
         XCTAssertLessThanOrEqual(long, 16)
     }
 
+    func testAutomaticDismissalIgnoresSyntheticAndQueuedPrePresentationEvents() {
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 102.25,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 103,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertTrue(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 104,
+                presentationTimestamp: 103,
+                isSynthetic: true
+            )
+        )
+    }
+
+    func testAutomaticDismissalStillRespondsToNewUserEvents() {
+        XCTAssertFalse(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: 103.01,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+        XCTAssertFalse(
+            FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: .nan,
+                presentationTimestamp: 103,
+                isSynthetic: false
+            )
+        )
+    }
+
     func testWindowWidthAdaptsForOneLineAndHeightGrowsForMultipleLines() {
         let shortLine = FloatingWindowBehavior.windowSize(for: "好的")
         let longerLine = FloatingWindowBehavior.windowSize(
@@ -2699,11 +2786,23 @@ final class SettingsSearchIndexTests: XCTestCase {
     func testBasicApplicationSettingsRouteToSettingsPage() throws {
         let items = makeItems(configuration: .mvp)
         let language = try XCTUnwrap(items.first { $0.target == .appLanguage })
+        let dockIcon = try XCTUnwrap(items.first { $0.target == .showDockIcon })
         let launchAtLogin = try XCTUnwrap(items.first { $0.target == .launchAtLogin })
 
         XCTAssertEqual(language.section, .transcription)
+        XCTAssertEqual(dockIcon.section, .transcription)
         XCTAssertEqual(launchAtLogin.section, .transcription)
         XCTAssertEqual(language.pageTitle, "Settings")
+        XCTAssertEqual(dockIcon.pageTitle, "Settings")
+    }
+
+    func testDockIconSearchFindsApplicationSetting() {
+        let items = makeItems(configuration: .mvp)
+
+        let results = SettingsSearchIndex.search("dock icon", in: items)
+
+        XCTAssertEqual(results.first?.target, .showDockIcon)
+        XCTAssertEqual(results.first?.section, .transcription)
     }
 
     func testArchitectureSearchRoutesToSignalChainPage() {
@@ -2810,7 +2909,7 @@ final class SettingsSearchIndexTests: XCTestCase {
             SettingsSearchIndex.search("OpenAI API key", in: items).first?.target,
             .transcriptionProvider
         )
-        XCTAssertTrue(items.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(items.contains { $0.target == .featureTranscriptRetouch })
         XCTAssertFalse(items.contains { $0.target == .voiceEditMode })
         XCTAssertFalse(items.contains { $0.target == .voiceEditCommands })
     }
@@ -2829,7 +2928,7 @@ final class SettingsSearchIndexTests: XCTestCase {
             SettingsSearchIndex.search("OpenAI API key", in: items).first?.target,
             .openAIAPIKey
         )
-        XCTAssertTrue(items.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(items.contains { $0.target == .featureTranscriptRetouch })
     }
 
     func testLocalProviderMasksPersistedCloudTextFeaturesFromSearch() {
@@ -2847,7 +2946,7 @@ final class SettingsSearchIndexTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(items.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(items.contains { $0.target == .featureTranscriptRetouch })
         XCTAssertFalse(items.contains { $0.target == .transcriptRetouch })
         XCTAssertFalse(items.contains { $0.target == .voiceEditCommands })
         XCTAssertEqual(
@@ -2870,7 +2969,7 @@ final class SettingsSearchIndexTests: XCTestCase {
 
         XCTAssertTrue(items.contains { $0.target == .voiceEditMode })
         XCTAssertFalse(items.contains { $0.target == .voiceEditCommands })
-        XCTAssertTrue(items.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(items.contains { $0.target == .featureTranscriptRetouch })
         XCTAssertEqual(
             SettingsSearchIndex.search("OpenAI API key", in: items).first?.target,
             .transcriptionProvider
@@ -2900,8 +2999,8 @@ final class SettingsSearchIndexTests: XCTestCase {
 
         XCTAssertFalse(automaticItems.contains { $0.target == .voiceEditCommands })
         XCTAssertFalse(fixedItems.contains { $0.target == .voiceEditCommands })
-        XCTAssertTrue(automaticItems.contains { $0.target == .openAITextModel })
-        XCTAssertTrue(fixedItems.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(automaticItems.contains { $0.target == .featureTranscriptRetouch })
+        XCTAssertTrue(fixedItems.contains { $0.target == .featureTranscriptRetouch })
     }
 
     func testDisabledTextModelsMaskCloudFeatureSearchButKeepTheModeSelector() {
@@ -2921,7 +3020,7 @@ final class SettingsSearchIndexTests: XCTestCase {
         )
 
         XCTAssertFalse(context.featureVisibility.usesOpenAITextFeatures)
-        XCTAssertTrue(items.contains { $0.target == .openAITextModel })
+        XCTAssertTrue(items.contains { $0.target == .featureTranscriptRetouch })
         XCTAssertFalse(items.contains { $0.target == .transcriptRetouch })
         XCTAssertTrue(items.contains { $0.target == .aiEmojiResolver })
         XCTAssertFalse(items.contains { $0.target == .voiceEditCommands })
@@ -3171,6 +3270,19 @@ final class SettingsSearchIndexTests: XCTestCase {
 }
 
 final class CancellableProcessRunnerTests: XCTestCase {
+    func testProcessKeepsStandardOutputSeparateFromDiagnostics() async throws {
+        let result = try await CancellableProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", "printf 'recognized text'; printf 'runtime diagnostics' >&2"],
+            timeout: 5
+        )
+
+        XCTAssertEqual(result.terminationStatus, 0)
+        XCTAssertEqual(result.standardOutput, "recognized text")
+        XCTAssertEqual(result.standardError, "runtime diagnostics")
+        XCTAssertEqual(result.output, "recognized text\nruntime diagnostics")
+    }
+
     func testProcessTimeoutTerminatesAStuckProcess() async {
         let startedAt = Date()
 
@@ -3285,11 +3397,12 @@ final class FloatingWindowPlacementTests: XCTestCase {
 
 final class FloatingWindowContextMenuCopyTests: XCTestCase {
     func testContextMenuHasExactlyThreeLocalizedRowsInActionOrder() {
+        let appName = AppBuildIdentity.displayName
         let expectations: [(AppLanguage, [String])] = [
-            (.english, ["Hide Floating Bar", "Open Shuo", "Quit Shuo"]),
-            (.simplifiedChinese, ["隐藏悬浮栏", "打开 Shuo", "退出 Shuo"]),
-            (.traditionalChinese, ["隱藏懸浮列", "開啟 Shuo", "結束 Shuo"]),
-            (.japanese, ["フローティングバーを非表示", "Shuoを開く", "Shuoを終了"])
+            (.english, ["Hide Floating Bar", "Open \(appName)", "Quit \(appName)"]),
+            (.simplifiedChinese, ["隐藏悬浮栏", "打开 \(appName)", "退出 \(appName)"]),
+            (.traditionalChinese, ["隱藏懸浮列", "開啟 \(appName)", "結束 \(appName)"]),
+            (.japanese, ["フローティングバーを非表示", "\(appName)を開く", "\(appName)を終了"])
         ]
 
         for (language, expectedTitles) in expectations {

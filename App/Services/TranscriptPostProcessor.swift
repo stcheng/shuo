@@ -18,10 +18,9 @@ enum TranscriptInsertionBoundaryPolicy {
     private static let numericDecorationCharacters = Set(
         "+-−.,，٫٬:/：%％()（）".map { $0 }
     )
-    private static let continuationPunctuation = Set(
-        ",，、:：;；".map { $0 }
+    private static let sentenceFragmentBoundaryCharacters = Set(
+        "。！？!?…\n\r".map { $0 }
     )
-    private static let fullStopCharacters = Set(".。".map { $0 })
     private static let technicalDelimiterCharacters = Set("[]{}".map { $0 })
     private static let developerCommandSubcommands: [String: Set<String>] = [
         "git": [
@@ -93,39 +92,33 @@ enum TranscriptInsertionBoundaryPolicy {
         guard let finalCharacter = body.last else {
             return text
         }
-        let technicalCandidate = continuationPunctuation.contains(finalCharacter)
-            || fullStopCharacters.contains(finalCharacter)
-            ? String(body.dropLast())
-            : body
-        guard !isObviousTechnicalText(technicalCandidate), !isPureNumber(body) else {
-            return text
-        }
 
-        if isPreservedTerminalPunctuation(in: body) {
-            return text
-        }
-
-        let contentForScript = continuationPunctuation.contains(finalCharacter)
-            || fullStopCharacters.contains(finalCharacter)
-            ? String(body.dropLast())
-            : body
-        guard let punctuation = automaticFullStop(for: contentForScript) else {
-            return text
-        }
-
-        if continuationPunctuation.contains(finalCharacter)
-            || fullStopCharacters.contains(finalCharacter) {
-            return String(body.dropLast()) + String(punctuation) + closingCharacters
-        }
-
+        // Automatic sentence ending is additive only. If the model already
+        // emitted a final punctuation mark, preserve it even when the final
+        // word's script would suggest a different mark. This matters for
+        // Chinese/Japanese sentences that naturally end with an English term.
         guard !isPunctuation(finalCharacter) else {
             return text
         }
+
+        guard !isObviousTechnicalText(body), !isPureNumber(body) else {
+            return text
+        }
+        guard let punctuation = automaticFullStop(for: body) else {
+            return text
+        }
+
         return body + String(punctuation) + closingCharacters
     }
 
     private static func automaticFullStop(for text: String) -> Character? {
-        guard let finalCharacter = text.last else {
+        let sentenceFragment = trailingSentenceFragment(in: text)
+        let scriptSource = sentenceFragment.isEmpty ? text : sentenceFragment
+        if containsHanOrKana(in: scriptSource) {
+            return "。"
+        }
+
+        guard let finalCharacter = scriptSource.last ?? text.last else {
             return nil
         }
 
@@ -135,23 +128,14 @@ enum TranscriptInsertionBoundaryPolicy {
         case .latin, .otherLetter:
             return "."
         case .number:
-            guard let precedingScript = lastLetterScript(in: text) else {
+            guard let precedingScript = lastLetterScript(in: scriptSource)
+                ?? lastLetterScript(in: text) else {
                 return nil
             }
             return precedingScript == .hanOrKana ? "。" : "."
         case .symbol:
             return nil
         }
-    }
-
-    private static func isPreservedTerminalPunctuation(in text: String) -> Bool {
-        text.hasSuffix("...")
-            || text.hasSuffix("…")
-            || text.hasSuffix("……")
-            || text.hasSuffix("?")
-            || text.hasSuffix("!")
-            || text.hasSuffix("？")
-            || text.hasSuffix("！")
     }
 
     private static func shouldAppendSmartSpace(to text: String) -> Bool {
@@ -371,6 +355,22 @@ enum TranscriptInsertionBoundaryPolicy {
             return endingScript(of: character)
         }
         return nil
+    }
+
+    private static func trailingSentenceFragment(in text: String) -> String {
+        var startIndex = text.startIndex
+        var index = text.startIndex
+        while index < text.endIndex {
+            if sentenceFragmentBoundaryCharacters.contains(text[index]) {
+                startIndex = text.index(after: index)
+            }
+            index = text.index(after: index)
+        }
+        return String(text[startIndex...])
+    }
+
+    private static func containsHanOrKana(in text: String) -> Bool {
+        text.unicodeScalars.contains { isHanOrKana($0.value) }
     }
 
     private static func endingScript(of character: Character) -> EndingScript {

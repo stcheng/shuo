@@ -22,9 +22,11 @@ actively enables a cloud transcription or text feature.
 2. **Audio processing** — Shuo detects useful speech and prepares audio for
    recognition without changing the archived source recording.
 3. **Context** — Enabled terms, local project vocabulary, and reusable prompts
-   are ranked into a bounded hint. Project source and paths stay local.
-4. **Inference** — A downloaded local model or user-configured cloud service
-   produces an initial result.
+   are ranked into a bounded hint for engines and providers that support one.
+   Project source and paths stay local. SenseVoice deliberately skips
+   transcription hints rather than pretending to consume them.
+4. **Inference** — A downloaded local Whisper or SenseVoice model, or a
+   user-configured cloud service, produces an initial result.
 5. **Post-processing** — Enabled rules handle formatting, punctuation, script
    conversion, replacements, and Emoji. Optional cloud text processing remains
    distinct from local rules.

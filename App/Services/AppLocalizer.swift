@@ -18,6 +18,7 @@ enum AppTextKey: String, CaseIterable {
     case aboutDiagnosticsHint
     case general
     case appLanguage
+    case showDockIcon
     case dictation
     case transcription
     case provider
@@ -259,18 +260,43 @@ struct AppLocalizer {
             return localized("Cloud (ElevenLabs)", "云端（ElevenLabs）", "雲端（ElevenLabs）", "クラウド（ElevenLabs）")
         case .alibaba:
             return localized("Cloud (Alibaba Qwen)", "云端（阿里云通义）", "雲端（阿里雲通義）", "クラウド（Alibaba Qwen）")
+        case .gemini:
+            return localized("Cloud (Gemini)", "云端（Gemini）", "雲端（Gemini）", "クラウド（Gemini）")
         case .custom:
             return localized("Custom", "自定义", "自訂", "カスタム")
         }
     }
 
-    func elevenLabsKeytermDetail() -> String {
-        localized(
-            "Scribe v2 receives active preferred and project terms as keyterms. Audio is sent to ElevenLabs; ElevenLabs bills keyterm prompting as an add-on.",
-            "Scribe v2 会把当前常用词和项目词汇作为关键词提示；录音会发送给 ElevenLabs，关键词提示会由 ElevenLabs 额外计费。",
-            "Scribe v2 會把目前常用詞與專案詞彙作為關鍵詞提示；錄音會傳送給 ElevenLabs，關鍵詞提示會由 ElevenLabs 額外計費。",
-            "Scribe v2 は優先語とプロジェクト用語をキータームとして使用します。音声はElevenLabsへ送信され、キーターム機能は追加料金の対象です。"
-        )
+    func transcriptionExecutionLocationName(_ location: TranscriptionExecutionLocation) -> String {
+        switch location {
+        case .local:
+            return localized("Local", "本地", "本機", "ローカル")
+        case .cloud:
+            return localized("Cloud", "云端", "雲端", "クラウド")
+        }
+    }
+
+    func cloudTranscriptionPresetName(_ preset: CloudTranscriptionPreset) -> String {
+        switch preset {
+        case .openAI:
+            return "OpenAI"
+        case .groq:
+            return "Groq"
+        case .siliconFlow:
+            return localized("SiliconFlow", "硅基流动", "矽基流動", "SiliconFlow")
+        case .gemini:
+            return "Google Gemini"
+        case .elevenLabs:
+            return "ElevenLabs"
+        case .alibaba:
+            return localized("Alibaba Cloud", "阿里云", "阿里雲", "Alibaba Cloud")
+        case .custom:
+            return localized("Custom", "自定义", "自訂", "カスタム")
+        }
+    }
+
+    func cloudServiceLabel() -> String {
+        localized("Cloud service", "云端服务", "雲端服務", "クラウドサービス")
     }
 
     func onboardingElevenLabsDetail() -> String {
@@ -291,12 +317,57 @@ struct AppLocalizer {
         )
     }
 
+    func onboardingGeminiDetail() -> String {
+        localized(
+            "Gemini 3.1 Flash-Lite transcribes recordings and can also power optional text enhancements with the same API key and model.",
+            "Gemini 3.1 Flash-Lite 可转写录音，并使用同一 API key 与模型支持可选的文本增强。",
+            "Gemini 3.1 Flash-Lite 可轉寫錄音，並使用相同 API key 與模型支援選用的文字增強。",
+            "Gemini 3.1 Flash-Lite は録音を文字起こしし、同じ API キーとモデルで任意のテキスト拡張も利用できます。"
+        )
+    }
+
     func alibabaProviderDetail() -> String {
         localized(
             "Qwen3-ASR-Flash sends the current recording to Alibaba Cloud Model Studio's Beijing endpoint. Use an API key created for the Beijing region.",
             "Qwen3-ASR-Flash 会把当前录音发送到阿里云百炼北京地域接口；请使用在北京地域创建的 API key。",
             "Qwen3-ASR-Flash 會把目前錄音傳送至阿里雲 Model Studio 北京地域介面；請使用在北京地域建立的 API key。",
             "Qwen3-ASR-Flash は現在の録音をAlibaba Cloud Model Studioの北京エンドポイントへ送信します。北京リージョンのAPIキーを使用してください。"
+        )
+    }
+
+    func geminiTextEnhancementsDetail() -> String {
+        localized(
+            "Enabled retouch, voice edit, and AI emoji reuse Gemini 3.1 Flash-Lite and send only the needed text—not the recording again.",
+            "启用的转写润色、语音编辑和 AI 表情会复用 Gemini 3.1 Flash-Lite，只发送所需文本，不会再次发送录音。",
+            "啟用的文字潤飾、語音編輯和 AI 表情會重複使用 Gemini 3.1 Flash-Lite，只會傳送所需文字，不會再次傳送錄音。",
+            "有効にした文字起こし修正、音声編集、AI絵文字は Gemini 3.1 Flash-Lite を再利用し、必要なテキストだけを送信します。録音を再送信することはありません。"
+        )
+    }
+
+    func geminiTextEnhancementsLabel() -> String {
+        localized(
+            "Gemini text enhancements",
+            "Gemini 文本增强",
+            "Gemini 文字增強",
+            "Gemini テキスト拡張"
+        )
+    }
+
+    func optionalCloudTextEnhancementsEnabledLabel() -> String {
+        localized(
+            "Enable optional text enhancements",
+            "启用可选文本增强",
+            "啟用選用文字增強",
+            "任意のテキスト拡張を有効にする"
+        )
+    }
+
+    func disabledCloudTextEnhancementsHint() -> String {
+        localized(
+            "Optional cloud text features are off. Transcript retouch, voice edit, and AI emoji will not send text to a cloud model.",
+            "可选云端文本功能已关闭。转写润色、语音编辑和 AI 表情不会将文本发送到云端模型。",
+            "選用雲端文字功能已關閉。文字潤飾、語音編輯和 AI 表情不會將文字傳送至雲端模型。",
+            "任意のクラウドテキスト機能はオフです。文字起こし修正、音声編集、AI 絵文字でテキストがクラウドモデルへ送信されることはありません。"
         )
     }
 
@@ -396,10 +467,10 @@ struct AppLocalizer {
 
     func noCompatibleOpenAITextModels() -> String {
         localized(
-            "This API key returned no compatible text-processing models.",
-            "这个 API key 没有返回兼容的文本处理模型。",
-            "這個 API key 沒有傳回相容的文字處理模型。",
-            "このAPIキーでは互換性のあるテキスト処理モデルが見つかりませんでした。"
+            "No compatible model was found for optional cloud text features. This does not affect transcription.",
+            "没有找到可用于可选云端文本功能的兼容模型；这不会影响语音转写。",
+            "找不到可用於選用雲端文字功能的相容模型；這不會影響語音轉寫。",
+            "任意のクラウドテキスト機能用の互換モデルは見つかりませんでした。これは文字起こしには影響しません。"
         )
     }
 
@@ -425,6 +496,15 @@ struct AppLocalizer {
         )
     }
 
+    func automaticTranscriptionModelLabel() -> String {
+        localized(
+            "Automatic (Accuracy preferred)",
+            "自动（准确优先）",
+            "自動（準確優先）",
+            "自動（精度優先）"
+        )
+    }
+
     func openAIAutomaticTextModelHint(_ modelID: String) -> String {
         localized(
             "Automatically uses \(modelID).",
@@ -440,6 +520,193 @@ struct AppLocalizer {
             "所有已启用的云端文字功能共用这个模型。",
             "所有已啟用的雲端文字功能共用這個模型。",
             "有効なクラウド文字機能はすべてこのモデルを共有します。"
+        )
+    }
+
+    func fixedOpenAITranscriptionModelHint() -> String {
+        localized(
+            "Enter the model ID your endpoint documents. Shuo uses it directly and does not infer transcription support from the model list.",
+            "填写服务端文档给出的模型 ID。Shuo 会直接使用它，不会仅凭模型列表推断它支持转写。",
+            "填寫服務端文件提供的模型 ID。Shuo 會直接使用它，不會僅憑模型清單推斷它支援轉寫。",
+            "エンドポイントのドキュメントにあるモデルIDを入力してください。ShuoはそのIDを直接使用し、モデル一覧だけで文字起こし対応とは判断しません。"
+        )
+    }
+
+    func commonOpenAITranscriptionModelsLabel() -> String {
+        localized("Common transcription models", "常用转写模型", "常用轉寫模型", "一般的な文字起こしモデル")
+    }
+
+    func openAIModelEndpointReportedLabel() -> String {
+        localized("Endpoint-reported", "端点已列出", "端點已列出", "エンドポイント報告済み")
+    }
+
+    func openAIModelManuallyConfiguredLabel() -> String {
+        localized("Manually configured", "手动配置", "手動設定", "手動設定")
+    }
+
+    func testSelectedOpenAIModelLabel() -> String {
+        localized("Test selected model", "测试所选模型", "測試所選模型", "選択したモデルをテスト")
+    }
+
+    func testingOpenAITranscriptionModel() -> String {
+        localized("Testing the audio-transcriptions interface...", "正在测试音频转写接口...", "正在測試音訊轉寫介面...", "音声文字起こしインターフェースをテスト中...")
+    }
+
+    func openAITranscriptionModelTestPassed() -> String {
+        localized(
+            "Interface verified. This confirms the request path only.",
+            "接口已验证。这只确认请求路径可用。",
+            "介面已驗證。這只確認請求路徑可用。",
+            "インターフェースを確認しました。これはリクエスト経路のみの確認です。"
+        )
+    }
+
+    func openAITranscriptionModelTestFailed(_ detail: String) -> String {
+        localized(
+            "Interface test failed: \(detail)",
+            "接口测试失败：\(detail)",
+            "介面測試失敗：\(detail)",
+            "インターフェーステストに失敗しました: \(detail)"
+        )
+    }
+
+    func testingCloudTextModel() -> String {
+        localized(
+            "Testing the text model...",
+            "正在测试文本模型...",
+            "正在測試文字模型...",
+            "テキストモデルをテスト中..."
+        )
+    }
+
+    func cloudTextModelTestPassed() -> String {
+        localized(
+            "Interface verified.",
+            "接口已验证。",
+            "介面已驗證。",
+            "インターフェースを確認しました。"
+        )
+    }
+
+    func cloudTextModelTestFailed(_ detail: String) -> String {
+        localized(
+            "Interface test failed: \(detail)",
+            "接口测试失败：\(detail)",
+            "介面測試失敗：\(detail)",
+            "インターフェーステストに失敗しました: \(detail)"
+        )
+    }
+
+    func useSameCloudServiceLabel() -> String {
+        localized(
+            "Use the same cloud service",
+            "使用相同的云端服务",
+            "使用相同的雲端服務",
+            "同じクラウドサービスを使用"
+        )
+    }
+
+    func sameCloudTextServiceUnavailableDetail() -> String {
+        localized(
+            "The current transcription service cannot perform text retouch. Turn this off and select a text service below.",
+            "当前转写服务不能用于文本润色。请关闭此项并在下方选择文本服务。",
+            "目前的轉寫服務不能用於文字潤飾。請關閉此項並在下方選擇文字服務。",
+            "現在の文字起こしサービスではテキスト修正を実行できません。オフにして下でテキストサービスを選択してください。"
+        )
+    }
+
+    func cloudTextServicePresetName(_ preset: CloudTextServicePreset) -> String {
+        switch preset {
+        case .openAI:
+            return "OpenAI"
+        case .groq:
+            return "Groq"
+        case .siliconFlow:
+            return localized("SiliconFlow", "硅基流动", "矽基流動", "SiliconFlow")
+        case .gemini:
+            return "Google Gemini"
+        case .custom:
+            return localized("Custom", "自定义", "自訂", "カスタム")
+        }
+    }
+
+    func automaticCloudTextModelLabel() -> String {
+        localized(
+            "Automatic (Recommended)",
+            "自动（推荐）",
+            "自動（建議）",
+            "自動（推奨）"
+        )
+    }
+
+    func cloudTextRelayTestConfirmationTitle() -> String {
+        localized(
+            "Test third-party text model?",
+            "测试第三方文本模型？",
+            "測試第三方文字模型？",
+            "サードパーティのテキストモデルをテストしますか？"
+        )
+    }
+
+    func cloudTextRelayTestConfirmationDetail() -> String {
+        localized(
+            "Shuo will send a generated short text prompt to this endpoint. It does not use one of your recordings, but the relay may process or forward the prompt.",
+            "Shuo 会向这个端点发送一段生成的短文本提示，不会使用你的录音；但中转站可能会处理或转发这段文本。",
+            "Shuo 會向這個端點傳送一段產生的短文字提示，不會使用你的錄音；但中繼站可能會處理或轉送這段文字。",
+            "Shuoは生成した短いテキストプロンプトをこのエンドポイントへ送信します。あなたの録音は使用しませんが、中継が処理または転送する可能性があります。"
+        )
+    }
+
+    func invalidOpenAITranscriptionModelID(
+        _ error: OpenAITranscriptionModelIDValidationError
+    ) -> String {
+        switch error {
+        case .empty:
+            return localized("Enter a transcription model ID.", "请输入转写模型 ID。", "請輸入轉寫模型 ID。", "文字起こしモデルIDを入力してください。")
+        case .tooLong:
+            return localized("The transcription model ID is too long.", "转写模型 ID 过长。", "轉寫模型 ID 過長。", "文字起こしモデルIDが長すぎます。")
+        case .containsControlCharacter:
+            return localized("The model ID cannot contain line breaks or control characters.", "模型 ID 不能包含换行或控制字符。", "模型 ID 不能包含換行或控制字元。", "モデルIDに改行や制御文字を含めることはできません。")
+        }
+    }
+
+    func invalidOpenAITranscriptionResponse() -> String {
+        localized(
+            "The transcription endpoint returned an invalid response.",
+            "转写端点返回了无效响应。",
+            "轉寫端點傳回了無效回應。",
+            "文字起こしエンドポイントが無効な応答を返しました。"
+        )
+    }
+
+    func openAICompatibleRelayAcknowledgementRequired() -> String {
+        localized(
+            "Confirm the third-party relay in Settings before sending a recording.",
+            "发送录音前，请先在设置中确认第三方中转站。",
+            "傳送錄音前，請先在設定中確認第三方中轉站。",
+            "録音を送信する前に、設定でサードパーティ中継を確認してください。"
+        )
+    }
+
+    func thirdPartyOpenAICompatibleRelayBetaLabel() -> String {
+        localized(
+            "Third-Party OpenAI-compatible Relay (Beta)",
+            "第三方 OpenAI 兼容中转站（Beta）",
+            "第三方 OpenAI 相容中轉站（Beta）",
+            "サードパーティ OpenAI互換中継（ベータ）"
+        )
+    }
+
+    func openAICompatibleRelayTestConfirmationTitle() -> String {
+        localized("Test third-party relay?", "测试第三方中转站？", "測試第三方中轉站？", "サードパーティ中継をテストしますか？")
+    }
+
+    func openAICompatibleRelayTestConfirmationDetail() -> String {
+        localized(
+            "Shuo will send a generated, silent test clip to this endpoint. The test does not use one of your recordings, but the relay may process or forward it.",
+            "Shuo 会向这个端点发送一段生成的静音测试音频，不会使用你的录音；但中转站可能会处理或转发它。",
+            "Shuo 會向這個端點傳送一段產生的靜音測試音訊，不會使用你的錄音；但中轉站可能會處理或轉送它。",
+            "Shuoは生成した無音のテスト音声をこのエンドポイントへ送信します。あなたの録音は使用しませんが、中継が処理または転送する可能性があります。"
         )
     }
 
@@ -518,6 +785,13 @@ struct AppLocalizer {
                 "模型語言：多語言",
                 "モデル言語: 多言語"
             )
+        case .senseVoice:
+            return localized(
+                "Available in Shuo: Chinese, English, Japanese",
+                "Shuo 可选语言：中文、英文、日文",
+                "Shuo 可選語言：中文、英文、日文",
+                "Shuoで選べる言語: 中国語・英語・日本語"
+            )
         }
     }
 
@@ -551,19 +825,141 @@ struct AppLocalizer {
     }
 
     func localWhisperManagedModelSummary(_ model: LocalWhisperManagedModel) -> String {
-        [
-            model.sizeDescription,
-            localWhisperLanguageCapabilityName(model.languageCapability)
-        ]
-        .joined(separator: " · ")
+        switch model.id {
+        case "sensevoice-small-q8":
+            return localized(
+                "\(model.sizeDescription) · Chinese, English & Japanese",
+                "\(model.sizeDescription) · 中文、英文、日文",
+                "\(model.sizeDescription) · 中文、英文、日文",
+                "\(model.sizeDescription) · 中国語・英語・日本語"
+            )
+        case "small", "large-v3-turbo-q5_0":
+            return localized(
+                "\(model.sizeDescription) · All Shuo languages",
+                "\(model.sizeDescription) · Shuo 全部可选语言",
+                "\(model.sizeDescription) · Shuo 全部可選語言",
+                "\(model.sizeDescription) · Shuo の全対応言語"
+            )
+        default:
+            return [
+                model.sizeDescription,
+                localWhisperLanguageCapabilityName(model.languageCapability)
+            ]
+            .joined(separator: " · ")
+        }
+    }
+
+    func localWhisperManagedModelNote(_ model: LocalWhisperManagedModel) -> String {
+        switch model.id {
+        case "sensevoice-small-q8":
+            return localized(
+                "Fast for Chinese, English, Japanese, and mixed speech. Context, vocabularies, and project terms are unavailable.",
+                "适合中文、英文、日文和混合语音，速度快；不支持提示上下文、词库或项目术语。",
+                "適合中文、英文、日文與混合語音，速度快；不支援提示上下文、詞庫或專案術語。",
+                "中国語・英語・日本語と混在音声を高速に文字起こしします。コンテキスト、用語集、プロジェクト用語は利用できません。"
+            )
+        case "small":
+            return localized(
+                "Lightweight multilingual Whisper with context and vocabulary hints. Best for lower-memory Macs.",
+                "轻量多语言 Whisper，支持提示上下文和词库；适合内存较小的 Mac。",
+                "輕量多語言 Whisper，支援提示上下文和詞庫；適合記憶體較小的 Mac。",
+                "軽量な多言語 Whisper。コンテキストと用語集のヒントに対応し、メモリの少ないMacに適しています。"
+            )
+        case "large-v3-turbo-q5_0":
+            return localized(
+                "Best accuracy for English and all Shuo languages. Supports context and vocabularies; recommended on Apple silicon Macs with 16 GB+ memory.",
+                "英语和 Shuo 全部可选语言的准确度最佳，支持提示上下文和词库；推荐在内存 16 GB 以上的 Apple 芯片 Mac 上使用。",
+                "英文和 Shuo 全部可選語言的準確度最佳，支援提示上下文和詞庫；建議在記憶體 16 GB 以上的 Apple 晶片 Mac 上使用。",
+                "英語と Shuo の全対応言語で最高の精度を目指す場合に最適です。コンテキストと用語集に対応し、16GB以上のAppleシリコンMacを推奨します。"
+            )
+        default:
+            return ""
+        }
+    }
+
+    func localWhisperManagedModelPickerNote(_ model: LocalWhisperManagedModel) -> String {
+        switch model.id {
+        case "sensevoice-small-q8":
+            return localized(
+                "Fast Chinese, English & Japanese",
+                "快速中文、英文、日文",
+                "快速中文、英文、日文",
+                "高速な中国語・英語・日本語"
+            )
+        case "small":
+            return localized(
+                "Lightweight · all languages + vocabularies",
+                "轻量 · 全部语言 + 词库",
+                "輕量 · 全部語言 + 詞庫",
+                "軽量・全対応言語 + 用語集"
+            )
+        case "large-v3-turbo-q5_0":
+            return localized(
+                "Best accuracy · English + all languages",
+                "最佳准确度 · 英文 + 全部语言",
+                "最佳準確度 · 英文 + 全部語言",
+                "最高精度・英語 + 全対応言語"
+            )
+        default:
+            return model.sizeDescription
+        }
+    }
+
+    func localModelRecommendationLabel(_ recommendation: LocalWhisperModelRecommendation) -> String {
+        switch recommendation.reason {
+        case .chineseJapaneseAndMixedSpeech:
+            return localized(
+                "Recommended for Chinese, Japanese & mixed speech",
+                "推荐：中文、日文和混合语音",
+                "推薦：中文、日文和混合語音",
+                "中国語・日本語・混在音声に推奨"
+            )
+        case .englishBestAccuracy:
+            return localized(
+                "Recommended for English · Best accuracy",
+                "推荐：英文 · 最佳准确度",
+                "推薦：英文 · 最佳準確度",
+                "英語に推奨・最高精度"
+            )
+        case .englishLightweight:
+            return localized(
+                "Recommended for English · Lightweight",
+                "推荐：英文 · 轻量",
+                "推薦：英文 · 輕量",
+                "英語に推奨・軽量"
+            )
+        case .widerLanguageBestAccuracy:
+            return localized(
+                "Recommended for wider languages · Best accuracy",
+                "推荐：更多语言 · 最佳准确度",
+                "推薦：更多語言 · 最佳準確度",
+                "より多くの言語に推奨・最高精度"
+            )
+        case .widerLanguageLightweight:
+            return localized(
+                "Recommended for wider languages · Lightweight",
+                "推荐：更多语言 · 轻量",
+                "推薦：更多語言 · 輕量",
+                "より多くの言語に推奨・軽量"
+            )
+        }
+    }
+
+    func senseVoiceAutomaticDetectionDetail() -> String {
+        localized(
+            "SenseVoice automatically recognizes Chinese, English, and Japanese; language choices do not constrain its decoder. It does not use the Local Performance control.",
+            "SenseVoice 会自动识别中文、英文和日文；语言选择不会限制它的解码，“本地性能”设置也不适用于它。",
+            "SenseVoice 會自動辨識中文、英文與日文；語言選擇不會限制它的解碼，「本機效能」設定也不適用於它。",
+            "SenseVoice は中国語・英語・日本語を自動認識します。言語の選択はデコーダーを制限せず、「ローカル性能」設定も適用されません。"
+        )
     }
 
     func localWhisperModelSizeExplanation() -> String {
         localized(
-            "Model family names describe architecture and quality, not file size. Medium is unquantized; Large Turbo Q5 and Q8 use a smaller Turbo architecture plus quantization, so their downloads are smaller.",
-            "模型名称表示架构与质量，不等于文件大小。Medium 未量化；Large Turbo Q5 与 Q8 使用更精简的 Turbo 架构并经过量化，因此下载体积更小。",
-            "模型名稱表示架構與品質，不等於檔案大小。Medium 未量化；Large Turbo Q5 與 Q8 使用更精簡的 Turbo 架構並經過量化，因此下載體積更小。",
-            "モデル名は構造と品質を示すもので、ファイルサイズ順ではありません。Medium は非量子化、Large Turbo Q5/Q8 は小型の Turbo 構造を量子化しているため、ダウンロード容量が小さくなります。"
+            "Choose by language coverage and quality, not file size alone. Different local model families use different architectures and quantization.",
+            "请按语言覆盖与质量选择，而不只看文件大小。不同本地模型的架构和量化方式不同。",
+            "請按語言覆蓋與品質選擇，而不只看檔案大小。不同本機模型的架構和量化方式不同。",
+            "ファイルサイズだけでなく、対応言語と品質で選んでください。ローカルモデルは構造と量子化方式が異なります。"
         )
     }
 
@@ -632,18 +1028,6 @@ struct AppLocalizer {
             "取消下載 \(model.displayName)",
             "\(model.displayName) のダウンロードをキャンセル"
         )
-    }
-
-    func moreLocalWhisperModelsLabel() -> String {
-        localized("More models", "更多模型", "更多模型", "その他のモデル")
-    }
-
-    func fewerLocalWhisperModelsLabel() -> String {
-        localized("Fewer models", "收起模型", "收起模型", "モデルを閉じる")
-    }
-
-    func q8QuantizationLabel() -> String {
-        localized("Q8 quantization", "Q8 量化", "Q8 量化", "Q8 量子化")
     }
 
     func localWhisperEngineReady(_ path: String) -> String {
@@ -839,13 +1223,58 @@ struct AppLocalizer {
         }
     }
 
-    func shortcutName(_ shortcut: PushToTalkShortcut) -> String {
+    func shortcutName(
+        _ shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
         switch shortcut {
         case .rightOption:
             return localized("Right Option", "右 Option", "右 Option", "右Option")
         case .rightCommand:
             return localized("Right Command", "右 Command", "右 Command", "右Command")
+        case .custom:
+            return customShortcut?.displayName
+                ?? localized("Custom", "自定义", "自訂", "カスタム")
         }
+    }
+
+    func customShortcutTitle() -> String {
+        localized("Custom shortcut", "自定义快捷键", "自訂快速鍵", "カスタムショートカット")
+    }
+
+    func customShortcutRecordButton() -> String {
+        return localized("Record Shortcut", "录制快捷键", "錄製快速鍵", "ショートカットを記録")
+    }
+
+    func customShortcutRecordingButton() -> String {
+        localized("Recording…", "正在录制…", "正在錄製…", "記録中…")
+    }
+
+    func customShortcutRecordPrompt() -> String {
+        localized(
+            "Press the shortcut you want to hold. Release a modifier to use it alone. Esc cancels.",
+            "按下你想按住使用的快捷键。松开修饰键可将它单独设为快捷键。按 Esc 取消。",
+            "按下你想按住使用的快速鍵。放開修飾鍵可將它單獨設為快速鍵。按 Esc 取消。",
+            "押したまま使いたいショートカットを押します。修飾キーだけで使う場合は離します。Escでキャンセル。"
+        )
+    }
+
+    func customShortcutInvalid() -> String {
+        localized(
+            "Use a modifier combination or a non-text key such as F13.",
+            "请使用带修饰键的组合，或 F13 这类非文本按键。",
+            "請使用帶修飾鍵的組合，或 F13 這類非文字按鍵。",
+            "修飾キーの組み合わせ、またはF13などの非文字キーを使ってください。"
+        )
+    }
+
+    func customShortcutNotRecorded() -> String {
+        localized(
+            "Record a custom shortcut to use push-to-talk.",
+            "请先录制一个自定义快捷键，再使用按住说话。",
+            "請先錄製一個自訂快速鍵，再使用按住說話。",
+            "プッシュトゥトークを使うには、カスタムショートカットを記録してください。"
+        )
     }
 
     func advancedLabel() -> String {
@@ -1261,10 +1690,10 @@ struct AppLocalizer {
 
     func cloudAIUnavailableInLocalModeDetail() -> String {
         localized(
-            "Unavailable in Local mode so text stays on this Mac.",
-            "本地模式下不可用，确保文字留在这台 Mac。",
-            "本機模式下無法使用，確保文字留在這台 Mac。",
-            "テキストをこのMac内に保つため、ローカルモードでは使用できません。"
+            "Choose a cloud text service to use this feature.",
+            "请选择一个云端文本服务以使用此功能。",
+            "請選擇一個雲端文字服務以使用此功能。",
+            "この機能を使うにはクラウドのテキストサービスを選択してください。"
         )
     }
 
@@ -1364,6 +1793,15 @@ struct AppLocalizer {
             "阿里云转写目前不会接收 Shuo 的词汇提示。可编辑词库和项目词汇仍会保留，但选择阿里云时不会影响转写。",
             "阿里雲轉寫目前不會接收 Shuo 的詞彙提示。可編輯詞庫與專案詞彙仍會保留，但選擇阿里雲時不會影響轉寫。",
             "Alibabaの文字起こしは現在、Shuoの語彙ヒントを受け取りません。編集可能な用語集とプロジェクト用語は保存されますが、Alibaba選択中の文字起こしには反映されません。"
+        )
+    }
+
+    func senseVoiceVocabularyUnavailableDetail() -> String {
+        localized(
+            "SenseVoice does not use prompt context, vocabularies, or project terms as transcription hints. They stay saved on this Mac and work again with a compatible model or cloud provider; enabled fixed replacements still run locally after transcription.",
+            "当前 SenseVoice 不会把提示上下文、词库或项目术语用作转写提示。它们仍会保存在本机，切换到支持提示的模型或云端服务后即可生效；已启用的固定替换仍会在转写后本地执行。",
+            "目前 SenseVoice 不會將提示上下文、詞庫或專案術語作為轉寫提示。它們仍保存在本機，切換到支援提示的模型或雲端服務後即可生效；已啟用的固定替換仍會在轉寫後於本機執行。",
+            "SenseVoice は現在、プロンプトコンテキスト、用語集、プロジェクト用語を文字起こしのヒントとして使用しません。内容はこのMacに保存され、対応モデルまたはクラウドサービスへ切り替えると再び利用できます。有効な固定置換は文字起こし後もローカルで実行されます。"
         )
     }
 
@@ -1627,10 +2065,10 @@ struct AppLocalizer {
 
     func openAIConnectionDetailsHint() -> String {
         localized(
-            "Keep the default Base URL for OpenAI. Change it only for an OpenAI-compatible service; Shuo adds the request paths automatically.",
-            "使用 OpenAI 时请保留默认 Base URL。只有使用 OpenAI 兼容服务时才需要修改，Shuo 会自动补全请求路径。",
-            "使用 OpenAI 時請保留預設 Base URL。只有使用 OpenAI 相容服務時才需要修改，Shuo 會自動補全請求路徑。",
-            "OpenAIを使用する場合は既定のBase URLのままにします。OpenAI互換サービスの場合のみ変更してください。リクエストパスはShuoが自動で追加します。"
+            "Keep the default Base URL for OpenAI. Change it only for an OpenAI-compatible service; Shuo adds request paths automatically. Changing endpoints clears the API key.",
+            "使用 OpenAI 时请保留默认 Base URL。只有使用 OpenAI 兼容服务时才需要修改，Shuo 会自动补全请求路径。切换端点会清除 API key。",
+            "使用 OpenAI 時請保留預設 Base URL。只有使用 OpenAI 相容服務時才需要修改，Shuo 會自動補全請求路徑。切換端點會清除 API key。",
+            "OpenAIを使用する場合は既定のBase URLのままにします。OpenAI互換サービスの場合のみ変更してください。リクエストパスはShuoが自動で追加します。エンドポイントを変更するとAPIキーは消去されます。"
         )
     }
 
@@ -2246,14 +2684,30 @@ struct AppLocalizer {
 
     func privacyDetail() -> String {
         localized(
-            "Shuo requires no account, sends no telemetry, behavioral analytics, or crash reports to Shuo, and contains no ads. It stores settings, transcript history, local metrics, recordings, downloaded models, project vocabulary indexes, explicit before-and-after edits, and recovery reports on this Mac; recovery reports are never uploaded automatically. Recordings linked to retained History items stay until you delete those items. Confirmed edits are recorded locally. Correction Learning is off by default; only patterns you enable individually and that meet the relevant threshold can become spelling hints or, in Replacement mode, be applied locally when high-confidence and conflict-free. OpenAI-compatible, ElevenLabs, and Alibaba Cloud API keys are stored separately in Keychain. With Local transcription selected, audio, text, corrections, and personal vocabulary do not leave the Mac; cloud text features are unavailable in Local mode. When a cloud transcription provider is selected, current-task audio, settings, enabled context, and provider-supported spelling hints are sent to that provider; correction learning sends only enabled, eligible preferred wording (B) as hints, not the original mistaken wording or complete History. Optional AI/LLM text features, when enabled with a cloud provider, may also send the current transcript and relevant prompt or context to the configured OpenAI-compatible endpoint. Alibaba Cloud transcription uses Model Studio's Beijing endpoint. Historical recordings and the correction dataset are not uploaded for training. Shuo may preserve damaged-file recovery copies locally to prevent data loss; they are never loaded or uploaded automatically, and deleting one History item does not rewrite a recovery copy that cannot be parsed safely.",
-            "Shuo 不需要账号，不会向 Shuo 发送遥测、行为分析或 crash report，也没有广告。它会在这台 Mac 上保存设置、转写历史、本地统计、录音、下载的模型、项目词汇索引、明确修改的前后文本和恢复报告；恢复报告不会自动上传。与保留的 History 记录关联的录音会留在本机，直到你删除对应记录。已确认的修改会保存在本机。纠错学习默认关闭；只有用户逐条开启且达到相应门槛的模式才能成为拼写提示，或在“替换”模式下以高置信且无冲突的规则在本地应用。OpenAI-compatible、ElevenLabs 与阿里云 API 密钥分别保存在钥匙串。选择本地转写时，语音、文字、修正与个人词汇不会离开这台 Mac；本地模式下不可用云端文本功能。选择云端转写时，当前任务所需的音频、设置、启用的上下文和服务商支持的拼写提示会发送给所选服务商；纠错学习只会发送已逐条开启且符合条件的修正后写法（B），不会发送修改前写法或完整历史。另行启用可选的 AI/LLM 文本功能后，当前转写文本和相关提示或上下文还可能发送到你配置的 OpenAI-compatible 接口。阿里云转写使用百炼北京地域接口。历史录音和纠正数据集不会被上传用于训练。为防止数据丢失，Shuo 可能在本机保留损坏文件的恢复副本；它们不会被自动读取或上传，单条 History 删除也不会改写无法安全解析的旧恢复副本。",
-            "Shuo 不需要帳號，不會向 Shuo 傳送遙測資料、使用行為分析資料或當機報告，也不含廣告。設定、轉寫記錄、本機統計、錄音、已下載的模型、專案詞彙索引、明確修正所產生的前後文字，以及復原報告都儲存在這台 Mac 上；復原報告絕不會自動上傳。與保留的「歷史」項目連結的錄音會保留到你刪除該項目為止。已確認的修改會儲存在本機。「人工修正學習」預設為關閉；只有你逐項啟用且達到相應門檻的修正模式，才會用作拼字提示；選擇「替換」時，只有信賴度高且沒有衝突的規則才會在本機套用。OpenAI 相容服務、ElevenLabs 和阿里雲的 API 金鑰會分別儲存在「鑰匙圈」中。選用本機轉寫時，音訊、文字、修正內容與個人詞彙都不會離開這台 Mac；本機模式下無法使用雲端 AI 文字功能。使用雲端轉寫服務時，目前任務所需的音訊、設定、已啟用的上下文，以及服務供應商支援的拼字提示會傳送給該服務；人工修正學習只會傳送已逐項啟用且符合條件的偏好寫法（B）作為提示，不會傳送修正前的錯誤寫法或完整「歷史」內容。另行啟用可選的 AI/LLM 文字功能後，目前的轉寫文字及相關提示詞或上下文還可能傳送至你設定的 OpenAI 相容端點。阿里雲轉寫使用百煉（Model Studio）的北京端點。過去的錄音與修正資料集不會上傳作為訓練用途。為避免資料遺失，Shuo 可能會在本機保留受損檔案的復原副本；這些副本不會自動載入或上傳。若復原副本無法安全解析，刪除單一「歷史」項目時也不會改寫該副本。",
-            "Shuoの利用にアカウントは不要です。Shuoにテレメトリ、利用状況の分析データ、クラッシュレポートを送信せず、広告も表示しません。設定、文字起こし履歴、ローカル統計、録音、ダウンロード済みモデル、プロジェクト語彙の索引、明示的な修正前後のテキスト、復旧レポートは、このMacに保存されます。復旧レポートが自動的にアップロードされることはありません。履歴に残っている項目に紐づく録音は、その項目を削除するまで保存されます。確定した修正もローカルに保存されます。「手動修正からの学習」は初期設定でオフです。個別に有効にし、所定のしきい値を満たしたパターンだけが表記ヒントになります。「置換」方式では、信頼度が高く競合がない場合に限り、ローカルで適用されます。OpenAI互換サービス、ElevenLabs、Alibaba CloudのAPIキーは、キーチェーンに個別に保存されます。ローカル文字起こしを選択している間は、音声、テキスト、修正内容、個人用語がMacの外に送信されることはありません。ローカルモードではクラウドAIのテキスト機能は利用できません。クラウド文字起こしプロバイダを選択すると、現在のタスクの音声、設定、有効なコンテキスト、およびプロバイダが対応する表記ヒントが、そのプロバイダに送信されます。手動修正からの学習で送信されるのは、個別に有効化され、条件を満した推奨表記（B）のみです。誤認識された元の表記や履歴全体は送信されません。クラウドプロバイダでオプションのAI/LLMテキスト機能を有効にした場合は、現在の文字起こしと関連するプロンプトまたはコンテキストが、設定したOpenAI互換エンドポイントに送信されることがあります。Alibaba Cloudの文字起こしには、Model Studioの北京エンドポイントを使用します。過去の録音と修正データセットを学習目的でアップロードすることはありません。データ損失を防ぐため、破損したファイルの復旧コピーをローカルに保存する場合があります。これらが自動的に読み込まれたりアップロードされたりすることはありません。復旧コピーを安全に解析できない場合、履歴項目を1件削除してもそのコピーは書き換えません。"
+            "Shuo requires no account, sends no telemetry, behavioral analytics, or crash reports to Shuo, and contains no ads. Settings, transcript history, recordings, downloaded models, correction data, and recovery reports stay on this Mac; recovery reports are never uploaded automatically. OpenAI-compatible, SiliconFlow, Gemini, ElevenLabs, and Alibaba Cloud API keys are stored separately in Keychain. With Local transcription, recordings, corrections, and personal vocabulary stay on this Mac. If you explicitly enable an AI/LLM text feature and configure a cloud text service, only the needed transcript text and instruction are sent to that service—not the recording. A cloud transcription provider receives current-task audio, selected model/language, enabled context, and supported spelling hints. Correction Learning sends only individually enabled, eligible preferred wording (B), not the original mistaken wording or complete History. Optional text features may send the current transcript and relevant prompt to the configured OpenAI-compatible endpoint, or to Gemini with its selected key and model. Alibaba Cloud transcription uses Model Studio's Beijing endpoint. Historical recordings and correction data are not uploaded for training. Shuo may keep damaged-file recovery copies locally; they are never loaded or uploaded automatically, and deleting a History item does not rewrite a recovery copy that cannot be parsed safely.",
+            "Shuo 不需要账号，不会向 Shuo 发送遥测、行为分析或 crash report，也没有广告。设置、转写历史、录音、下载的模型、纠错数据和恢复报告都保存在这台 Mac 上；恢复报告不会自动上传。OpenAI-compatible、硅基流动、Gemini、ElevenLabs 与阿里云 API 密钥分别保存在钥匙串。使用本地转写时，录音、修正与个人词汇都会留在这台 Mac。只有你明确开启 AI/LLM 文本功能并配置云端文本服务时，所需的转写文本和指令才会发送到该服务；不会发送录音。云端转写服务会接收当前任务所需的音频、所选模型/语言、启用的上下文和支持的拼写提示。纠错学习只会发送逐项开启且符合条件的修正后写法（B），不会发送修改前写法或完整 History。可选文本功能可能会将当前转写文本及相关提示发送到配置的 OpenAI-compatible 接口，或使用所选 Gemini Key 和模型发送给 Gemini。阿里云转写使用百炼北京地域接口。历史录音和纠错数据不会上传用于训练。Shuo 可能在本机保留损坏文件的恢复副本；它们不会被自动读取或上传，删除 History 项目也不会改写无法安全解析的恢复副本。",
+            "Shuo 不需要帳號，不會向 Shuo 傳送遙測資料、使用行為分析資料或當機報告，也不含廣告。設定、轉寫記錄、錄音、已下載模型、修正資料與復原報告都儲存在這台 Mac 上；復原報告絕不會自動上傳。OpenAI 相容服務、矽基流動、Gemini、ElevenLabs 和阿里雲的 API 金鑰會分別儲存在「鑰匙圈」中。使用本機轉寫時，錄音、修正內容與個人詞彙都會留在這台 Mac。只有你明確啟用 AI/LLM 文字功能並設定雲端文字服務時，才會將所需的轉寫文字與指令傳送給該服務；不會傳送錄音。雲端轉寫服務會收到目前任務所需的音訊、所選模型/語言、已啟用的上下文與支援的拼字提示。「人工修正學習」只會傳送逐項啟用且符合條件的偏好寫法（B），不會傳送修正前的錯誤寫法或完整「歷史」內容。選用文字功能可能將目前轉寫文字及相關提示傳送至設定的 OpenAI 相容端點，或使用所選 Gemini 金鑰和模型傳送給 Gemini。阿里雲轉寫使用百煉（Model Studio）的北京端點。過去的錄音與修正資料不會上傳作為訓練用途。Shuo 可能在本機保留受損檔案的復原副本；它們不會被自動讀取或上傳，刪除「歷史」項目也不會改寫無法安全解析的復原副本。",
+            "Shuoの利用にアカウントは不要です。Shuoにテレメトリ、利用状況の分析データ、クラッシュレポートを送信せず、広告も表示しません。設定、文字起こし履歴、録音、ダウンロード済みモデル、修正データ、復旧レポートはこのMacに保存され、復旧レポートが自動的にアップロードされることはありません。OpenAI互換サービス、SiliconFlow、Gemini、ElevenLabs、Alibaba CloudのAPIキーはキーチェーンに個別に保存されます。ローカル文字起こしでは、録音、修正内容、個人用語はこのMac内に残ります。AI/LLMテキスト機能を明示的に有効にし、クラウドのテキストサービスを設定した場合にだけ、必要な文字起こしテキストと指示が送信されます。録音は送信されません。クラウド文字起こしプロバイダには、現在のタスクの音声、選択したモデルと言語、有効なコンテキスト、対応する表記ヒントが送信されます。「手動修正からの学習」で送信されるのは、個別に有効化され条件を満たした推奨表記（B）のみで、誤認識された元の表記や履歴全体は送信されません。任意のAI/LLMテキスト機能は、設定したOpenAI互換エンドポイント、または選択したGeminiキーとモデルに現在の文字起こしと関連する指示を送信することがあります。Alibaba Cloudの文字起こしには、Model Studioの北京エンドポイントを使用します。過去の録音と修正データは学習目的にアップロードされません。Shuoは破損ファイルの復旧コピーをローカルに残す場合がありますが、自動的に読み込み・アップロードされることはなく、履歴項目を削除しても安全に解析できない復旧コピーは書き換えません。"
+        )
+    }
+
+    private func legacyPrivacyDetail() -> String {
+        localized(
+            "Shuo requires no account, sends no telemetry, behavioral analytics, or crash reports to Shuo, and contains no ads. It stores settings, transcript history, local metrics, recordings, downloaded models, project vocabulary indexes, explicit before-and-after edits, and recovery reports on this Mac; recovery reports are never uploaded automatically. Recordings linked to retained History items stay until you delete those items. Confirmed edits are recorded locally. Correction Learning is off by default; only patterns you enable individually and that meet the relevant threshold can become spelling hints or, in Replacement mode, be applied locally when high-confidence and conflict-free. OpenAI-compatible, Gemini, ElevenLabs, and Alibaba Cloud API keys are stored separately in Keychain. With Local transcription selected, audio, text, corrections, and personal vocabulary do not leave the Mac; cloud text features are unavailable in Local mode. When a cloud transcription provider is selected, current-task audio, selected model/language, enabled context, and provider-supported spelling hints are sent to that provider; correction learning sends only enabled, eligible preferred wording (B) as hints, not the original mistaken wording or complete History. Optional AI/LLM text features may send the current transcript and relevant prompt or context to the configured OpenAI-compatible endpoint. With Gemini selected, those optional features instead reuse the same Gemini API key and selected model, sending Google only the needed text and instruction—not the recording again. Alibaba Cloud transcription uses Model Studio's Beijing endpoint. Historical recordings and the correction dataset are not uploaded for training. Shuo may preserve damaged-file recovery copies locally to prevent data loss; they are never loaded or uploaded automatically, and deleting one History item does not rewrite a recovery copy that cannot be parsed safely.",
+            "Shuo 不需要账号，不会向 Shuo 发送遥测、行为分析或 crash report，也没有广告。它会在这台 Mac 上保存设置、转写历史、本地统计、录音、下载的模型、项目词汇索引、明确修改的前后文本和恢复报告；恢复报告不会自动上传。与保留的 History 记录关联的录音会留在本机，直到你删除对应记录。已确认的修改会保存在本机。纠错学习默认关闭；只有用户逐条开启且达到相应门槛的模式才能成为拼写提示，或在“替换”模式下以高置信且无冲突的规则在本地应用。OpenAI-compatible、Gemini、ElevenLabs 与阿里云 API 密钥分别保存在钥匙串。选择本地转写时，语音、文字、修正与个人词汇不会离开这台 Mac；本地模式下不可用云端文本功能。选择云端转写时，当前任务所需的音频、所选模型/语言、启用的上下文和服务商支持的拼写提示会发送给所选服务商；纠错学习只会发送已逐条开启且符合条件的修正后写法（B），不会发送修改前写法或完整历史。可选的 AI/LLM 文本功能可能会将当前转写文本和相关提示或上下文发送到你配置的 OpenAI-compatible 接口。选择 Gemini 时，这些可选功能会改为复用同一 Gemini API Key 与所选模型，只向 Google 发送所需文本和指令，不会再次发送录音。阿里云转写使用百炼北京地域接口。历史录音和纠正数据集不会被上传用于训练。为防止数据丢失，Shuo 可能在本机保留损坏文件的恢复副本；它们不会被自动读取或上传，单条 History 删除也不会改写无法安全解析的旧恢复副本。",
+            "Shuo 不需要帳號，不會向 Shuo 傳送遙測資料、使用行為分析資料或當機報告，也不含廣告。設定、轉寫記錄、本機統計、錄音、已下載的模型、專案詞彙索引、明確修正所產生的前後文字，以及復原報告都儲存在這台 Mac 上；復原報告絕不會自動上傳。與保留的「歷史」項目連結的錄音會保留到你刪除該項目為止。已確認的修改會儲存在本機。「人工修正學習」預設為關閉；只有你逐項啟用且達到相應門檻的修正模式，才會用作拼字提示；選擇「替換」時，只有信賴度高且沒有衝突的規則才會在本機套用。OpenAI 相容服務、Gemini、ElevenLabs 和阿里雲的 API 金鑰會分別儲存在「鑰匙圈」中。選用本機轉寫時，音訊、文字、修正內容與個人詞彙都不會離開這台 Mac；本機模式下無法使用雲端 AI 文字功能。使用雲端轉寫服務時，目前任務所需的音訊、所選模型/語言、已啟用的上下文，以及服務供應商支援的拼字提示會傳送給該服務；人工修正學習只會傳送已逐項啟用且符合條件的偏好寫法（B）作為提示，不會傳送修正前的錯誤寫法或完整「歷史」內容。選用的 AI/LLM 文字功能可能會將目前的轉寫文字及相關提示詞或上下文傳送至你設定的 OpenAI 相容端點。選擇 Gemini 時，這些選用功能會改為重複使用相同的 Gemini API 金鑰與所選模型，只會將所需文字與指令傳送給 Google，不會再次傳送錄音。阿里雲轉寫使用百煉（Model Studio）的北京端點。過去的錄音與修正資料集不會上傳作為訓練用途。為避免資料遺失，Shuo 可能會在本機保留受損檔案的復原副本；這些副本不會自動載入或上傳。若復原副本無法安全解析，刪除單一「歷史」項目時也不會改寫該副本。",
+            "Shuoの利用にアカウントは不要です。Shuoにテレメトリ、利用状況の分析データ、クラッシュレポートを送信せず、広告も表示しません。設定、文字起こし履歴、ローカル統計、録音、ダウンロード済みモデル、プロジェクト語彙の索引、明示的な修正前後のテキスト、復旧レポートは、このMacに保存されます。復旧レポートが自動的にアップロードされることはありません。履歴に残っている項目に紐づく録音は、その項目を削除するまで保存されます。確定した修正もローカルに保存されます。「手動修正からの学習」は初期設定でオフです。個別に有効にし、所定のしきい値を満たしたパターンだけが表記ヒントになります。「置換」方式では、信頼度が高く競合がない場合に限り、ローカルで適用されます。OpenAI互換サービス、Gemini、ElevenLabs、Alibaba CloudのAPIキーは、キーチェーンに個別に保存されます。ローカル文字起こしを選択している間は、音声、テキスト、修正内容、個人用語がMacの外に送信されることはありません。ローカルモードではクラウドAIのテキスト機能は利用できません。クラウド文字起こしプロバイダを選択すると、現在のタスクの音声、選択したモデルと言語、有効なコンテキスト、およびプロバイダが対応する表記ヒントが、そのプロバイダに送信されます。手動修正からの学習で送信されるのは、個別に有効化され、条件を満した推奨表記（B）のみです。誤認識された元の表記や履歴全体は送信されません。任意のAI/LLMテキスト機能では、現在の文字起こしと関連するプロンプトまたはコンテキストが、設定したOpenAI互換エンドポイントに送信されることがあります。Geminiを選択した場合、これらの任意機能は同じGemini APIキーと選択したモデルを使用し、必要なテキストと指示だけをGoogleへ送信します。録音を再送信することはありません。Alibaba Cloudの文字起こしには、Model Studioの北京エンドポイントを使用します。過去の録音と修正データセットを学習目的でアップロードすることはありません。データ損失を防ぐため、破損したファイルの復旧コピーをローカルに保存する場合があります。これらが自動的に読み込まれたりアップロードされたりすることはありません。復旧コピーを安全に解析できない場合、履歴項目を1件削除してもそのコピーは書き換えません。"
         )
     }
 
     func releaseNotesDetail() -> String {
+        let onePointTwoFourNotes = localized(
+            "New in 1.2.4\n\n• Adds Groq, SiliconFlow, and custom OpenAI-compatible endpoint support, with improved cloud model and API key configuration.",
+            "1.2.4 更新\n\n• 新增 Groq、硅基流动和自定义 OpenAI-compatible 端点支持，并完善云端模型与 API 密钥配置。",
+            "1.2.4 更新\n\n• 新增 Groq、矽基流動與自訂 OpenAI 相容端點支援，並完善雲端模型與 API 金鑰設定。",
+            "1.2.4 の新機能\n\n• Groq、SiliconFlow、カスタム OpenAI 互換エンドポイントに対応し、クラウドモデルと API キーの設定を改善しました。"
+        )
+
         let updateBullet = AppRuntime.isCommunityBuild
             ? localized(
                 "• Community source builds do not use Shuo's official automatic updater",
@@ -2267,12 +2721,14 @@ struct AppLocalizer {
                 "• 經簽署的 Sparkle 更新，支援跨使用者協調安裝",
                 "• 署名済みのSparkleアップデートは、複数のmacOSユーザーにまたがるインストール調整に対応"
             )
-        return localized(
+        let currentReleaseDetails = localized(
             "Current release\n\n• Stable Local and OpenAI-compatible transcription; ElevenLabs and Alibaba Cloud adapters remain optional Beta profiles\n• Bundled local whisper.cpp runtime; Local setup requires only a model download\n• Each linked project keeps at most 60 high-priority terms in its local index; every transcription selects hints from all vocabulary sources within a shared request budget of 60 terms and 900 characters\n• Correction Learning is off by default, and each pattern must be enabled individually; choose conservative, conflict-free local Replacement or eligible preferred wording as Cloud AI hints\n• Optional Floating Bar with safe correction\n• Local recordings, raw/final text, and explicit correction capture\n• Adaptive Whisper Mode for quiet speech\n• Safe, quick Copy, Replace, Play, and Redo\n\(updateBullet)\n• Safer clipboard, transcript, and metrics recovery",
             "当前版本\n\n• 稳定支持本地与 OpenAI-compatible 转写；ElevenLabs 和阿里云适配器仍作为可选 Beta profile 提供\n• 内置本地 whisper.cpp runtime；本地设置只需下载模型\n• 每个关联项目的本地索引最多保留 60 个高优先级术语；每次转写会从所有词汇来源中选取提示，总计不超过 60 个、900 字符\n• 人工纠正学习默认关闭，每条修正模式均需单独开启；可选择保守且无冲突的本地“替换”，或把符合条件的偏好写法作为“云端 AI”提示\n• 可选悬浮栏与安全纠正\n• 本地录音、原始/最终文字与明确纠正记录\n• 面向轻声说话的自适应轻声模式\n• 快速且安全的复制、替换、回听与重转\n\(updateBullet)\n• 更安全的剪贴板、转写历史与统计恢复",
             "目前版本\n\n• 穩定支援本機與 OpenAI 相容轉寫；ElevenLabs 與阿里雲介接仍為選用的 Beta 功能\n• 內建本機 whisper.cpp 執行環境；本機設定只需下載模型\n• 每個連結專案的本機索引最多保留 60 個優先術語；每次轉寫會從所有詞彙來源中選取提示，總計不超過 60 個、900 字元\n• 人工修正學習預設關閉，每條修正模式均需個別啟用；可選擇保守且無衝突的本機「替換」，或將符合條件的偏好寫法作為「雲端 AI」提示\n• 可選用懸浮列，安全修正最新內容\n• 在本機儲存錄音、原始與最終文字，以及明確的修正記錄\n• 針對輕聲說話的自適應輕聲模式\n• 快速且安全的複製、替換、播放與重轉\n\(updateBullet)\n• 更安全地復原剪貼簿、轉寫記錄與統計資料",
             "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
         )
+
+        return "\(onePointTwoFourNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {
@@ -2311,8 +2767,11 @@ struct AppLocalizer {
         }
     }
 
-    func pushToTalkDisabled(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func pushToTalkDisabled(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "\(shortcutName) push-to-talk is disabled.",
             "\(shortcutName) 按住说话已关闭。",
@@ -2321,8 +2780,11 @@ struct AppLocalizer {
         )
     }
 
-    func holdToDictate(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func holdToDictate(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "Hold \(shortcutName) to dictate.",
             "按住 \(shortcutName) 开始听写。",
@@ -2331,8 +2793,11 @@ struct AppLocalizer {
         )
     }
 
-    func waitingForAccessibility(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func waitingForAccessibility(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "Waiting for Accessibility permission to use \(shortcutName) dictation.",
             "正在等待辅助功能权限，以使用 \(shortcutName) 听写。",
@@ -2341,8 +2806,11 @@ struct AppLocalizer {
         )
     }
 
-    func shortcutMonitorCouldNotStart(shortcut: PushToTalkShortcut) -> String {
-        let shortcutName = shortcutName(shortcut)
+    func shortcutMonitorCouldNotStart(
+        shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil
+    ) -> String {
+        let shortcutName = shortcutName(shortcut, customShortcut: customShortcut)
         return localized(
             "\(shortcutName) shortcut monitor could not start. Try Retry Shortcut or relaunch Shuo.",
             "\(shortcutName) 快捷键监听无法启动。请重试快捷键或重新启动 Shuo。",
@@ -2654,6 +3122,15 @@ struct AppLocalizer {
         )
     }
 
+    func updateCheckUpToDate() -> String {
+        localized(
+            "You’re up to date.",
+            "已是最新版本。",
+            "已是最新版本。",
+            "最新バージョンです。"
+        )
+    }
+
     func clipboardSnapshotUnavailable() -> String {
         localized(
             "The current clipboard contents responded too slowly. To avoid overwriting them, Shuo did not paste or replace any text. Your transcript is still saved in Shuo; try again later.",
@@ -2901,6 +3378,60 @@ struct AppLocalizer {
             "本地 whisper 运行失败（\(statusCode)）：\(output)",
             "本機 whisper 執行失敗（\(statusCode)）：\(output)",
             "ローカル whisper が失敗しました（\(statusCode)）: \(output)"
+        )
+    }
+
+    func localWhisperTimedOut(_ timeout: TimeInterval) -> String {
+        localized(
+            "Local transcription did not finish within \(Int(timeout)) seconds and was stopped.",
+            "本地转写在 \(Int(timeout)) 秒内没有完成，已停止。",
+            "本機轉寫在 \(Int(timeout)) 秒內未完成，已停止。",
+            "ローカル文字起こしは \(Int(timeout)) 秒以内に完了しなかったため停止しました。"
+        )
+    }
+
+    func unsupportedLocalModel(_ path: String) -> String {
+        localized(
+            "This local model is not supported by Shuo: \(path)",
+            "Shuo 不支持这个本地模型：\(path)",
+            "Shuo 不支援這個本機模型：\(path)",
+            "このローカルモデルは Shuo でサポートされていません: \(path)"
+        )
+    }
+
+    func missingSenseVoiceRuntime() -> String {
+        localized(
+            "The bundled SenseVoice runtime is unavailable. Reinstall Shuo to restore local transcription.",
+            "内置的 SenseVoice 运行组件不可用。请重新安装 Shuo 以恢复本地转写。",
+            "內建的 SenseVoice 執行元件不可用。請重新安裝 Shuo 以恢復本機轉寫。",
+            "内蔵 SenseVoice ランタイムを利用できません。Shuo を再インストールしてください。"
+        )
+    }
+
+    func missingSenseVoiceVADAsset() -> String {
+        localized(
+            "SenseVoice's local speech-segmentation file is missing. Re-download SenseVoice Small in Model Management.",
+            "SenseVoice 的本地语音分段文件缺失。请在模型管理中重新下载 SenseVoice Small。",
+            "SenseVoice 的本機語音分段檔案缺失。請在模型管理中重新下載 SenseVoice Small。",
+            "SenseVoice のローカル音声分割ファイルがありません。モデル管理で SenseVoice Small を再ダウンロードしてください。"
+        )
+    }
+
+    func senseVoiceFailed(statusCode: Int32, output: String) -> String {
+        localized(
+            "SenseVoice failed (\(statusCode)): \(output)",
+            "SenseVoice 运行失败（\(statusCode)）：\(output)",
+            "SenseVoice 執行失敗（\(statusCode)）：\(output)",
+            "SenseVoice が失敗しました（\(statusCode)）: \(output)"
+        )
+    }
+
+    func senseVoiceTimedOut(_ timeout: TimeInterval) -> String {
+        localized(
+            "SenseVoice did not finish within \(Int(timeout)) seconds and was stopped.",
+            "SenseVoice 在 \(Int(timeout)) 秒内没有完成，已停止。",
+            "SenseVoice 在 \(Int(timeout)) 秒內未完成，已停止。",
+            "SenseVoice は \(Int(timeout)) 秒以内に完了しなかったため停止しました。"
         )
     }
 

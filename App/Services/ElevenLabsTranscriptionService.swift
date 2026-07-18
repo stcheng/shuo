@@ -28,8 +28,9 @@ private struct ElevenLabsTranscriptionResponse: Decodable {
 }
 
 struct ElevenLabsTranscriptionService: TranscriptionService {
-    static let endpoint = URL(string: "https://api.elevenlabs.io/v1/speech-to-text")!
-    static let modelID = "scribe_v2"
+    static let baseURL = CloudTranscriptionProviderConfiguration.elevenLabs.endpoint.fixedURL!
+    static let endpoint = baseURL.appendingPathComponent("speech-to-text")
+    static let modelID = CloudTranscriptionProviderConfiguration.elevenLabs.fixedTranscriptionModelID!
     static let maximumKeytermCount = 100
 
     func transcribe(_ request: TranscriptionRequest) async throws -> TranscriptionResult {

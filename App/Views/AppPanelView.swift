@@ -342,7 +342,7 @@ private struct ShuoHomeView: View {
                         set: { appState.setPushToTalkShortcut($0) }
                     )
                 ) {
-                    ForEach(PushToTalkShortcut.allCases) { shortcut in
+                    ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                         Text(localizer.shortcutName(shortcut)).tag(shortcut)
                     }
                 }
@@ -355,6 +355,17 @@ private struct ShuoHomeView: View {
             .font(.title3)
             .foregroundStyle(.secondary)
             .padding(.top, 20)
+
+            if appState.settings.pushToTalkShortcut == .custom {
+                CustomPushToTalkShortcutRecorder(
+                    currentShortcut: appState.settings.customPushToTalkShortcut,
+                    localizer: localizer,
+                    onRecord: appState.setCustomPushToTalkShortcut
+                )
+                .frame(maxWidth: 520)
+                .padding(.top, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             if shouldShowPushToTalkStatus {
                 Text(appState.pushToTalkStatusMessage)
@@ -371,7 +382,10 @@ private struct ShuoHomeView: View {
     }
 
     private var shouldShowPushToTalkStatus: Bool {
-        let readyMessage = localizer.holdToDictate(shortcut: appState.settings.pushToTalkShortcut)
+        let readyMessage = localizer.holdToDictate(
+            shortcut: appState.settings.pushToTalkShortcut,
+            customShortcut: appState.settings.customPushToTalkShortcut
+        )
         return !appState.pushToTalkStatusMessage.isEmpty
             && appState.pushToTalkStatusMessage != readyMessage
     }
@@ -652,6 +666,7 @@ private extension View {
 private struct ShuoOnboardingView: View {
     @EnvironmentObject private var appState: AppState
     @State private var onboardingLocalModelID = LocalWhisperModelCatalog.defaultOnboardingModelID
+    @State private var usesAutomaticOnboardingModelRecommendation = true
     @State private var onboardingChineseMode: ChineseTextConversionMode = .simplified
     @State private var hasInitializedChineseMode = false
     @State private var hasChosenChineseMode = false
@@ -698,12 +713,22 @@ private struct ShuoOnboardingView: View {
                         get: { appState.settings.pushToTalkShortcut },
                         set: { appState.setPushToTalkShortcut($0) }
                     )) {
-                        ForEach(PushToTalkShortcut.allCases) { shortcut in
+                        ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                             Text(localizer.shortcutName(shortcut)).tag(shortcut)
                         }
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 360)
+
+                    if appState.settings.pushToTalkShortcut == .custom {
+                        CustomPushToTalkShortcutRecorder(
+                            currentShortcut: appState.settings.customPushToTalkShortcut,
+                            localizer: localizer,
+                            onRecord: appState.setCustomPushToTalkShortcut
+                        )
+                        .frame(maxWidth: 360)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
                     onboardingSectionTitle("2", localizer.onboardingPermissionsTitle())
                     permissionRow(
@@ -812,14 +837,22 @@ private struct ShuoOnboardingView: View {
                         ))
 
                         apiKeyGuideLink(for: .alibaba)
+                    } else if appState.settings.provider == .gemini {
+                        providerExplanation(
+                            systemImage: "cloud",
+                            title: localizer.providerName(.gemini),
+                            detail: localizer.onboardingGeminiDetail()
+                        )
+
+                        SecureField(localizer.text(.apiKey), text: Binding(
+                            get: { appState.geminiAPIKey },
+                            set: { appState.updateGeminiAPIKey($0) }
+                        ))
+
+                        apiKeyGuideLink(for: .gemini)
                     }
 
                     Spacer(minLength: 8)
-
-                    Text(localizer.onboardingPreferredTermsHint())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
 
                     Text(localizer.onboardingRecordingRetentionHint())
                         .font(.caption)
@@ -884,6 +917,9 @@ private struct ShuoOnboardingView: View {
             loadCredentialForSelectedProvider()
             synchronizeOnboardingLocalModelSelection()
         }
+        .onChange(of: appState.settings.selectedTranscriptionLanguages) { _, _ in
+            updateOnboardingModelRecommendationIfNeeded()
+        }
         .onChange(of: onboardingLocalModelID) { _, _ in
             useSelectedOnboardingModelIfInstalled()
         }
@@ -900,7 +936,8 @@ private struct ShuoOnboardingView: View {
             localModelIsReady: selectedOnboardingLocalModelIsReady,
             microphonePermissionGranted: appState.microphonePermissionGranted,
             accessibilityPermissionGranted: appState.accessibilityPermissionGranted,
-            alibabaAPIKey: appState.alibabaAPIKey
+            alibabaAPIKey: appState.alibabaAPIKey,
+            geminiAPIKey: appState.geminiAPIKey
         )
     }
 
@@ -963,7 +1000,16 @@ private struct ShuoOnboardingView: View {
     @ViewBuilder
     private var onboardingLocalModelSetup: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Picker(localizer.onboardingLocalModelLabel(), selection: $onboardingLocalModelID) {
+            Picker(
+                localizer.onboardingLocalModelLabel(),
+                selection: Binding(
+                    get: { onboardingLocalModelID },
+                    set: { selectedID in
+                        usesAutomaticOnboardingModelRecommendation = false
+                        onboardingLocalModelID = selectedID
+                    }
+                )
+            ) {
                 ForEach(onboardingLocalModels) { model in
                     Text(onboardingModelPickerLabel(model)).tag(model.id)
                 }
@@ -974,6 +1020,11 @@ private struct ShuoOnboardingView: View {
                 Text(localizer.localWhisperManagedModelSummary(model))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Text(localizer.localWhisperManagedModelNote(model))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if appState.localWhisperActiveManagedModelID == model.id {
                     if let progress = appState.localWhisperDownloadProgress {
@@ -1026,10 +1077,21 @@ private struct ShuoOnboardingView: View {
     }
 
     private func onboardingModelPickerLabel(_ model: LocalWhisperManagedModel) -> String {
-        guard model.id == LocalWhisperModelCatalog.defaultOnboardingModelID else {
-            return model.displayName
+        let label = "\(model.displayName) — \(localizer.localWhisperManagedModelPickerNote(model))"
+        guard model.id == recommendedOnboardingLocalModelID else {
+            return label
         }
-        return "\(model.displayName) — \(localizer.onboardingRecommendedLabel())"
+        return "\(label) · \(localizer.localModelRecommendationLabel(recommendedOnboardingLocalModelRecommendation))"
+    }
+
+    private var recommendedOnboardingLocalModelID: String {
+        recommendedOnboardingLocalModelRecommendation.modelID
+    }
+
+    private var recommendedOnboardingLocalModelRecommendation: LocalWhisperModelRecommendation {
+        LocalWhisperModelCatalog.recommendedOnboardingModel(
+            for: appState.settings.selectedTranscriptionLanguages
+        )
     }
 
     private func synchronizeOnboardingLocalModelSelection() {
@@ -1045,13 +1107,14 @@ private struct ShuoOnboardingView: View {
                    .standardizedFileURL
                    == URL(fileURLWithPath: currentModelPath).standardizedFileURL
            }) {
+            usesAutomaticOnboardingModelRecommendation = false
             onboardingLocalModelID = currentModel.id
             return
         }
 
         // Reopening Welcome is also a supported settings flow. Never replace a
-        // valid Medium, Q8, or manually selected model merely because it
-        // is not one of the three curated onboarding choices.
+        // valid retired or manually selected model merely because it is not
+        // one of the three curated onboarding choices.
         if !currentModelPath.isEmpty,
            FileManager.default.fileExists(atPath: currentModelPath) {
             return
@@ -1060,14 +1123,25 @@ private struct ShuoOnboardingView: View {
         if let installedModel = onboardingLocalModels.first(where: {
             appState.isManagedLocalWhisperModelInstalled($0)
         }) {
+            usesAutomaticOnboardingModelRecommendation = false
             onboardingLocalModelID = installedModel.id
             appState.useManagedLocalWhisperModel(installedModel)
             return
         }
 
         if !onboardingLocalModels.contains(where: { $0.id == onboardingLocalModelID }) {
-            onboardingLocalModelID = LocalWhisperModelCatalog.defaultOnboardingModelID
+            onboardingLocalModelID = recommendedOnboardingLocalModelID
         }
+    }
+
+    private func updateOnboardingModelRecommendationIfNeeded() {
+        guard appState.settings.provider == .local,
+              usesAutomaticOnboardingModelRecommendation,
+              !selectedOnboardingLocalModelIsReady,
+              !appState.localWhisperSetupIsRunning else {
+            return
+        }
+        onboardingLocalModelID = recommendedOnboardingLocalModelID
     }
 
     private func useSelectedOnboardingModelIfInstalled() {
@@ -1089,6 +1163,8 @@ private struct ShuoOnboardingView: View {
             appState.loadElevenLabsAPIKeyIfNeeded()
         case .alibaba:
             appState.loadAlibabaAPIKeyIfNeeded()
+        case .gemini:
+            appState.loadGeminiAPIKeyIfNeeded()
         case .local, .custom:
             break
         }
@@ -1108,7 +1184,10 @@ private struct ShuoOnboardingView: View {
         if appState.isPluginEnabled(.providerAlibaba) {
             providers.append(.alibaba)
         }
-        return providers.isEmpty ? [.local, .openAI, .elevenLabs, .alibaba] : providers
+        if appState.isPluginEnabled(.providerGemini) {
+            providers.append(.gemini)
+        }
+        return providers.isEmpty ? [.local, .openAI, .elevenLabs, .alibaba, .gemini] : providers
     }
 
     @ViewBuilder
@@ -1238,7 +1317,7 @@ private struct ShuoOnboardingView: View {
 
     @ViewBuilder
     private func apiKeyGuideLink(for provider: TranscriptionProvider) -> some View {
-        if let destination = provider.apiKeyGuideURL {
+        if let destination = CloudTranscriptionProviderConfiguration.apiKeyGuideURL(for: provider) {
             Link(destination: destination) {
                 HStack(spacing: 5) {
                     Text(localizer.apiKeyGuideLabel())

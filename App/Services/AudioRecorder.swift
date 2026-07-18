@@ -16,7 +16,7 @@ enum AudioRecorderError: LocalizedError {
         case .failedToStart:
             return "Recording could not be started."
         case .selectedInputDeviceUnavailable:
-            return "The selected microphone is unavailable. Reconnect it or choose Automatic input."
+            return "The selected microphone is unavailable. Reconnect it or choose System Default."
         case .inputDidNotBecomeReady:
             return "The selected microphone did not begin sending audio. Reconnect it or choose another input."
         }
@@ -542,12 +542,8 @@ enum AudioInputDeviceCatalog {
 
     static func device(for uniqueID: String) -> AVCaptureDevice? {
         let trimmedID = uniqueID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedID.isEmpty,
-              trimmedID != automaticDeviceID else {
-            return automaticInputDevice()
-        }
-
-        if trimmedID == systemDefaultDeviceID {
+        let normalizedID = normalizedSelectionID(trimmedID)
+        if normalizedID == systemDefaultDeviceID {
             return AVCaptureDevice.default(for: .audio)
         }
 
@@ -564,20 +560,17 @@ enum AudioInputDeviceCatalog {
             || trimmedID == systemDefaultDeviceID
     }
 
-    private static func automaticInputDevice() -> AVCaptureDevice? {
-        let devices = captureDevices()
-        let preferredInputs = devices
-            .filter { !isVirtualDeviceName($0.localizedName) }
-            .sorted(by: automaticDeviceSort)
-
-        if let preferredExternalInput = preferredInputs.first(where: { automaticDeviceScore($0.localizedName) > 0 }) {
-            return preferredExternalInput
+    /// Older releases exposed an Automatic choice that guessed a preferred
+    /// headset or external microphone by name. That guess can select a device
+    /// with no active audio route, so migrate it to macOS's actual default.
+    static func normalizedSelectionID(_ id: String) -> String {
+        let trimmedID = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedID.isEmpty,
+              trimmedID != automaticDeviceID else {
+            return systemDefaultDeviceID
         }
 
-        return devices.first(where: { isBuiltInDeviceName($0.localizedName) })
-            ?? AVCaptureDevice.default(for: .audio)
-            ?? devices.first(where: { !isVirtualDeviceName($0.localizedName) })
-            ?? devices.first
+        return trimmedID
     }
 
     private static func captureDevices() -> [AVCaptureDevice] {
@@ -589,101 +582,6 @@ enum AudioInputDeviceCatalog {
         .devices
     }
 
-    private static func automaticDeviceSort(
-        _ lhs: AVCaptureDevice,
-        _ rhs: AVCaptureDevice
-    ) -> Bool {
-        let lhsScore = automaticDeviceScore(lhs.localizedName)
-        let rhsScore = automaticDeviceScore(rhs.localizedName)
-        if lhsScore == rhsScore {
-            return lhs.localizedName.localizedCaseInsensitiveCompare(rhs.localizedName) == .orderedAscending
-        }
-        return lhsScore > rhsScore
-    }
-
-    private static func automaticDeviceScore(_ name: String) -> Int {
-        let normalizedName = name
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            .lowercased()
-
-        if isVirtualDeviceName(normalizedName) {
-            return -100
-        }
-
-        if [
-            "airpods",
-            "beats",
-            "headset",
-            "headphone",
-            "earbud",
-            "earbuds",
-            "bose",
-            "sony",
-            "jabra",
-            "plantronics",
-            "poly",
-            "logitech",
-            "anker",
-            "soundcore",
-            "shokz",
-            "aftershokz",
-            "wh-",
-            "wf-"
-        ].contains(where: normalizedName.contains) {
-            return 100
-        }
-
-        if [
-            "usb",
-            "rode",
-            "shure",
-            "blue",
-            "yeti",
-            "scarlett",
-            "focusrite",
-            "elgato",
-            "apogee",
-            "samson"
-        ].contains(where: normalizedName.contains) {
-            return 80
-        }
-
-        if isBuiltInDeviceName(normalizedName) {
-            return 0
-        }
-
-        return 0
-    }
-
-    private static func isVirtualDeviceName(_ name: String) -> Bool {
-        let normalizedName = name
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            .lowercased()
-
-        return [
-            "zoom",
-            "blackhole",
-            "loopback",
-            "soundflower",
-            "obs",
-            "teams",
-            "webex",
-            "aggregate",
-            "multi-output",
-            "virtual"
-        ].contains(where: normalizedName.contains)
-    }
-
-    private static func isBuiltInDeviceName(_ name: String) -> Bool {
-        let normalizedName = name
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            .lowercased()
-
-        return normalizedName.contains("macbook")
-            || normalizedName.contains("built-in")
-            || normalizedName.contains("builtin")
-            || normalizedName.contains("internal microphone")
-    }
 }
 
 /// UI-facing lifecycle calls are made on MainActor through `AudioRecording`;
@@ -800,7 +698,7 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         }
     }
 
-    func start(inputDeviceID: String = AudioInputDeviceCatalog.automaticDeviceID) async throws -> AudioRecordingStartResult {
+    func start(inputDeviceID: String = AudioInputDeviceCatalog.systemDefaultDeviceID) async throws -> AudioRecordingStartResult {
         try Task.checkCancellation()
         let hasMicrophoneAccess = await AudioRecorder.requestMicrophoneAccess()
         try Task.checkCancellation()

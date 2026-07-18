@@ -28,6 +28,39 @@ compiling it. The packaged direct-download app also carries the upstream license
 - Copyright: Copyright (c) 2023-2026 The ggml authors
 - License text: <https://github.com/ggml-org/whisper.cpp/blob/v1.8.6/LICENSE>
 
+## SenseVoice llama.cpp runtime 0.1.4
+
+The direct-download build includes a statically built `sensevoice-cli` runtime
+for the optional SenseVoice local-transcription engine. Its source is pinned to
+an immutable FunAudioLLM/SenseVoice revision and independently verifies the
+pinned llama.cpp source archive before compiling. The packaged direct-download
+app carries both license texts under `Contents/Resources/ThirdParty/`.
+Shuo applies one reviewed, source-controlled patch before compiling so VAD
+segments are emitted with explicit line boundaries; the patch is published at
+`Scripts/patches/sensevoice-segment-delimiters.patch` and its SHA-256 is
+recorded in the release manifest.
+
+- SenseVoice runtime source:
+  <https://github.com/FunAudioLLM/SenseVoice/tree/7e41210ed16d97de8a21b5fec764e0cc287c1d40/runtime/llama.cpp>
+- SenseVoice runtime license: MIT
+- SenseVoice license text: `SenseVoice-LICENSE.txt`
+- Statically linked llama.cpp source:
+  <https://github.com/ggml-org/llama.cpp/tree/8086439a4cea94c71a5dfb8fe4ad1546aebd640f>
+- llama.cpp license: MIT
+- llama.cpp license text: `llama.cpp-LICENSE.txt`
+
+## SenseVoiceSmall GGUF and FSMN-VAD model weights
+
+Shuo does not include SenseVoice ASR or FSMN-VAD model weights in its source
+tree or initial app download. If a user selects SenseVoice local transcription,
+Shuo downloads the pinned ASR model and its required VAD companion into the
+user's local model store. The official GGUF repositories declare Apache-2.0.
+
+- ASR model: <https://huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF/tree/90c1c61912018b70ada0fcc024ea24aca62f2e63>
+- VAD model: <https://huggingface.co/FunAudioLLM/fsmn-vad-GGUF/tree/6840bae4c5c92ee8c04faaf4db23dd0105098d7f>
+- Model repository license: Apache-2.0
+- Apache-2.0 text: `SenseVoiceSmall-GGUF-LICENSE.txt`
+
 ## OpenAI Whisper model weights
 
 Shuo does not include Whisper model weights in its source tree or initial app

@@ -5,13 +5,24 @@ struct AppSettings: Codable, Equatable {
 
     var hasCompletedOnboarding = false
     var appLanguage: AppLanguage = .english
+    var showDockIcon = false
     var provider: TranscriptionProvider = .local
     var selectedModel: String = "local.medium"
     var openAITranscriptionModelSelectionMode: OpenAIModelSelectionMode = .automatic
     var automaticOpenAITranscriptionModel = OpenAIModelCatalog.defaultTranscriptionModelID
+    var fixedOpenAITranscriptionModel = OpenAIModelCatalog.defaultTranscriptionModelID
     var openAITextModelSelectionMode: OpenAITextModelSelectionMode = .automatic
     var automaticOpenAITextModel = OpenAIModelCatalog.defaultTextModelID
     var fixedOpenAITextModel = OpenAIModelCatalog.defaultTextModelID
+    // Text processing may reuse the transcription service or use its own
+    // cloud connection. The existing OpenAI text model fields above remain
+    // the model selection for every OpenAI-compatible text connection.
+    var cloudTextUsesTranscriptionService = true
+    var cloudTextServicePreset: CloudTextServicePreset = .openAI
+    var cloudTextOpenAIBaseURL = Self.defaultOpenAIBaseURL
+    var lastCustomCloudTextOpenAIBaseURL = ""
+    var acknowledgedCloudTextRelayEndpoint = ""
+    var cloudTextGeminiModel = GeminiTranscriptionService.defaultModelID
     var customModelName = ""
     // Chinese + English covers Shuo's primary mixed-language path while
     // avoiding accidental Chinese-script conversion of Japanese kanji. Users
@@ -22,18 +33,21 @@ struct AppSettings: Codable, Equatable {
     ]
     var chineseScriptPreference: ChineseScriptPreference = .automatic
     var openAIBaseURL = Self.defaultOpenAIBaseURL
+    var lastCustomOpenAIBaseURL = ""
     var openAIOrganizationID = ""
     var openAIProjectID = ""
+    var acknowledgedOpenAICompatibleRelayEndpoint = ""
     var localWhisperExecutablePath = ""
     var localWhisperModelDirectoryPath = Self.defaultLocalWhisperModelDirectoryPath
     var localWhisperModelPath = ""
     var localWhisperPerformanceMode: LocalWhisperPerformanceMode = .balanced
-    var audioInputDeviceID = AudioInputDeviceCatalog.automaticDeviceID
+    var audioInputDeviceID = AudioInputDeviceCatalog.systemDefaultDeviceID
     // Legacy decode/export field. Prompt Context's plugin switch is now the
     // single product control; disabled plugins provide an empty context.
     var sendContextPrompt = true
     var pushToTalkEnabled = true
     var pushToTalkShortcut: PushToTalkShortcut = .rightOption
+    var customPushToTalkShortcut: CustomPushToTalkShortcut?
     var recordingStartSoundEnabled = true
     var recordingStartSound: RecordingCueSound = .doubleTap
     var voiceActivityGateEnabled = true
@@ -86,11 +100,13 @@ struct AppSettings: Codable, Equatable {
             return URL(fileURLWithPath: trimmedModelPath).lastPathComponent
         }
 
-        if provider == .openAI,
-           openAITranscriptionModelSelectionMode == .automatic {
-            return OpenAIModelCatalog.normalizedAutomaticTranscriptionModelID(
-                automaticOpenAITranscriptionModel
-            )
+        if provider == .openAI {
+            if openAITranscriptionModelSelectionMode == .automatic {
+                return OpenAIModelCatalog.normalizedAutomaticTranscriptionModelID(
+                    automaticOpenAITranscriptionModel
+                )
+            }
+            return fixedOpenAITranscriptionModel.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         if selectedModel == "custom" {
@@ -167,6 +183,21 @@ struct AppSettings: Codable, Equatable {
         openAIBaseURL = Self.defaultOpenAIBaseURL
         openAIOrganizationID = ""
         openAIProjectID = ""
+        acknowledgedOpenAICompatibleRelayEndpoint = ""
+    }
+
+    var hasAcknowledgedOpenAICompatibleRelay: Bool {
+        guard OpenAICompatibleRequestBuilder.usesThirdPartyRelay(baseURLString: openAIBaseURL) else {
+            return true
+        }
+        return acknowledgedOpenAICompatibleRelayEndpoint
+            == OpenAICompatibleRequestBuilder.connectionIdentity(baseURLString: openAIBaseURL)
+    }
+
+    mutating func acknowledgeOpenAICompatibleRelay() {
+        acknowledgedOpenAICompatibleRelayEndpoint = OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: openAIBaseURL
+        )
     }
 
     var effectiveContextPrompt: String {
@@ -208,15 +239,100 @@ struct AppSettings: Codable, Equatable {
     }
 
     var effectiveVoiceEditLLMModel: String {
-        effectiveTextModel
+        effectiveCloudTextModel
     }
 
     var effectiveTranscriptRetouchLLMModel: String {
-        effectiveTextModel
+        effectiveCloudTextModel
     }
 
     var effectiveEmojiResolverLLMModel: String {
-        effectiveTextModel
+        effectiveCloudTextModel
+    }
+
+    var cloudTextServiceProvider: TranscriptionProvider? {
+        if cloudTextUsesTranscriptionService {
+            switch provider {
+            case .openAI, .gemini:
+                return provider
+            case .local, .elevenLabs, .alibaba, .custom:
+                return nil
+            }
+        }
+
+        return cloudTextServicePreset.provider
+    }
+
+    var cloudTextUsesGemini: Bool {
+        cloudTextServiceProvider == .gemini
+    }
+
+    var effectiveCloudTextBaseURL: String? {
+        guard cloudTextServiceProvider == .openAI else {
+            return nil
+        }
+
+        if cloudTextUsesTranscriptionService {
+            return openAIBaseURL
+        }
+
+        return cloudTextServicePreset.baseURL ?? cloudTextOpenAIBaseURL
+    }
+
+    var effectiveCloudTextModel: String {
+        if cloudTextUsesGemini {
+            return GeminiTranscriptionService.modelIDs.contains(cloudTextGeminiModel)
+                ? cloudTextGeminiModel
+                : GeminiTranscriptionService.defaultModelID
+        }
+
+        return effectiveTextModel
+    }
+
+    var cloudTextRequiresRelayAcknowledgement: Bool {
+        guard let baseURL = effectiveCloudTextBaseURL else {
+            return false
+        }
+        return OpenAICompatibleRequestBuilder.usesThirdPartyRelay(baseURLString: baseURL)
+    }
+
+    var hasAcknowledgedCloudTextRelay: Bool {
+        guard cloudTextRequiresRelayAcknowledgement,
+              let baseURL = effectiveCloudTextBaseURL else {
+            return true
+        }
+
+        if cloudTextUsesTranscriptionService {
+            return hasAcknowledgedOpenAICompatibleRelay
+        }
+
+        return OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: acknowledgedCloudTextRelayEndpoint
+        ) == OpenAICompatibleRequestBuilder.connectionIdentity(baseURLString: baseURL)
+    }
+
+    var cloudTextExecutionSettings: AppSettings {
+        var executionSettings = self
+        guard let cloudTextServiceProvider else {
+            return executionSettings
+        }
+
+        executionSettings.provider = cloudTextServiceProvider
+        if cloudTextServiceProvider == .gemini {
+            executionSettings.selectedModel = effectiveCloudTextModel
+        } else if let baseURL = effectiveCloudTextBaseURL {
+            executionSettings.openAIBaseURL = baseURL
+        }
+        return executionSettings
+    }
+
+    mutating func acknowledgeCloudTextRelay() {
+        guard let baseURL = effectiveCloudTextBaseURL else {
+            return
+        }
+        acknowledgedCloudTextRelayEndpoint = OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: baseURL
+        )
     }
 
     var appliesPunctuationPostProcessing: Bool {
@@ -256,6 +372,14 @@ struct AppSettings: Codable, Equatable {
         LocalWhisperLanguageCapability.infer(fromModelPath: localWhisperModelPath)
     }
 
+    var localTranscriptionEngine: LocalTranscriptionEngine? {
+        LocalTranscriptionEngine.infer(fromModelPath: localWhisperModelPath)
+    }
+
+    var usesSenseVoiceLocalTranscription: Bool {
+        provider == .local && localTranscriptionEngine == .senseVoice
+    }
+
     var availableLanguageHints: [LanguageHint] {
         guard provider == .local else {
             return LanguageHint.allCases
@@ -270,6 +394,7 @@ struct AppSettings: Codable, Equatable {
         normalizeLocalWhisperModelSelection()
         normalizeLanguageSelection()
         normalizeUpdatePreferences()
+        audioInputDeviceID = AudioInputDeviceCatalog.normalizedSelectionID(audioInputDeviceID)
         // Clipboard restoration is part of Shuo's insertion safety contract,
         // not a user-selectable behavior. Preserve the legacy field only so
         // older settings files continue to decode cleanly.
@@ -290,6 +415,9 @@ struct AppSettings: Codable, Equatable {
             .normalizedAutomaticTranscriptionModelID(automaticOpenAITranscriptionModel)
         automaticOpenAITextModel = OpenAIModelCatalog
             .normalizedAutomaticTextModelID(automaticOpenAITextModel)
+        if !GeminiTranscriptionService.modelIDs.contains(cloudTextGeminiModel) {
+            cloudTextGeminiModel = GeminiTranscriptionService.defaultModelID
+        }
         // Keep the fixed value editable. Normalizing an empty intermediate
         // value here would replace it on every TextField keystroke; runtime and
         // decode paths normalize it at their actual use boundaries instead.
@@ -352,8 +480,21 @@ struct AppSettings: Codable, Equatable {
 /// when they later select a cloud transcription provider.
 enum CloudTextAICapabilityPolicy {
     static func isCloudTextAIAvailable(for settings: AppSettings) -> Bool {
-        settings.provider != .local
-            && settings.openAITextModelSelectionMode != .disabled
+        guard settings.cloudTextServiceProvider != nil else {
+            return false
+        }
+
+        // A non-default OpenAI-compatible endpoint receives optional text
+        // traffic only after it has been explicitly confirmed.
+        guard settings.hasAcknowledgedCloudTextRelay else {
+            return false
+        }
+
+        // This persisted field predates Gemini, but `.disabled` is the
+        // provider-neutral, explicit opt-out for every optional cloud text
+        // feature. Gemini still uses its own credential and selected model;
+        // this switch only controls whether optional text is sent at all.
+        return settings.openAITextModelSelectionMode != .disabled
     }
 
     static func applying(to source: AppSettings) -> AppSettings {

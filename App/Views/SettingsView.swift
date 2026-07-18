@@ -27,6 +27,11 @@ enum SettingsCategory: Equatable {
     case architectureHumanCorrection
 }
 
+private enum OpenAITranscriptionModelPickerSelection: Hashable {
+    case automatic
+    case fixed(String)
+}
+
 struct SettingsPipelineMetadataPresentation: Equatable {
     var isEnabled = false
     var commonLabel = ""
@@ -191,6 +196,7 @@ extension SettingsRowLabel where Accessory == EmptyView {
 struct SettingsRowFeedback: View {
     enum Style {
         case neutral
+        case success
         case warning
         case error
     }
@@ -220,6 +226,8 @@ struct SettingsRowFeedback: View {
         switch style {
         case .neutral:
             return nil
+        case .success:
+            return "checkmark.circle.fill"
         case .warning:
             return "exclamationmark.triangle"
         case .error:
@@ -231,6 +239,8 @@ struct SettingsRowFeedback: View {
         switch style {
         case .neutral:
             return .secondary
+        case .success:
+            return .green
         case .warning:
             return .orange
         case .error:
@@ -383,17 +393,163 @@ struct SettingsCollectionEmptyRow: View {
     }
 }
 
+struct CustomPushToTalkShortcutRecorder: View {
+    let currentShortcut: CustomPushToTalkShortcut?
+    let localizer: AppLocalizer
+    let onRecord: (CustomPushToTalkShortcut) -> Void
+
+    @State private var isRecording = false
+    @State private var eventMonitor: Any?
+    @State private var pendingModifierShortcut: CustomPushToTalkShortcut?
+    @State private var validationMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                SettingsRowLabel(
+                    title: localizer.customShortcutTitle(),
+                    detail: currentShortcut == nil ? localizer.customShortcutNotRecorded() : ""
+                )
+
+                Spacer(minLength: 12)
+
+                Button(recordButtonTitle) {
+                    if isRecording {
+                        stopRecording()
+                    } else {
+                        startRecording()
+                    }
+                }
+            }
+
+            if isRecording {
+                SettingsRowFeedback(text: localizer.customShortcutRecordPrompt())
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let validationMessage {
+                SettingsRowFeedback(text: validationMessage, style: .warning)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onDisappear {
+            stopRecording()
+        }
+    }
+
+    private var recordButtonTitle: String {
+        if isRecording {
+            return localizer.customShortcutRecordingButton()
+        }
+        return currentShortcut?.displayName ?? localizer.customShortcutRecordButton()
+    }
+
+    private func startRecording() {
+        stopRecording()
+        pendingModifierShortcut = nil
+        validationMessage = nil
+        isRecording = true
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            handleRecordingEvent(event)
+        }
+    }
+
+    private func stopRecording() {
+        if let eventMonitor {
+            NSEvent.removeMonitor(eventMonitor)
+        }
+        eventMonitor = nil
+        pendingModifierShortcut = nil
+        isRecording = false
+    }
+
+    private func handleRecordingEvent(_ event: NSEvent) -> NSEvent? {
+        if event.type == .keyDown,
+           event.keyCode == 0x35 {
+            stopRecording()
+            return nil
+        }
+
+        if event.type == .flagsChanged {
+            handleModifierRecordingEvent(event)
+            return nil
+        }
+
+        guard event.type == .keyDown else {
+            return nil
+        }
+
+        let shortcut = CustomPushToTalkShortcut(
+            keyCode: UInt16(event.keyCode),
+            modifiers: Self.modifiers(from: event.modifierFlags)
+        )
+        guard shortcut.isValidHoldShortcut else {
+            validationMessage = localizer.customShortcutInvalid()
+            NSSound.beep()
+            return nil
+        }
+
+        validationMessage = nil
+        onRecord(shortcut)
+        stopRecording()
+        return nil
+    }
+
+    private func handleModifierRecordingEvent(_ event: NSEvent) {
+        let keyCode = UInt16(event.keyCode)
+        guard CustomPushToTalkShortcut.modifierKeyCodes.contains(keyCode) else {
+            return
+        }
+
+        if CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(keyCode)) {
+            var modifiers = Self.modifiers(from: event.modifierFlags)
+            if let currentModifier = PushToTalkShortcutModifier.modifier(forKeyCode: keyCode) {
+                modifiers.remove(currentModifier)
+            }
+            pendingModifierShortcut = CustomPushToTalkShortcut(
+                keyCode: keyCode,
+                modifiers: modifiers
+            )
+            validationMessage = nil
+        } else if let pendingModifierShortcut {
+            validationMessage = nil
+            onRecord(pendingModifierShortcut)
+            stopRecording()
+        }
+    }
+
+    private static func modifiers(from flags: NSEvent.ModifierFlags) -> Set<PushToTalkShortcutModifier> {
+        var modifiers: Set<PushToTalkShortcutModifier> = []
+        if flags.contains(.control) {
+            modifiers.insert(.control)
+        }
+        if flags.contains(.option) {
+            modifiers.insert(.option)
+        }
+        if flags.contains(.shift) {
+            modifiers.insert(.shift)
+        }
+        if flags.contains(.command) {
+            modifiers.insert(.command)
+        }
+        if flags.contains(.function) {
+            modifiers.insert(.function)
+        }
+        return modifiers
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightedSearchTarget: SettingsSearchTarget?
     @State private var highlightedSearchRequestID: UUID?
-    @State private var isOpenAIConnectionExpanded = false
+    @State private var rememberedCloudPreset: CloudTranscriptionPreset = .openAI
     @State private var isLocalManualSetupExpanded = false
     @State private var isConfirmingCorrectionDataClear = false
-    @State private var showsAdditionalLocalWhisperModels = false
     @State private var pendingLocalWhisperModelDeletion: LocalWhisperManagedModel?
     @State private var isConfirmingLocalWhisperModelDeletion = false
+    @State private var isConfirmingOpenAIRelayTest = false
 
     let category: SettingsCategory
 
@@ -419,6 +575,10 @@ struct SettingsView: View {
             }
         }
         .onAppear {
+            rememberedCloudPreset = CloudTranscriptionPreset.inferred(
+                provider: appState.settings.provider,
+                openAIBaseURL: appState.settings.openAIBaseURL
+            )
             if category == .transcription || category == .architectureAIInference {
                 appState.reloadLocalWhisperModels()
             }
@@ -436,8 +596,18 @@ struct SettingsView: View {
                appState.settings.provider == .alibaba {
                 appState.loadAlibabaAPIKeyIfNeeded()
             }
+            if (category == .transcription || category == .architectureAIInference),
+               appState.settings.provider == .gemini {
+                appState.loadGeminiAPIKeyIfNeeded()
+            }
         }
         .onChange(of: appState.settings.provider) { _, provider in
+            if provider != .local {
+                rememberedCloudPreset = CloudTranscriptionPreset.inferred(
+                    provider: provider,
+                    openAIBaseURL: appState.settings.openAIBaseURL
+                )
+            }
             if shouldPrepareOpenAIModels {
                 appState.loadOpenAIAPIKeyIfNeeded()
             }
@@ -451,6 +621,10 @@ struct SettingsView: View {
             if (category == .transcription || category == .architectureAIInference),
                provider == .alibaba {
                 appState.loadAlibabaAPIKeyIfNeeded()
+            }
+            if (category == .transcription || category == .architectureAIInference),
+               provider == .gemini {
+                appState.loadGeminiAPIKeyIfNeeded()
             }
         }
         .confirmationDialog(
@@ -479,6 +653,17 @@ struct SettingsView: View {
             }
         } message: {
             Text(localizer.deleteLocalWhisperModelConfirmationDetail())
+        }
+        .confirmationDialog(
+            localizer.openAICompatibleRelayTestConfirmationTitle(),
+            isPresented: $isConfirmingOpenAIRelayTest,
+            titleVisibility: .visible
+        ) {
+            Button(localizer.testSelectedOpenAIModelLabel()) {
+                appState.acknowledgeOpenAICompatibleRelayAndTestModel()
+            }
+        } message: {
+            Text(localizer.openAICompatibleRelayTestConfirmationDetail())
         }
     }
 
@@ -524,9 +709,6 @@ struct SettingsView: View {
         }
 
         switch request.target {
-        case .openAIConnectionDetails, .openAIBaseURL, .openAIOrganizationID,
-             .openAIProjectID:
-            isOpenAIConnectionExpanded = true
         case .localManualSetup:
             isLocalManualSetupExpanded = true
         default:
@@ -603,7 +785,6 @@ struct SettingsView: View {
     private var architectureAIInferenceContent: some View {
         recognitionContent(includesAdvancedConfiguration: true)
         localPerformanceContent
-        openAITextModelSelectionSection
     }
 
     @ViewBuilder
@@ -838,9 +1019,20 @@ struct SettingsView: View {
                     get: { appState.settings.pushToTalkShortcut },
                     set: { appState.setPushToTalkShortcut($0) }
                 )) {
-                    ForEach(PushToTalkShortcut.allCases) { shortcut in
+                    ForEach(PushToTalkShortcut.pickerCases) { shortcut in
                         Text(localizer.shortcutName(shortcut)).tag(shortcut)
                     }
+                }
+
+                if appState.settings.pushToTalkShortcut == .custom {
+                    Divider()
+
+                    CustomPushToTalkShortcutRecorder(
+                        currentShortcut: appState.settings.customPushToTalkShortcut,
+                        localizer: localizer,
+                        onRecord: appState.setCustomPushToTalkShortcut
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 if let controlsStatusFooter {
@@ -901,7 +1093,10 @@ struct SettingsView: View {
             return nil
         }
 
-        let readyMessage = localizer.holdToDictate(shortcut: appState.settings.pushToTalkShortcut)
+        let readyMessage = localizer.holdToDictate(
+            shortcut: appState.settings.pushToTalkShortcut,
+            customShortcut: appState.settings.customPushToTalkShortcut
+        )
         let message = appState.pushToTalkStatusMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, message != readyMessage else {
             return nil
@@ -918,6 +1113,9 @@ struct SettingsView: View {
                 }
             }
             .settingsSearchAnchor(.appLanguage, highlightedTarget: highlightedSearchTarget)
+
+            Toggle(localizer.text(.showDockIcon), isOn: $appState.settings.showDockIcon)
+                .settingsSearchAnchor(.showDockIcon, highlightedTarget: highlightedSearchTarget)
 
             Toggle(
                 localizer.launchAtLoginLabel(),
@@ -993,86 +1191,108 @@ struct SettingsView: View {
     @ViewBuilder
     private func recognitionContent(includesAdvancedConfiguration: Bool) -> some View {
         Section {
-            Picker(localizer.text(.provider), selection: $appState.settings.provider) {
-                ForEach(availableTranscriptionProviders) { provider in
-                    Text(localizer.providerName(provider)).tag(provider)
+            Picker(localizer.text(.provider), selection: transcriptionExecutionLocation) {
+                ForEach(TranscriptionExecutionLocation.allCases) { location in
+                    Text(localizer.transcriptionExecutionLocationName(location)).tag(location)
                 }
             }
+            .pickerStyle(.segmented)
             .settingsSearchAnchor(.transcriptionProvider, highlightedTarget: highlightedSearchTarget)
 
+            if transcriptionExecutionLocation.wrappedValue == .cloud {
+                Picker(localizer.cloudServiceLabel(), selection: cloudTranscriptionPreset) {
+                    ForEach(availableCloudTranscriptionConfigurations) { configuration in
+                        Text(localizer.cloudTranscriptionPresetName(configuration.preset))
+                            .tag(configuration.preset)
+                    }
+                }
+
+                if !includesAdvancedConfiguration {
+                    cloudTranscriptionConnectionControls
+                }
+            }
+
             if appState.settings.provider == .local {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(localizer.text(.model))
-                        Spacer()
-                        Text(localModelDisplayName)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
+                localModelManagementContent(includesManualSetup: includesAdvancedConfiguration)
+            } else if currentCloudTranscriptionConfiguration.supportsModelDiscovery {
+                VStack(alignment: .leading, spacing: 7) {
+                    if !endpointReportedOpenAITranscriptionModels.isEmpty {
+                        Picker(
+                            localizer.text(.model),
+                            selection: selectedOpenAITranscriptionModel
+                        ) {
+                            Text(localizer.automaticTranscriptionModelLabel())
+                                .tag(OpenAITranscriptionModelPickerSelection.automatic)
 
-                    if appState.settings.localWhisperLanguageCapability != .unknown {
+                            Divider()
+
+                            ForEach(endpointReportedOpenAITranscriptionModels, id: \.self) { model in
+                                Text(appState.openAIModelOptionLabel(model))
+                                    .tag(OpenAITranscriptionModelPickerSelection.fixed(model))
+                            }
+                        }
                         SettingsRowFeedback(
-                            text: localizer.localWhisperLanguageCapabilityName(
-                                appState.settings.localWhisperLanguageCapability
-                            )
+                            text: appState.settings.openAITranscriptionModelSelectionMode == .automatic
+                                ? appState.openAIAutomaticTranscriptionModelMessage
+                                : localizer.openAIModelEndpointReportedLabel()
                         )
-                    }
-                }
-                .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
-            } else if appState.settings.provider == .openAI {
-                Picker(
-                    localizer.openAIModelSelectionLabel(),
-                    selection: $appState.settings.openAITranscriptionModelSelectionMode
-                ) {
-                    ForEach(OpenAIModelSelectionMode.allCases) { mode in
-                        Text(localizer.openAIModelSelectionModeName(mode)).tag(mode)
-                    }
-                }
-                .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
-
-                if appState.settings.openAITranscriptionModelSelectionMode == .automatic {
-                    VStack(alignment: .leading, spacing: 7) {
+                    } else {
                         LabeledContent(
                             localizer.text(.model),
                             value: appState.settings.effectiveModel
                         )
-
-                        SettingsRowFeedback(
-                            text: appState.openAIAutomaticTranscriptionModelMessage
-                        )
+                        SettingsRowFeedback(text: appState.openAIAutomaticTranscriptionModelMessage)
                     }
-                } else {
-                    VStack(alignment: .leading, spacing: 7) {
-                        Picker(localizer.text(.model), selection: $appState.settings.selectedModel) {
-                            ForEach(appState.openAITranscriptionModelOptions) { model in
-                                Text(appState.openAIModelOptionLabel(model)).tag(model.id)
-                            }
+
+                    if let validationError = appState.fixedOpenAITranscriptionModelValidationError {
+                        SettingsRowFeedback(
+                            text: localizer.invalidOpenAITranscriptionModelID(validationError),
+                            style: .warning
+                        )
+                    } else {
+                        if OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                            baseURLString: appState.settings.openAIBaseURL
+                        ) {
+                            SettingsRowFeedback(
+                                text: localizer.thirdPartyOpenAICompatibleRelayBetaLabel()
+                            )
                         }
 
-                        if !appState.isOpenAIModelAvailable(appState.settings.selectedModel) {
+                        Button(localizer.testSelectedOpenAIModelLabel()) {
+                            if OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                                baseURLString: appState.settings.openAIBaseURL
+                            ) {
+                                isConfirmingOpenAIRelayTest = true
+                            } else {
+                                appState.testOpenAITranscriptionModel()
+                            }
+                        }
+                        .disabled(
+                            appState.isTestingOpenAITranscriptionModel
+                                || appState.openAIAPIKey.trimmingCharacters(
+                                    in: .whitespacesAndNewlines
+                                ).isEmpty
+                        )
+
+                        if let testMessage = appState.openAITranscriptionModelTestMessage {
                             SettingsRowFeedback(
-                                text: localizer.openAIModelUnavailableLabel(),
-                                style: .warning
+                                text: testMessage,
+                                style: appState.openAITranscriptionModelTestSucceeded
+                                    ? .success
+                                    : (appState.openAITranscriptionModelTestError == nil
+                                        ? .neutral
+                                        : .warning),
+                                showsProgress: appState.isTestingOpenAITranscriptionModel
                             )
                         }
                     }
                 }
-            } else if appState.settings.provider == .elevenLabs {
-                HStack {
-                    Text(localizer.text(.model))
-                    Spacer()
-                    Text("Scribe v2")
-                        .foregroundStyle(.secondary)
-                }
                 .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
-            } else if appState.settings.provider == .alibaba {
-                HStack {
-                    Text(localizer.text(.model))
-                    Spacer()
-                    Text("Qwen3-ASR-Flash")
-                        .foregroundStyle(.secondary)
-                }
+            } else if let fixedModelID = currentCloudTranscriptionConfiguration.fixedTranscriptionModelID {
+                LabeledContent(
+                    localizer.text(.model),
+                    value: fixedModelID
+                )
                 .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
             } else {
                 Picker(localizer.text(.model), selection: $appState.settings.selectedModel) {
@@ -1094,21 +1314,6 @@ struct SettingsView: View {
                 title: localizer.recognitionLabel(),
                 target: .transcriptionProvider
             )
-        }
-        if appState.settings.provider == .openAI || usesOpenAITextFeatures {
-            openAISettingsSection(includesConnectionDetails: includesAdvancedConfiguration)
-        }
-
-        if appState.settings.provider == .elevenLabs {
-            elevenLabsSettingsSection
-        }
-
-        if appState.settings.provider == .alibaba {
-            alibabaSettingsSection
-        }
-
-        if appState.settings.provider == .local {
-            localModelManagementSection(includesManualSetup: includesAdvancedConfiguration)
         }
     }
 
@@ -1170,9 +1375,6 @@ struct SettingsView: View {
             if includesAudioInputDevice {
                 VStack(alignment: .leading, spacing: 5) {
                     Picker(localizer.text(.audioInputDevice), selection: $appState.settings.audioInputDeviceID) {
-                        Text(localizer.text(.automaticAudioInput))
-                            .tag(AudioInputDeviceCatalog.automaticDeviceID)
-
                         Text(localizer.text(.systemDefaultAudioInput))
                             .tag(AudioInputDeviceCatalog.systemDefaultDeviceID)
 
@@ -1213,9 +1415,12 @@ struct SettingsView: View {
         Section(localizer.transcriptionEnhancementsLabel()) {
             featureToggleRow(
                 title: localizer.text(.promptContext),
-                detail: localizer.promptContextFeatureDetail(),
+                detail: appState.settings.usesSenseVoiceLocalTranscription
+                    ? localizer.senseVoiceVocabularyUnavailableDetail()
+                    : localizer.promptContextFeatureDetail(),
                 pluginIDs: [.smartPromptContext],
-                searchTarget: .featurePromptContext
+                searchTarget: .featurePromptContext,
+                isAvailable: !appState.settings.usesSenseVoiceLocalTranscription
             )
             featureToggleRow(
                 title: localizer.text(.transcriptRetouch),
@@ -1246,8 +1451,6 @@ struct SettingsView: View {
                 searchTarget: .deletePreviousCommand
             )
         }
-
-        openAITextModelSelectionSection
 
         if appState.isPluginEnabled(.outputEmoji) {
             Section(localizer.text(.specialCommands)) {
@@ -1306,6 +1509,55 @@ struct SettingsView: View {
                 .settingsSearchAnchor(.promptContexts, highlightedTarget: highlightedSearchTarget)
         }
 
+    }
+
+    @ViewBuilder
+    private var cloudTextModelSelectionSection: some View {
+        if appState.settings.provider == .gemini {
+            geminiTextEnhancementsSection
+        } else {
+            openAITextModelSelectionSection
+        }
+    }
+
+    private var geminiTextEnhancementsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 7) {
+                Toggle(
+                    localizer.optionalCloudTextEnhancementsEnabledLabel(),
+                    isOn: geminiTextEnhancementsEnabled
+                )
+
+                LabeledContent(
+                    localizer.text(.model),
+                    value: appState.settings.effectiveModel
+                )
+                SettingsRowFeedback(
+                    text: appState.settings.openAITextModelSelectionMode == .disabled
+                        ? localizer.disabledCloudTextEnhancementsHint()
+                        : localizer.geminiTextEnhancementsDetail()
+                )
+            }
+            .settingsSearchAnchor(.geminiAPIKey, highlightedTarget: highlightedSearchTarget)
+        } header: {
+            SettingsSectionHeader(
+                title: localizer.geminiTextEnhancementsLabel(),
+                target: .geminiAPIKey
+            )
+        }
+    }
+
+    private var geminiTextEnhancementsEnabled: Binding<Bool> {
+        Binding(
+            get: {
+                appState.settings.openAITextModelSelectionMode != .disabled
+            },
+            set: { isEnabled in
+                appState.settings.openAITextModelSelectionMode = isEnabled
+                    ? .automatic
+                    : .disabled
+            }
+        )
     }
 
     private var openAITextModelSelectionSection: some View {
@@ -1391,160 +1643,88 @@ struct SettingsView: View {
         )
     }
 
-    private func openAISettingsSection(includesConnectionDetails: Bool) -> some View {
-        Section {
-            SecureField(localizer.text(.apiKey), text: Binding(
-                get: { appState.openAIAPIKey },
-                set: { appState.updateOpenAIAPIKey($0) }
-            ))
-            .settingsSearchAnchor(.openAIAPIKey, highlightedTarget: highlightedSearchTarget)
+    @ViewBuilder
+    private var cloudTranscriptionConnectionControls: some View {
+        let configuration = currentCloudTranscriptionConfiguration
+
+        switch configuration.endpoint {
+        case .editable(let defaultURL):
+            TextField(
+                localizer.text(.baseURL),
+                text: customOpenAIBaseURL,
+                prompt: Text(defaultURL)
+            )
+            .textContentType(.URL)
+            .settingsSearchAnchor(.openAIBaseURL, highlightedTarget: highlightedSearchTarget)
             .onSubmit {
                 appState.refreshOpenAIModels()
             }
 
-            if !includesConnectionDetails {
-                VStack(alignment: .leading, spacing: 7) {
-                    Button(localizer.refreshOpenAIModelsLabel()) {
-                        appState.refreshOpenAIModels()
-                    }
-                    .disabled(
-                        appState.isRefreshingOpenAIModels
-                            || appState.openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
+        case .fixed(let baseURL):
+            fixedBaseURLRow(baseURL)
+        }
 
-                    if appState.isRefreshingOpenAIModels {
-                        SettingsRowFeedback(
-                            text: localizer.refreshingOpenAIModels(),
-                            showsProgress: true
-                        )
-                    } else if let error = appState.openAIModelAvailabilityError {
-                        SettingsRowFeedback(
-                            text: localizer.openAIModelRefreshFailed(error),
-                            style: .warning
-                        )
-                    }
-                }
+        SecureField(localizer.text(.apiKey), text: Binding(
+            get: { appState.cloudAPIKey(for: configuration) },
+            set: { appState.updateCloudAPIKey($0, for: configuration) }
+        ))
+        .settingsSearchAnchor(
+            configuration.apiKeySearchTarget,
+            highlightedTarget: highlightedSearchTarget
+        )
+        .onSubmit {
+            if configuration.supportsModelDiscovery {
+                appState.refreshOpenAIModels()
             }
+        }
 
-            apiKeyGuideLink(for: .openAI)
-
-            if includesConnectionDetails {
-                SettingsDisclosureRow(
-                    title: localizer.connectionDetailsLabel(),
-                    metadataTarget: .openAIConnectionDetails,
-                    localizer: localizer,
-                    isExpanded: $isOpenAIConnectionExpanded
-                ) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(localizer.openAIConnectionDetailsHint())
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text(localizer.text(.baseURL))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        TextField(
-                            "",
-                            text: $appState.settings.openAIBaseURL,
-                            prompt: Text(AppSettings.defaultOpenAIBaseURL)
-                        )
-                            .labelsHidden()
-                            .textContentType(.URL)
-                            .accessibilityLabel(localizer.text(.baseURL))
-                            .settingsSearchAnchor(.openAIBaseURL, highlightedTarget: highlightedSearchTarget)
-                            .onSubmit {
-                                appState.refreshOpenAIModels()
-                            }
-
-                        let organizationLabel = localizer.optionalFieldLabel(
-                            localizer.text(.organizationID)
-                        )
-                        Text(organizationLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        TextField("", text: $appState.settings.openAIOrganizationID)
-                            .accessibilityLabel(organizationLabel)
-                            .settingsSearchAnchor(.openAIOrganizationID, highlightedTarget: highlightedSearchTarget)
-                            .onSubmit {
-                                appState.refreshOpenAIModels()
-                            }
-
-                        let projectLabel = localizer.optionalFieldLabel(
-                            localizer.text(.projectID)
-                        )
-                        Text(projectLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        TextField("", text: $appState.settings.openAIProjectID)
-                            .accessibilityLabel(projectLabel)
-                            .settingsSearchAnchor(.openAIProjectID, highlightedTarget: highlightedSearchTarget)
-                            .onSubmit {
-                                appState.refreshOpenAIModels()
-                            }
-
-                        Button(localizer.restoreOpenAIConnectionDefaultsLabel()) {
-                            var settings = appState.settings
-                            settings.resetOpenAIConnectionDetails()
-                            appState.settings = settings
-                            appState.refreshOpenAIModels()
-                        }
-                        .controlSize(.small)
-                    }
-                }
-                .settingsSearchAnchor(.openAIConnectionDetails, highlightedTarget: highlightedSearchTarget)
+        if configuration.supportsModelDiscovery {
+            Button(localizer.refreshOpenAIModelsLabel()) {
+                appState.refreshOpenAIModels()
             }
-        } header: {
-            SettingsSectionHeader(
-                title: localizer.text(.openAI),
-                target: .openAIAPIKey
+            .disabled(
+                appState.isRefreshingOpenAIModels
+                    || appState.cloudAPIKey(for: configuration)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty
             )
+
+            if appState.isRefreshingOpenAIModels {
+                SettingsRowFeedback(
+                    text: localizer.refreshingOpenAIModels(),
+                    showsProgress: true
+                )
+            } else if let error = appState.openAIModelAvailabilityError {
+                SettingsRowFeedback(
+                    text: localizer.openAIModelRefreshFailed(error),
+                    style: .warning
+                )
+            }
+        }
+
+        if let detail = configuration.connectionDetail {
+            SettingsRowFeedback(text: cloudProviderConnectionDetail(detail))
+        }
+
+        apiKeyGuideLink(for: configuration)
+    }
+
+    private func cloudProviderConnectionDetail(_ detail: CloudProviderConnectionDetail) -> String {
+        switch detail {
+        case .alibabaQwen3:
+            return localizer.alibabaProviderDetail()
         }
     }
 
-    private var elevenLabsSettingsSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 7) {
-                SecureField(localizer.text(.apiKey), text: Binding(
-                    get: { appState.elevenLabsAPIKey },
-                    set: { appState.updateElevenLabsAPIKey($0) }
-                ))
-                SettingsRowFeedback(text: localizer.elevenLabsKeytermDetail())
-            }
-            .settingsSearchAnchor(.elevenLabsAPIKey, highlightedTarget: highlightedSearchTarget)
-
-            apiKeyGuideLink(for: .elevenLabs)
-        } header: {
-            SettingsSectionHeader(title: "ElevenLabs", target: .elevenLabsAPIKey)
-        }
-    }
-
-    private var alibabaSettingsSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 7) {
-                SecureField(localizer.text(.apiKey), text: Binding(
-                    get: { appState.alibabaAPIKey },
-                    set: { appState.updateAlibabaAPIKey($0) }
-                ))
-                SettingsRowFeedback(text: localizer.alibabaProviderDetail())
-            }
-            .settingsSearchAnchor(.alibabaAPIKey, highlightedTarget: highlightedSearchTarget)
-
-            apiKeyGuideLink(for: .alibaba)
-        } header: {
-            SettingsSectionHeader(
-                title: localizer.providerName(.alibaba),
-                target: .alibabaAPIKey
-            )
-        }
+    private func fixedBaseURLRow(_ baseURL: URL) -> some View {
+        TextField(localizer.text(.baseURL), text: .constant(baseURL.absoluteString))
+            .textContentType(.URL)
+            .disabled(true)
     }
 
     @ViewBuilder
-    private func apiKeyGuideLink(for provider: TranscriptionProvider) -> some View {
-        if let destination = provider.apiKeyGuideURL {
+    private func apiKeyGuideLink(for configuration: CloudTranscriptionProviderConfiguration) -> some View {
+        if let destination = configuration.apiKeyGuideURL {
             Link(destination: destination) {
                 HStack(spacing: 5) {
                     Text(localizer.apiKeyGuideLabel())
@@ -1666,68 +1846,39 @@ struct SettingsView: View {
         .padding(.vertical, 2)
     }
 
-    private func localModelManagementSection(includesManualSetup: Bool) -> some View {
-        Section {
-            ForEach(visibleManagedLocalWhisperModels) { model in
-                if model.id == visibleManagedLocalWhisperModels.first?.id {
-                    managedLocalWhisperModelRow(model)
-                        .settingsSearchAnchor(
-                            .localModelManagement,
-                            highlightedTarget: highlightedSearchTarget
-                        )
-                } else {
-                    managedLocalWhisperModelRow(model)
-                }
-            }
-
-            if shouldShowAdditionalLocalWhisperModelsToggle {
-                Button {
-                    if reduceMotion {
-                        showsAdditionalLocalWhisperModels.toggle()
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            showsAdditionalLocalWhisperModels.toggle()
-                        }
-                    }
-                } label: {
-                    Label(
-                        showsAdditionalLocalWhisperModels
-                            ? localizer.fewerLocalWhisperModelsLabel()
-                            : localizer.moreLocalWhisperModelsLabel(),
-                        systemImage: showsAdditionalLocalWhisperModels
-                            ? "chevron.up"
-                            : "chevron.down"
+    @ViewBuilder
+    private func localModelManagementContent(includesManualSetup: Bool) -> some View {
+        ForEach(visibleManagedLocalWhisperModels) { model in
+            if model.id == visibleManagedLocalWhisperModels.first?.id {
+                managedLocalWhisperModelRow(model)
+                    .settingsSearchAnchor(
+                        .localModelManagement,
+                        highlightedTarget: highlightedSearchTarget
                     )
-                    .font(.callout)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityValue(
-                    showsAdditionalLocalWhisperModels
-                        ? localizer.expandedStateLabel()
-                        : localizer.collapsedStateLabel()
+            } else {
+                managedLocalWhisperModelRow(model)
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 6) {
+            SettingsRowFeedback(text: localizer.localWhisperModelSizeExplanation())
+
+            if shouldShowLocalWhisperSetupMessage {
+                SettingsRowFeedback(
+                    text: appState.localWhisperSetupMessage,
+                    style: appState.localWhisperSetupIsRunning ? .neutral : .error,
+                    showsProgress: appState.localWhisperSetupIsRunning
                 )
             }
+        }
 
-            VStack(alignment: .leading, spacing: 6) {
-                SettingsRowFeedback(text: localizer.localWhisperModelSizeExplanation())
-
-                if shouldShowLocalWhisperSetupMessage {
-                    SettingsRowFeedback(
-                        text: appState.localWhisperSetupMessage,
-                        style: appState.localWhisperSetupIsRunning ? .neutral : .error,
-                        showsProgress: appState.localWhisperSetupIsRunning
-                    )
-                }
-            }
-
-            if includesManualSetup {
-                SettingsDisclosureRow(
-                    title: localizer.manualSetupLabel(),
-                    metadataTarget: .localManualSetup,
-                    localizer: localizer,
-                    isExpanded: $isLocalManualSetupExpanded
-                ) {
+        if includesManualSetup {
+            SettingsDisclosureRow(
+                title: localizer.manualSetupLabel(),
+                metadataTarget: .localManualSetup,
+                localizer: localizer,
+                isExpanded: $isLocalManualSetupExpanded
+            ) {
                     VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(localizer.text(.localWhisperEngine))
@@ -1793,13 +1944,7 @@ struct SettingsView: View {
                     }
                     }
                 }
-                .settingsSearchAnchor(.localManualSetup, highlightedTarget: highlightedSearchTarget)
-            }
-        } header: {
-            SettingsSectionHeader(
-                title: localizer.text(.modelManagement),
-                target: .localModelManagement
-            )
+            .settingsSearchAnchor(.localManualSetup, highlightedTarget: highlightedSearchTarget)
         }
     }
 
@@ -1808,6 +1953,7 @@ struct SettingsView: View {
         let isActive = appState.localWhisperActiveManagedModelID == model.id
         let isBusy = appState.localWhisperSetupIsRunning || appState.localWhisperActiveManagedModelID != nil
         let isSelected = isSelectedManagedModel(model)
+        let recommendation = localModelRecommendation
 
         return HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
@@ -1815,14 +1961,8 @@ struct SettingsView: View {
                     Text(model.displayName)
                         .font(.body)
 
-                    if model.id == LocalWhisperModelCatalog.defaultOnboardingModelID {
-                        Text(localizer.onboardingRecommendedLabel())
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.tertiary)
-                    }
-
-                    if model.id == "large-v3-turbo-q8_0" {
-                        Text(localizer.q8QuantizationLabel())
+                    if model.id == recommendation.modelID {
+                        Text(localizer.localModelRecommendationLabel(recommendation))
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.tertiary)
                     }
@@ -1831,6 +1971,14 @@ struct SettingsView: View {
                 Text(localizer.localWhisperManagedModelSummary(model))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                let note = localizer.localWhisperManagedModelNote(model)
+                if !note.isEmpty {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer()
@@ -1913,7 +2061,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var localPerformanceContent: some View {
-        if appState.settings.provider == .local {
+        if appState.settings.provider == .local,
+           appState.settings.localTranscriptionEngine?.supportsPerformanceMode != false {
             Section {
                 VStack(alignment: .leading, spacing: 7) {
                     Picker(
@@ -1993,13 +2142,10 @@ struct SettingsView: View {
         .settingsSearchAnchor(.advancedAudio, highlightedTarget: highlightedSearchTarget)
     }
 
-    private var localModelDisplayName: String {
-        let modelPath = appState.settings.localWhisperModelPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !modelPath.isEmpty else {
-            return localizer.text(.noLocalModelSelected)
-        }
-
-        return URL(fileURLWithPath: modelPath).lastPathComponent
+    private var localModelRecommendation: LocalWhisperModelRecommendation {
+        LocalWhisperModelCatalog.recommendedOnboardingModel(
+            for: appState.settings.selectedTranscriptionLanguages
+        )
     }
 
     private var localWhisperModelURLs: [URL] {
@@ -2007,41 +2153,134 @@ struct SettingsView: View {
     }
 
     private var visibleManagedLocalWhisperModels: [LocalWhisperManagedModel] {
-        let featured = LocalWhisperModelCatalog.featuredModels
-        let additional = LocalWhisperModelCatalog.additionalModels.filter { model in
-            showsAdditionalLocalWhisperModels
-                || appState.isManagedLocalWhisperModelInstalled(model)
-                || appState.localWhisperActiveManagedModelID == model.id
-        }
-        return featured + additional
+        LocalWhisperModelCatalog.managedModels
     }
 
-    private var shouldShowAdditionalLocalWhisperModelsToggle: Bool {
-        showsAdditionalLocalWhisperModels
-            || LocalWhisperModelCatalog.additionalModels.contains { model in
-                !appState.isManagedLocalWhisperModelInstalled(model)
-                    && appState.localWhisperActiveManagedModelID != model.id
+    private var endpointReportedOpenAITranscriptionModels: [String] {
+        guard appState.openAIModelAvailabilityFetchedAt != nil else {
+            return []
+        }
+        return appState.openAIAvailableModelIDs
+            .filter(OpenAIModelCatalog.supportsTranscription)
+            .sorted()
+    }
+
+    private var selectedOpenAITranscriptionModel: Binding<OpenAITranscriptionModelPickerSelection> {
+        Binding(
+            get: {
+                appState.settings.openAITranscriptionModelSelectionMode == .automatic
+                    ? .automatic
+                    : .fixed(appState.settings.fixedOpenAITranscriptionModel)
+            },
+            set: { selection in
+                switch selection {
+                case .automatic:
+                    appState.settings.openAITranscriptionModelSelectionMode = .automatic
+                    if let recommendedModelID = OpenAIModelCatalog.recommendedTranscriptionModelID(
+                        availableModelIDs: appState.openAIAvailableModelIDs
+                    ) {
+                        appState.settings.automaticOpenAITranscriptionModel = recommendedModelID
+                    }
+                case let .fixed(modelID):
+                    appState.settings.fixedOpenAITranscriptionModel = modelID
+                    appState.settings.openAITranscriptionModelSelectionMode = .fixed
+                }
             }
+        )
     }
 
-    private var availableTranscriptionProviders: [TranscriptionProvider] {
-        var providers: [TranscriptionProvider] = []
-        if appState.isPluginEnabled(.providerLocalWhisper) {
-            providers.append(.local)
+    private var customOpenAIBaseURL: Binding<String> {
+        Binding(
+            get: { appState.settings.openAIBaseURL },
+            set: { baseURL in
+                var updatedSettings = appState.settings
+                updatedSettings.openAIBaseURL = baseURL
+                updatedSettings.lastCustomOpenAIBaseURL = baseURL
+                appState.settings = updatedSettings
+            }
+        )
+    }
+
+    private var transcriptionExecutionLocation: Binding<TranscriptionExecutionLocation> {
+        Binding(
+            get: {
+                appState.settings.provider == .local ? .local : .cloud
+            },
+            set: { location in
+                switch location {
+                case .local:
+                    appState.settings.provider = .local
+                case .cloud:
+                    selectCloudTranscriptionPreset(rememberedCloudPreset)
+                }
+            }
+        )
+    }
+
+    private var cloudTranscriptionPreset: Binding<CloudTranscriptionPreset> {
+        Binding(
+            get: { currentCloudTranscriptionPreset },
+            set: { selectCloudTranscriptionPreset($0) }
+        )
+    }
+
+    private var currentCloudTranscriptionPreset: CloudTranscriptionPreset {
+        currentCloudTranscriptionConfiguration.preset
+    }
+
+    private var currentCloudTranscriptionConfiguration: CloudTranscriptionProviderConfiguration {
+        guard appState.settings.provider != .local else {
+            return rememberedCloudPreset.configuration
         }
-        if appState.isPluginEnabled(.providerOpenAI) {
-            providers.append(.openAI)
+        return CloudTranscriptionProviderConfiguration.inferred(
+            backendProvider: appState.settings.provider,
+            compatibleBaseURL: appState.settings.openAIBaseURL
+        )
+    }
+
+    private var availableCloudTranscriptionConfigurations: [CloudTranscriptionProviderConfiguration] {
+        CloudTranscriptionProviderConfiguration.enabled(
+            isPluginEnabled: appState.isPluginEnabled
+        )
+    }
+
+    private func selectCloudTranscriptionPreset(_ preset: CloudTranscriptionPreset) {
+        rememberedCloudPreset = preset
+        let configuration = preset.configuration
+
+        var updatedSettings = appState.settings
+        updatedSettings.provider = configuration.backendProvider
+
+        guard configuration.transportKind == .openAICompatible else {
+            appState.settings = updatedSettings
+            return
         }
-        if appState.isPluginEnabled(.providerElevenLabs) {
-            providers.append(.elevenLabs)
+
+        switch configuration.endpoint {
+        case .fixed:
+            updatedSettings.openAIBaseURL = configuration.endpoint.defaultURLString
+            updatedSettings.openAIOrganizationID = ""
+            updatedSettings.openAIProjectID = ""
+            updatedSettings.acknowledgedOpenAICompatibleRelayEndpoint = ""
+
+            if updatedSettings.openAITranscriptionModelSelectionMode == .automatic,
+               let modelID = configuration.automaticTranscriptionModelID {
+                updatedSettings.automaticOpenAITranscriptionModel = modelID
+            }
+            if updatedSettings.openAITextModelSelectionMode == .automatic,
+               let modelID = configuration.automaticTextModelID {
+                updatedSettings.automaticOpenAITextModel = modelID
+            }
+        case .editable:
+            if currentCloudTranscriptionConfiguration.preset != .custom {
+                updatedSettings.openAIBaseURL = updatedSettings.lastCustomOpenAIBaseURL
+                updatedSettings.openAIOrganizationID = ""
+                updatedSettings.openAIProjectID = ""
+                updatedSettings.acknowledgedOpenAICompatibleRelayEndpoint = ""
+            }
         }
-        if appState.isPluginEnabled(.providerAlibaba) {
-            providers.append(.alibaba)
-        }
-        if providers.isEmpty {
-            providers = [.local, .openAI, .elevenLabs, .alibaba]
-        }
-        return providers
+
+        appState.settings = updatedSettings
     }
 
     private func transcriptionLanguageBinding(_ language: TranscriptionLanguage) -> Binding<Bool> {
@@ -2058,6 +2297,10 @@ struct SettingsView: View {
     }
 
     private var shouldPrepareOpenAIModels: Bool {
+        guard appState.settings.provider != .gemini else {
+            return false
+        }
+
         switch category {
         case .aiAndLLM, .architectureAIInference:
             return appState.settings.provider != .local
@@ -2173,7 +2416,7 @@ struct SettingsView: View {
         switch appState.settings.provider {
         case .openAI:
             return appState.settings.effectiveModel != "gpt-4o-transcribe-diarize"
-        case .elevenLabs:
+        case .elevenLabs, .gemini:
             return true
         case .local, .alibaba, .custom:
             return false
@@ -2191,7 +2434,7 @@ struct SettingsView: View {
             return localizer.correctionHintsUnavailableForAlibabaDetail()
         case .openAI where appState.settings.effectiveModel == "gpt-4o-transcribe-diarize":
             return localizer.correctionHintsUnavailableForDiarizationDetail()
-        case .openAI, .elevenLabs, .custom:
+        case .openAI, .elevenLabs, .gemini, .custom:
             return nil
         }
     }

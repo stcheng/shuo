@@ -353,6 +353,28 @@ enum FloatingWindowBehavior {
     }
 }
 
+/// A synthetic paste is posted before the transcript session is published, but
+/// AppKit can deliver that event to a newly installed monitor afterwards. An
+/// event that occurred before the transcript was presented must not immediately
+/// collapse the just-created floating window.
+enum FloatingWindowAutomaticDismissalPolicy {
+    static func shouldIgnore(
+        eventTimestamp: TimeInterval,
+        presentationTimestamp: TimeInterval,
+        isSynthetic: Bool
+    ) -> Bool {
+        guard !isSynthetic,
+              eventTimestamp.isFinite,
+              eventTimestamp > 0,
+              presentationTimestamp.isFinite,
+              presentationTimestamp > 0 else {
+            return isSynthetic
+        }
+
+        return eventTimestamp <= presentationTimestamp
+    }
+}
+
 struct FloatingWindowStoredPosition: Codable, Equatable {
     let centerX: Double
     let centerY: Double
@@ -1309,7 +1331,9 @@ final class StatusItemController: NSObject {
                 )
             }
         )
-        return FirstMouseHostingView(rootView: content)
+        let hostingView = FirstMouseHostingView(rootView: content)
+        hostingView.forcesArrowCursor = mode.forcesArrowCursor
+        return hostingView
     }
 
     private func collapseFloatingWindow(
@@ -1409,6 +1433,7 @@ final class StatusItemController: NSObject {
             return
         }
 
+        let presentationTimestamp = ProcessInfo.processInfo.systemUptime
         let duration = FloatingWindowBehavior.displayDuration(for: session.correctionText)
         floatingWindowAutoCollapseTask = Task { @MainActor [weak self] in
             let nanoseconds = UInt64(duration * 1_000_000_000)
@@ -1428,9 +1453,13 @@ final class StatusItemController: NSObject {
         floatingWindowGlobalEventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: eventMask
         ) { [weak self] event in
-            guard !ShuoSyntheticEventMarker.isMarked(event) else {
+            guard !FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: event.timestamp,
+                presentationTimestamp: presentationTimestamp,
+                isSynthetic: ShuoSyntheticEventMarker.isMarked(event)
+            ) else {
                 Self.floatingWindowLogger.info(
-                    "Ignored Shuo-generated event for floating transcript dismissal"
+                    "Ignored synthetic or pre-presentation event for floating transcript dismissal"
                 )
                 return
             }
@@ -1449,6 +1478,13 @@ final class StatusItemController: NSObject {
         floatingWindowLocalEventMonitor = NSEvent.addLocalMonitorForEvents(
             matching: eventMask
         ) { [weak self] event in
+            guard !FloatingWindowAutomaticDismissalPolicy.shouldIgnore(
+                eventTimestamp: event.timestamp,
+                presentationTimestamp: presentationTimestamp,
+                isSynthetic: ShuoSyntheticEventMarker.isMarked(event)
+            ) else {
+                return event
+            }
             let eventWindowNumber = event.windowNumber
             Task { @MainActor in
                 guard let self,
@@ -1916,6 +1952,15 @@ private enum FloatingWindowMode: Equatable {
         return false
     }
 
+    var forcesArrowCursor: Bool {
+        switch self {
+        case .idle, .collapsed:
+            return true
+        case .hidden, .transcript, .editing:
+            return false
+        }
+    }
+
     func updatingSession(_ session: FloatingCorrectionSession) -> FloatingWindowMode {
         guard sessionID == session.id else {
             return self
@@ -2074,8 +2119,50 @@ private final class FloatingWindowPanel: NSPanel {
 }
 
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var forcesArrowCursor = false {
+        didSet {
+            guard oldValue != forcesArrowCursor else {
+                return
+            }
+            window?.invalidateCursorRects(for: self)
+            if forcesArrowCursor {
+                NSCursor.arrow.set()
+            }
+        }
+    }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard forcesArrowCursor else {
+            return
+        }
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard forcesArrowCursor else {
+            super.cursorUpdate(with: event)
+            return
+        }
+        NSCursor.arrow.set()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if forcesArrowCursor {
+            NSCursor.arrow.set()
+        }
+        super.mouseEntered(with: event)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        if forcesArrowCursor {
+            NSCursor.arrow.set()
+        }
+        super.mouseMoved(with: event)
     }
 }
 

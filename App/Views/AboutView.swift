@@ -26,8 +26,9 @@ enum DiagnosticsPrivacyPolicy {
 
     static func audioInputSelection(deviceID: String) -> String {
         let trimmedID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedID.isEmpty || trimmedID == AudioInputDeviceCatalog.automaticDeviceID
-            ? "Automatic"
+        return AudioInputDeviceCatalog.normalizedSelectionID(trimmedID)
+            == AudioInputDeviceCatalog.systemDefaultDeviceID
+            ? "System Default"
             : "Custom (identifier omitted)"
     }
 }

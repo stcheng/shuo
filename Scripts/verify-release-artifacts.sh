@@ -19,6 +19,12 @@ EXPECTED_SPARKLE_VERSION="2.9.4"
 EXPECTED_SPARKLE_REVISION="b6496a74a087257ef5e6da1c5b29a447a60f5bd7"
 EXPECTED_WHISPER_CPP_VERSION="1.8.6"
 EXPECTED_WHISPER_CPP_SHA256="f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c"
+EXPECTED_SENSEVOICE_RUNTIME_VERSION="0.1.4"
+EXPECTED_SENSEVOICE_RUNTIME_COMMIT="7e41210ed16d97de8a21b5fec764e0cc287c1d40"
+EXPECTED_SENSEVOICE_RUNTIME_SOURCE_SHA256="9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af"
+EXPECTED_SENSEVOICE_LLAMA_CPP_COMMIT="8086439a4cea94c71a5dfb8fe4ad1546aebd640f"
+EXPECTED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256="1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5"
+EXPECTED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256="16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a"
 
 usage() {
   cat <<'EOF'
@@ -88,6 +94,36 @@ verify_runtime_provenance() {
   [[ "$(jq -r '.dependencies.whisper_cpp.source_sha256 // empty' "$manifest_path")" \
       == "$EXPECTED_WHISPER_CPP_SHA256" ]] \
     || fail "release manifest has the wrong whisper.cpp source hash"
+}
+
+verify_sensevoice_runtime_provenance() {
+  local app_path="$1"
+  local manifest_path="$2"
+  local provenance="$app_path/Contents/Resources/Runtime/sensevoice-runtime-provenance.txt"
+
+  [[ -s "$provenance" ]] || fail "app is missing SenseVoice runtime provenance"
+  grep -Fq \
+    "$EXPECTED_SENSEVOICE_RUNTIME_VERSION:$EXPECTED_SENSEVOICE_RUNTIME_COMMIT:$EXPECTED_SENSEVOICE_RUNTIME_SOURCE_SHA256:$EXPECTED_SENSEVOICE_LLAMA_CPP_COMMIT:$EXPECTED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256:arm64;x86_64:$EXPECTED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256:" \
+    "$provenance" \
+    || fail "SenseVoice runtime provenance does not match the pinned universal source build"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.version // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_RUNTIME_VERSION" ]] \
+    || fail "release manifest has the wrong SenseVoice runtime version"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.source_revision // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_RUNTIME_COMMIT" ]] \
+    || fail "release manifest has the wrong SenseVoice runtime source revision"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.source_sha256 // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_RUNTIME_SOURCE_SHA256" ]] \
+    || fail "release manifest has the wrong SenseVoice runtime source hash"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.llama_cpp_revision // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_LLAMA_CPP_COMMIT" ]] \
+    || fail "release manifest has the wrong SenseVoice llama.cpp revision"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.llama_cpp_source_sha256 // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256" ]] \
+    || fail "release manifest has the wrong SenseVoice llama.cpp source hash"
+  [[ "$(jq -r '.dependencies.sensevoice_runtime.segment_delimiter_patch_sha256 // empty' "$manifest_path")" \
+      == "$EXPECTED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256" ]] \
+    || fail "release manifest has the wrong SenseVoice segment-delimiter patch hash"
 }
 
 verify_sparkle_provenance() {
@@ -198,6 +234,7 @@ verify_update_archive() (
   verify_corresponding_source "$app_path" "$manifest_path" "$version"
   verify_sparkle_provenance "$app_path" "$manifest_path"
   verify_runtime_provenance "$app_path" "$manifest_path"
+  verify_sensevoice_runtime_provenance "$app_path" "$manifest_path"
   [[ "$(jq -r '.artifacts.zip.filename // empty' "$manifest_path")" == "$(basename "$zip_path")" ]] \
     || fail "update release manifest ZIP filename does not match"
   [[ "$(jq -r '.artifacts.dmg.filename // empty' "$manifest_path")" == "$expected_dmg_name" ]] \
@@ -419,11 +456,16 @@ verify_required_bundle_contents() {
     || fail "app is missing Sparkle.framework"
   [[ -x "$resources/Runtime/whisper-cli" ]] \
     || fail "app is missing executable Runtime/whisper-cli"
+  [[ -x "$resources/Runtime/sensevoice-cli" ]] \
+    || fail "app is missing executable Runtime/sensevoice-cli"
   for required_path in \
 	"$resources/LICENSE" \
 	"$resources/CORRESPONDING_SOURCE.txt" \
 	"$resources/THIRD_PARTY_NOTICES.md" \
     "$resources/ThirdParty/whisper.cpp-LICENSE" \
+    "$resources/ThirdParty/SenseVoice-LICENSE.txt" \
+    "$resources/ThirdParty/SenseVoiceSmall-GGUF-LICENSE.txt" \
+    "$resources/ThirdParty/llama.cpp-LICENSE.txt" \
     "$resources/ThirdParty/OpenAI-Whisper-LICENSE.txt" \
     "$resources/ThirdParty/Sparkle-LICENSE.txt" \
     "$resources/ThirdParty/Unicode-CLDR-LICENSE.txt"; do
@@ -443,6 +485,7 @@ verify_required_bundle_contents() {
   verify_corresponding_source "$app_path" "$MANIFEST_PATH" "$VERSION"
   verify_sparkle_provenance "$app_path" "$MANIFEST_PATH"
   verify_runtime_provenance "$app_path" "$MANIFEST_PATH"
+  verify_sensevoice_runtime_provenance "$app_path" "$MANIFEST_PATH"
 }
 
 verify_production_entitlements() {

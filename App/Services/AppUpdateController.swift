@@ -367,6 +367,8 @@ final class AppUpdateController: NSObject, ObservableObject {
     private var hasPendingInstallation = false
     private var terminateWhenOtherUserExits = false
     private var hasShownOtherUserAlert = false
+    private var isManualUpdateInformationCheck = false
+    private var shouldOfferUpdateAfterInformationCheck = false
 
     override init() {
         super.init()
@@ -391,7 +393,9 @@ final class AppUpdateController: NSObject, ObservableObject {
         }
 
         statusMessage = localizer.checkingForUpdates()
-        updaterController.checkForUpdates(nil)
+        isManualUpdateInformationCheck = true
+        shouldOfferUpdateAfterInformationCheck = false
+        updaterController.updater.checkForUpdateInformation()
     }
 
     func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
@@ -576,6 +580,10 @@ extension AppUpdateController: SPUUpdaterDelegate {
         shouldProceedWithUpdate updateItem: SUAppcastItem,
         updateCheck: SPUUpdateCheck
     ) throws {
+        guard updateCheck != .updateInformation else {
+            return
+        }
+
         let otherUserIsRunning: Bool
         do {
             otherUserIsRunning = try OtherUserShuoProcessDetector.hasOtherUserInstance()
@@ -596,6 +604,19 @@ extension AppUpdateController: SPUUpdaterDelegate {
                 code: 1,
                 userInfo: [NSLocalizedDescriptionKey: message]
             )
+        }
+    }
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        if isManualUpdateInformationCheck {
+            shouldOfferUpdateAfterInformationCheck = true
+        }
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: any Error) {
+        if isManualUpdateInformationCheck {
+            shouldOfferUpdateAfterInformationCheck = false
+            statusMessage = localizer.updateCheckUpToDate()
         }
     }
 
@@ -635,6 +656,24 @@ extension AppUpdateController: SPUUpdaterDelegate {
         didFinishUpdateCycleFor updateCheck: SPUUpdateCheck,
         error: (any Error)?
     ) {
+        if updateCheck == .updateInformation {
+            let shouldOfferUpdate = shouldOfferUpdateAfterInformationCheck
+            isManualUpdateInformationCheck = false
+            shouldOfferUpdateAfterInformationCheck = false
+
+            if let error {
+                statusMessage = error.localizedDescription
+                resetUpdateCoordination(clearMarker: true)
+            } else if shouldOfferUpdate {
+                statusMessage = nil
+                updaterController.checkForUpdates(nil)
+            } else {
+                statusMessage = localizer.updateCheckUpToDate()
+                resetUpdateCoordination(clearMarker: true)
+            }
+            return
+        }
+
         if let error {
             statusMessage = error.localizedDescription
             resetUpdateCoordination(clearMarker: true)

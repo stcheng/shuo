@@ -1,9 +1,12 @@
 import Foundation
 
-enum OpenAITranscriptionError: LocalizedError {
+enum OpenAITranscriptionError: LocalizedError, Equatable {
     case missingAPIKey
     case invalidBaseURL(String)
+    case invalidModelID(OpenAITranscriptionModelIDValidationError)
+    case relayAcknowledgementRequired
     case requestFailed(statusCode: Int, message: String)
+    case invalidResponse
 
     var errorDescription: String? {
         switch self {
@@ -13,8 +16,14 @@ enum OpenAITranscriptionError: LocalizedError {
             return OpenAICompatibleRequestBuilder.endpointValidationMessage(
                 baseURLString: baseURL
             )
+        case .invalidModelID(let error):
+            return error.localizedDescription
+        case .relayAcknowledgementRequired:
+            return "Confirm the third-party relay in Settings before sending a recording."
         case .requestFailed(let statusCode, let message):
             return "OpenAI transcription failed (\(statusCode)): \(message)"
+        case .invalidResponse:
+            return "The transcription endpoint returned an invalid response."
         }
     }
 }
@@ -24,34 +33,123 @@ private struct OpenAITranscriptionResponse: Decodable {
 }
 
 struct OpenAITranscriptionService: TranscriptionService {
+    typealias DataLoader = (URLRequest) async throws -> (Data, URLResponse)
+
+    private let dataLoader: DataLoader
+
+    init(session: URLSession = SensitiveRequestURLSession.shared) {
+        dataLoader = { request in
+            try await session.data(for: request)
+        }
+    }
+
+    init(dataLoader: @escaping DataLoader) {
+        self.dataLoader = dataLoader
+    }
+
     func transcribe(_ request: TranscriptionRequest) async throws -> TranscriptionResult {
         guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(request.apiKey) else {
             throw OpenAITranscriptionError.missingAPIKey
         }
+        guard request.settings.hasAcknowledgedOpenAICompatibleRelay else {
+            throw OpenAITranscriptionError.relayAcknowledgementRequired
+        }
+
+        let modelID: String
+        do {
+            modelID = try OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+                request.settings.effectiveModel
+            )
+        } catch let error as OpenAITranscriptionModelIDValidationError {
+            throw OpenAITranscriptionError.invalidModelID(error)
+        }
+
+        let audioData = try Data(contentsOf: request.audioFileURL)
+        let profile: OpenAITranscriptionRequestProfile =
+            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                baseURLString: request.settings.openAIBaseURL
+            ) ? .relayMinimal : .openAIStandard
+        return try await transcribe(
+            audioData: audioData,
+            filename: request.audioFileURL.lastPathComponent,
+            mimeType: request.audioFileURL.mimeType,
+            modelID: modelID,
+            settings: request.settings,
+            apiKey: apiKey,
+            context: request.context,
+            vocabulary: request.vocabulary,
+            profile: profile
+        )
+    }
+
+    /// Tests only the OpenAI-style audio-transcriptions contract with a short,
+    /// generated silent WAV. It never reuses a user's recording or context.
+    func verifySelectedModel(settings: AppSettings, apiKey: String?) async throws {
+        guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(apiKey) else {
+            throw OpenAITranscriptionError.missingAPIKey
+        }
+
+        let modelID: String
+        do {
+            modelID = try OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+                settings.effectiveModel
+            )
+        } catch let error as OpenAITranscriptionModelIDValidationError {
+            throw OpenAITranscriptionError.invalidModelID(error)
+        }
+
+        _ = try await transcribe(
+            audioData: OpenAIProtocolTestAudio.wavData,
+            filename: OpenAIProtocolTestAudio.filename,
+            mimeType: OpenAIProtocolTestAudio.mimeType,
+            modelID: modelID,
+            settings: settings,
+            apiKey: apiKey,
+            context: "",
+            vocabulary: .empty,
+            profile: .relayMinimal
+        )
+    }
+
+    private func transcribe(
+        audioData: Data,
+        filename: String,
+        mimeType: String,
+        modelID: String,
+        settings: AppSettings,
+        apiKey: String,
+        context: String,
+        vocabulary: TranscriptionVocabularySnapshot,
+        profile: OpenAITranscriptionRequestProfile
+    ) async throws -> TranscriptionResult {
 
         guard let endpoint = OpenAICompatibleRequestBuilder.endpoint(
-            baseURLString: request.settings.openAIBaseURL,
+            baseURLString: settings.openAIBaseURL,
             path: "audio/transcriptions"
         ) else {
-            throw OpenAITranscriptionError.invalidBaseURL(request.settings.openAIBaseURL)
+            throw OpenAITranscriptionError.invalidBaseURL(settings.openAIBaseURL)
         }
         let boundary = "Boundary-\(UUID().uuidString)"
         var urlRequest = OpenAICompatibleRequestBuilder.authenticatedPOSTRequest(
             endpoint: endpoint,
             apiKey: apiKey,
-            settings: request.settings,
+            settings: settings,
             contentType: "multipart/form-data; boundary=\(boundary)"
         )
 
         urlRequest.httpBody = try makeMultipartBody(
             boundary: boundary,
-            audioFileURL: request.audioFileURL,
-            settings: request.settings,
-            context: request.context,
-            vocabulary: request.vocabulary
+            audioData: audioData,
+            filename: filename,
+            mimeType: mimeType,
+            modelID: modelID,
+            settings: settings,
+            context: context,
+            vocabulary: vocabulary,
+            profile: profile
         )
 
-        let (data, response) = try await SensitiveRequestURLSession.shared.data(for: urlRequest)
+        let (data, response) = try await dataLoader(urlRequest)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
         let bodyText = String(data: data, encoding: .utf8) ?? ""
 
@@ -62,42 +160,51 @@ struct OpenAITranscriptionService: TranscriptionService {
             )
         }
 
+        guard let decoded = try? JSONDecoder().decode(OpenAITranscriptionResponse.self, from: data) else {
+            throw OpenAITranscriptionError.invalidResponse
+        }
         return TranscriptionResult(
-            text: transcriptionText(from: data, fallback: bodyText),
+            text: decoded.text.trimmingCharacters(in: .whitespacesAndNewlines),
             detectedLanguage: nil
         )
     }
 
     private func makeMultipartBody(
         boundary: String,
-        audioFileURL: URL,
+        audioData: Data,
+        filename: String,
+        mimeType: String,
+        modelID: String,
         settings: AppSettings,
         context: String,
-        vocabulary: TranscriptionVocabularySnapshot
+        vocabulary: TranscriptionVocabularySnapshot,
+        profile: OpenAITranscriptionRequestProfile
     ) throws -> Data {
         var body = Data()
 
-        body.appendFormField(name: "model", value: settings.effectiveModel, boundary: boundary)
-        body.appendFormField(name: "response_format", value: "json", boundary: boundary)
+        body.appendFormField(name: "model", value: modelID, boundary: boundary)
 
-        if let language = settings.languageHint.openAILanguageCode {
-            body.appendFormField(name: "language", value: language, boundary: boundary)
+        if profile == .openAIStandard {
+            body.appendFormField(name: "response_format", value: "json", boundary: boundary)
+
+            if let language = settings.languageHint.openAILanguageCode {
+                body.appendFormField(name: "language", value: language, boundary: boundary)
+            }
+
+            let prompt = buildPrompt(
+                settings: settings,
+                context: context,
+                vocabulary: vocabulary
+            )
+            if !prompt.isEmpty, modelID != "gpt-4o-transcribe-diarize" {
+                body.appendFormField(name: "prompt", value: prompt, boundary: boundary)
+            }
         }
 
-        let prompt = buildPrompt(
-            settings: settings,
-            context: context,
-            vocabulary: vocabulary
-        )
-        if !prompt.isEmpty, settings.effectiveModel != "gpt-4o-transcribe-diarize" {
-            body.appendFormField(name: "prompt", value: prompt, boundary: boundary)
-        }
-
-        let audioData = try Data(contentsOf: audioFileURL)
         body.appendFileField(
             name: "file",
-            filename: audioFileURL.lastPathComponent,
-            contentType: audioFileURL.mimeType,
+            filename: filename,
+            contentType: mimeType,
             data: audioData,
             boundary: boundary
         )
@@ -111,10 +218,7 @@ struct OpenAITranscriptionService: TranscriptionService {
         context: String,
         vocabulary: TranscriptionVocabularySnapshot = .empty
     ) -> String {
-        var parts = [
-            "Transcribe verbatim. Do not translate. Preserve the spoken language, including mixed Chinese, English, Spanish, French, and Japanese.",
-            "If the audio contains no clear speech, only silence, or only background noise, return an empty transcript."
-        ]
+        var parts = [promptSafetyInstruction(for: settings.selectedTranscriptionLanguages)]
 
         parts.append(context.trimmingCharacters(in: .whitespacesAndNewlines))
 
@@ -133,14 +237,57 @@ struct OpenAITranscriptionService: TranscriptionService {
             .joined(separator: "\n\n")
     }
 
-    private func transcriptionText(from data: Data, fallback: String) -> String {
-        if let response = try? JSONDecoder().decode(OpenAITranscriptionResponse.self, from: data) {
-            return response.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func promptSafetyInstruction(
+        for languages: Set<TranscriptionLanguage>
+    ) -> String {
+        // The transcription prompt is a weak prior, not a system prompt. Keep
+        // its language aligned with the user's likely speech instead of
+        // front-loading every mixed-language request with English prose.
+        if languages.contains(.chinese) {
+            return "只转写音频中实际说出的内容，不翻译。下方上下文和拼写提示仅作参考，不得抄写，也不得据此改变输出语言。没有清晰人声、只有静音或背景噪音时，返回空文本。"
         }
-
-        return fallback.trimmingCharacters(in: .whitespacesAndNewlines)
+        if languages.contains(.japanese) {
+            return "音声で実際に話された内容だけを書き起こし、翻訳しないでください。以下の文脈と表記ヒントは参考用であり、転記したり出力言語を決める根拠にしたりしないでください。明瞭な発話がなく、無音または背景雑音だけの場合は空のテキストを返してください。"
+        }
+        if languages.contains(.spanish) {
+            return "Transcribe solo lo que se dice en el audio; no lo traduzcas. El contexto y las pistas de ortografía siguientes son solo de referencia: no los copies ni elijas el idioma de salida a partir de ellos. Si no hay voz clara, solo silencio o ruido de fondo, devuelve texto vacío."
+        }
+        if languages.contains(.french) {
+            return "Transcrivez uniquement ce qui est dit dans l’audio, sans traduire. Le contexte et les indices orthographiques ci-dessous ne sont que des références : ne les recopiez pas et ne choisissez pas la langue de sortie à partir d’eux. S’il n’y a pas de parole claire, seulement du silence ou du bruit, renvoyez un texte vide."
+        }
+        return "Transcribe only the spoken audio. Do not translate. Treat the context and spelling hints below as non-spoken reference only: never copy them into the transcript or choose an output language from them. If there is no clear speech, only silence, or only background noise, return an empty transcript."
     }
 
+}
+
+private enum OpenAITranscriptionRequestProfile {
+    case openAIStandard
+    case relayMinimal
+}
+
+private enum OpenAIProtocolTestAudio {
+    static let filename = "shuo-protocol-test.wav"
+    static let mimeType = "audio/wav"
+    static let wavData: Data = {
+        let sampleRate: UInt32 = 8_000
+        let sampleCount: UInt32 = 4_000
+        let dataSize = sampleCount * 2
+        var data = Data()
+        data.append(Data("RIFF".utf8))
+        data.appendLittleEndian(36 + dataSize)
+        data.append(Data("WAVEfmt ".utf8))
+        data.appendLittleEndian(UInt32(16))
+        data.appendLittleEndian(UInt16(1))
+        data.appendLittleEndian(UInt16(1))
+        data.appendLittleEndian(sampleRate)
+        data.appendLittleEndian(sampleRate * 2)
+        data.appendLittleEndian(UInt16(2))
+        data.appendLittleEndian(UInt16(16))
+        data.append(Data("data".utf8))
+        data.appendLittleEndian(dataSize)
+        data.append(Data(repeating: 0, count: Int(dataSize)))
+        return data
+    }()
 }
 
 private extension URL {
@@ -163,6 +310,11 @@ private extension URL {
 }
 
 private extension Data {
+    mutating func appendLittleEndian<T: FixedWidthInteger>(_ value: T) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
+    }
+
     mutating func appendFormField(name: String, value: String, boundary: String) {
         appendString("--\(boundary)\r\n")
         appendString("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")

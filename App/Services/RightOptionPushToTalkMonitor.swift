@@ -3,19 +3,23 @@ import Foundation
 
 final class RightOptionPushToTalkMonitor {
     private let shortcut: PushToTalkShortcut
+    private let customShortcut: CustomPushToTalkShortcut?
     private let onPress: @Sendable () -> Void
     private let onRelease: @Sendable () -> Void
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isShortcutDown = false
+    private var shortcutKeyPressIsSuppressed = false
 
     init(
         shortcut: PushToTalkShortcut,
+        customShortcut: CustomPushToTalkShortcut? = nil,
         onPress: @escaping @Sendable () -> Void,
         onRelease: @escaping @Sendable () -> Void
     ) {
         self.shortcut = shortcut
+        self.customShortcut = customShortcut
         self.onPress = onPress
         self.onRelease = onRelease
     }
@@ -49,6 +53,10 @@ final class RightOptionPushToTalkMonitor {
             return true
         }
 
+        guard resolvedShortcut != nil else {
+            return false
+        }
+
         // Permission prompts are deliberately kept out of monitor startup.
         // This event tap listens to and may suppress the selected modifier, so
         // Accessibility is the single permission required for this path.
@@ -56,7 +64,11 @@ final class RightOptionPushToTalkMonitor {
             return false
         }
 
-        let mask = CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+        let mask = CGEventMask(
+            (1 << CGEventType.flagsChanged.rawValue)
+                | (1 << CGEventType.keyDown.rawValue)
+                | (1 << CGEventType.keyUp.rawValue)
+        )
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
@@ -111,6 +123,7 @@ final class RightOptionPushToTalkMonitor {
         eventTap = nil
         runLoopSource = nil
         isShortcutDown = false
+        shortcutKeyPressIsSuppressed = false
     }
 
     deinit {
@@ -118,18 +131,111 @@ final class RightOptionPushToTalkMonitor {
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Bool {
-        guard type == .flagsChanged else {
+        guard let shortcut = resolvedShortcut else {
             return false
         }
 
-        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        switch type {
+        case .flagsChanged:
+            return handleFlagsChanged(event, shortcut: shortcut)
+        case .keyDown:
+            return handleKeyDown(event, shortcut: shortcut)
+        case .keyUp:
+            return handleKeyUp(event, shortcut: shortcut)
+        default:
+            return false
+        }
+    }
+
+    private var resolvedShortcut: ResolvedPushToTalkShortcut? {
+        switch shortcut {
+        case .rightOption:
+            return ResolvedPushToTalkShortcut(keyCode: 0x3D)
+        case .rightCommand:
+            return ResolvedPushToTalkShortcut(keyCode: 0x36)
+        case .custom:
+            guard let customShortcut,
+                  customShortcut.isValidHoldShortcut else {
+                return nil
+            }
+            return ResolvedPushToTalkShortcut(
+                keyCode: customShortcut.keyCode,
+                modifiers: customShortcut.modifiers
+            )
+        }
+    }
+
+    private func handleFlagsChanged(
+        _ event: CGEvent,
+        shortcut: ResolvedPushToTalkShortcut
+    ) -> Bool {
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+
+        if shortcut.usesModifierKey, keyCode == shortcut.keyCode {
+            transitionShortcut(
+                down: shortcut.downState(
+                    keyStateDown: CGEventSource.keyState(
+                        .combinedSessionState,
+                        key: CGKeyCode(shortcut.keyCode)
+                    ),
+                    eventFlags: event.flags,
+                    previousDown: isShortcutDown
+                )
+            )
+            return true
+        }
+
+        if isShortcutDown, !shortcut.isCurrentlyDown(eventFlags: event.flags) {
+            transitionShortcut(down: false)
+        }
+
+        return false
+    }
+
+    private func handleKeyDown(
+        _ event: CGEvent,
+        shortcut: ResolvedPushToTalkShortcut
+    ) -> Bool {
+        guard !shortcut.usesModifierKey else {
+            return false
+        }
+
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         guard keyCode == shortcut.keyCode else {
             return false
         }
 
-        let shortcutIsDown = shortcutDownState(from: event)
+        guard shortcut.modifiersAreDown(in: event.flags) else {
+            return false
+        }
+
+        shortcutKeyPressIsSuppressed = true
+        transitionShortcut(down: true)
+        return true
+    }
+
+    private func handleKeyUp(
+        _ event: CGEvent,
+        shortcut: ResolvedPushToTalkShortcut
+    ) -> Bool {
+        guard !shortcut.usesModifierKey else {
+            return false
+        }
+
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        guard keyCode == shortcut.keyCode else {
+            return false
+        }
+
+        let shouldSuppress = shortcutKeyPressIsSuppressed || isShortcutDown
+        shortcutKeyPressIsSuppressed = false
+        transitionShortcut(down: false)
+        return shouldSuppress
+    }
+
+    private func transitionShortcut(down shortcutIsDown: Bool) {
         guard shortcutIsDown != isShortcutDown else {
-            return true
+            return
         }
 
         isShortcutDown = shortcutIsDown
@@ -142,44 +248,17 @@ final class RightOptionPushToTalkMonitor {
                 onRelease()
             }
         }
-
-        return true
-    }
-
-    private func shortcutDownState(from event: CGEvent) -> Bool {
-        let keyStateDown = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode))
-        if keyStateDown != isShortcutDown {
-            return keyStateDown
-        }
-
-        let eventFlagsDown = eventIndicatesShortcutDown(event)
-        if eventFlagsDown != isShortcutDown {
-            return eventFlagsDown
-        }
-
-        return keyStateDown
-    }
-
-    private func eventIndicatesShortcutDown(_ event: CGEvent) -> Bool {
-        let flags = event.flags
-        switch shortcut {
-        case .rightOption:
-            return flags.contains(.maskAlternate)
-        case .rightCommand:
-            return flags.contains(.maskCommand)
-        }
     }
 
     private func releaseShortcutIfNeededAfterTapInterruption() {
-        guard isShortcutDown,
-              !CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(shortcut.keyCode)) else {
+        guard let shortcut = resolvedShortcut,
+              isShortcutDown,
+              !shortcut.isCurrentlyDown(eventFlags: CGEventSource.flagsState(.combinedSessionState)) else {
             return
         }
 
-        isShortcutDown = false
-        DispatchQueue.main.async { [onRelease] in
-            onRelease()
-        }
+        shortcutKeyPressIsSuppressed = false
+        transitionShortcut(down: false)
     }
 
     private func enableEventTap() {
@@ -189,4 +268,68 @@ final class RightOptionPushToTalkMonitor {
         CGEvent.tapEnable(tap: eventTap, enable: true)
     }
 
+}
+
+struct ResolvedPushToTalkShortcut {
+    var keyCode: UInt16
+    var modifiers: Set<PushToTalkShortcutModifier> = []
+
+    var usesModifierKey: Bool {
+        CustomPushToTalkShortcut.modifierKeyCodes.contains(keyCode)
+    }
+
+    func modifiersAreDown(in flags: CGEventFlags) -> Bool {
+        modifiers.allSatisfy { flags.contains($0.cgEventFlag) }
+    }
+
+    func downState(
+        keyStateDown: Bool,
+        eventFlags: CGEventFlags,
+        previousDown: Bool
+    ) -> Bool {
+        let keyStateWithRequiredModifiers = keyStateDown && modifiersAreDown(in: eventFlags)
+        if keyStateWithRequiredModifiers != previousDown {
+            return keyStateWithRequiredModifiers
+        }
+
+        let eventFlagsDown = eventFlagsIndicateShortcutKeyDown(eventFlags)
+            && modifiersAreDown(in: eventFlags)
+        if eventFlagsDown != previousDown {
+            return eventFlagsDown
+        }
+
+        return keyStateWithRequiredModifiers
+    }
+
+    func isCurrentlyDown(eventFlags: CGEventFlags) -> Bool {
+        downState(
+            keyStateDown: CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(keyCode)),
+            eventFlags: eventFlags,
+            previousDown: false
+        )
+    }
+
+    private func eventFlagsIndicateShortcutKeyDown(_ flags: CGEventFlags) -> Bool {
+        guard let keyModifier = PushToTalkShortcutModifier.modifier(forKeyCode: keyCode) else {
+            return false
+        }
+        return flags.contains(keyModifier.cgEventFlag)
+    }
+}
+
+private extension PushToTalkShortcutModifier {
+    var cgEventFlag: CGEventFlags {
+        switch self {
+        case .control:
+            return .maskControl
+        case .option:
+            return .maskAlternate
+        case .shift:
+            return .maskShift
+        case .command:
+            return .maskCommand
+        case .function:
+            return .maskSecondaryFn
+        }
+    }
 }

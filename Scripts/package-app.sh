@@ -24,6 +24,12 @@ PINNED_SPARKLE_VERSION="2.9.4"
 PINNED_SPARKLE_REVISION="b6496a74a087257ef5e6da1c5b29a447a60f5bd7"
 PINNED_WHISPER_CPP_VERSION="1.8.6"
 PINNED_WHISPER_CPP_SHA256="f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c"
+PINNED_SENSEVOICE_RUNTIME_VERSION="0.1.4"
+PINNED_SENSEVOICE_RUNTIME_COMMIT="7e41210ed16d97de8a21b5fec764e0cc287c1d40"
+PINNED_SENSEVOICE_RUNTIME_SOURCE_SHA256="9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af"
+PINNED_SENSEVOICE_LLAMA_CPP_COMMIT="8086439a4cea94c71a5dfb8fe4ad1546aebd640f"
+PINNED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256="1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5"
+PINNED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256="16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a"
 PINNED_RELEASE_ENTITLEMENTS="$ROOT_DIR/App/ShuoDirect.entitlements"
 PINNED_RELEASE_ENTITLEMENTS_SHA256="289696af9834a7ee41aca4c1cd3aa95fc38f9ae2e83655b1d4b86c1ccab771ee"
 SOURCE_GIT_SHA=""
@@ -271,6 +277,14 @@ prepare_release_derived_data() {
   export SHUO_WHISPER_CPP_SHA256="$PINNED_WHISPER_CPP_SHA256"
   export SHUO_WHISPER_ARCHITECTURES='arm64;x86_64'
   export SHUO_WHISPER_RUNTIME_CACHE="$RELEASE_STAGING_DIR/whisper-runtime"
+  export SHUO_SENSEVOICE_RUNTIME_VERSION="$PINNED_SENSEVOICE_RUNTIME_VERSION"
+  export SHUO_SENSEVOICE_RUNTIME_COMMIT="$PINNED_SENSEVOICE_RUNTIME_COMMIT"
+  export SHUO_SENSEVOICE_RUNTIME_SOURCE_SHA256="$PINNED_SENSEVOICE_RUNTIME_SOURCE_SHA256"
+  export SHUO_SENSEVOICE_LLAMA_CPP_COMMIT="$PINNED_SENSEVOICE_LLAMA_CPP_COMMIT"
+  export SHUO_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256="$PINNED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256"
+  export SHUO_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256="$PINNED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256"
+  export SHUO_SENSEVOICE_ARCHITECTURES='arm64;x86_64'
+  export SHUO_SENSEVOICE_RUNTIME_CACHE="$RELEASE_STAGING_DIR/sensevoice-runtime"
 }
 
 cleanup_release_workspaces() {
@@ -327,8 +341,36 @@ validate_release_configuration() {
     echo "Release whisper.cpp source hash must match the pinned 1.8.6 archive." >&2
     exit 2
   fi
+  if [[ "${SHUO_SENSEVOICE_ARCHITECTURES:-arm64;x86_64}" != "arm64;x86_64" ]]; then
+    echo "Release SenseVoice runtime must use SHUO_SENSEVOICE_ARCHITECTURES=arm64;x86_64." >&2
+    exit 2
+  fi
+  if [[ "${SHUO_SENSEVOICE_RUNTIME_VERSION:-$PINNED_SENSEVOICE_RUNTIME_VERSION}" != "$PINNED_SENSEVOICE_RUNTIME_VERSION" ]]; then
+    echo "Release SenseVoice runtime version must be $PINNED_SENSEVOICE_RUNTIME_VERSION." >&2
+    exit 2
+  fi
+  if [[ "${SHUO_SENSEVOICE_RUNTIME_COMMIT:-$PINNED_SENSEVOICE_RUNTIME_COMMIT}" != "$PINNED_SENSEVOICE_RUNTIME_COMMIT" ]]; then
+    echo "Release SenseVoice runtime source revision must match the pinned commit." >&2
+    exit 2
+  fi
+  if [[ "${SHUO_SENSEVOICE_RUNTIME_SOURCE_SHA256:-$PINNED_SENSEVOICE_RUNTIME_SOURCE_SHA256}" != "$PINNED_SENSEVOICE_RUNTIME_SOURCE_SHA256" ]]; then
+    echo "Release SenseVoice runtime source hash must match the pinned archive." >&2
+    exit 2
+  fi
+  if [[ "${SHUO_SENSEVOICE_LLAMA_CPP_COMMIT:-$PINNED_SENSEVOICE_LLAMA_CPP_COMMIT}" != "$PINNED_SENSEVOICE_LLAMA_CPP_COMMIT" ]]; then
+    echo "Release SenseVoice llama.cpp revision must match the pinned commit." >&2
+    exit 2
+  fi
+  if [[ "${SHUO_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256:-$PINNED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256}" != "$PINNED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256" ]]; then
+    echo "Release SenseVoice llama.cpp source hash must match the pinned archive." >&2
+    exit 2
+  fi
   if [[ -n "${SHUO_WHISPER_RUNTIME_CACHE:-}" ]]; then
     echo "Official RCs do not accept a caller-provided whisper runtime cache." >&2
+    exit 2
+  fi
+  if [[ -n "${SHUO_SENSEVOICE_RUNTIME_CACHE:-}" ]]; then
+    echo "Official RCs do not accept a caller-provided SenseVoice runtime cache." >&2
     exit 2
   fi
   if [[ "$ENTITLEMENTS" != "$PINNED_RELEASE_ENTITLEMENTS" ]] \
@@ -500,10 +542,15 @@ sign_app_bundle() {
   fi
 
   sign_nested_sparkle_code "$identity" "$timestamp_mode"
-  if [[ -x "$APP_SOURCE/Contents/Resources/Runtime/whisper-cli" ]]; then
-    codesign --force --options runtime "${timestamp_args[@]}" --sign "$identity" \
-      "$APP_SOURCE/Contents/Resources/Runtime/whisper-cli"
-  fi
+  local runtime_path
+  for runtime_path in \
+    "$APP_SOURCE/Contents/Resources/Runtime/whisper-cli" \
+    "$APP_SOURCE/Contents/Resources/Runtime/sensevoice-cli"; do
+    if [[ -x "$runtime_path" ]]; then
+      codesign --force --options runtime "${timestamp_args[@]}" --sign "$identity" \
+        "$runtime_path"
+    fi
+  done
   if ! codesign \
     --force \
     --options runtime \
@@ -932,6 +979,12 @@ create_release_manifest() {
     --arg sparkle_revision "$PINNED_SPARKLE_REVISION" \
     --arg whisper_version "$PINNED_WHISPER_CPP_VERSION" \
     --arg whisper_source_sha256 "$PINNED_WHISPER_CPP_SHA256" \
+    --arg sensevoice_runtime_version "$PINNED_SENSEVOICE_RUNTIME_VERSION" \
+    --arg sensevoice_runtime_commit "$PINNED_SENSEVOICE_RUNTIME_COMMIT" \
+    --arg sensevoice_runtime_source_sha256 "$PINNED_SENSEVOICE_RUNTIME_SOURCE_SHA256" \
+    --arg sensevoice_llama_cpp_commit "$PINNED_SENSEVOICE_LLAMA_CPP_COMMIT" \
+    --arg sensevoice_llama_cpp_source_sha256 "$PINNED_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256" \
+    --arg sensevoice_segment_delimiter_patch_sha256 "$PINNED_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256" \
     --arg zip_filename "$zip_name" \
     --arg zip_sha256 "$zip_sha" \
     --arg dmg_filename "$dmg_name" \
@@ -959,6 +1012,14 @@ create_release_manifest() {
         whisper_cpp: {
           version: $whisper_version,
           source_sha256: $whisper_source_sha256
+        },
+        sensevoice_runtime: {
+          version: $sensevoice_runtime_version,
+          source_revision: $sensevoice_runtime_commit,
+          source_sha256: $sensevoice_runtime_source_sha256,
+          llama_cpp_revision: $sensevoice_llama_cpp_commit,
+          llama_cpp_source_sha256: $sensevoice_llama_cpp_source_sha256,
+          segment_delimiter_patch_sha256: $sensevoice_segment_delimiter_patch_sha256
         }
       },
       artifacts: {
@@ -1128,6 +1189,7 @@ main() {
   echo "Packaging $APP_NAME ($CONFIGURATION, sign mode: $SIGN_MODE)"
   build_app
   "$ROOT_DIR/Scripts/embed-whisper-runtime.sh" "$APP_SOURCE"
+  "$ROOT_DIR/Scripts/embed-sensevoice-runtime.sh" "$APP_SOURCE"
   embed_distribution_notices
   sign_app
   notarize_app_bundle

@@ -224,10 +224,14 @@ sign_app() {
     codesign_with_resolved_keychain --force --options runtime --timestamp=none --sign "$identity" "$sparkle"
   fi
 
-  local whisper_runtime="$APP_SOURCE/Contents/Resources/Runtime/whisper-cli"
-  if [[ -x "$whisper_runtime" ]]; then
-    codesign_with_resolved_keychain --force --options runtime --timestamp=none --sign "$identity" "$whisper_runtime"
-  fi
+  local runtime_path
+  for runtime_path in \
+    "$APP_SOURCE/Contents/Resources/Runtime/whisper-cli" \
+    "$APP_SOURCE/Contents/Resources/Runtime/sensevoice-cli"; do
+    if [[ -x "$runtime_path" ]]; then
+      codesign_with_resolved_keychain --force --options runtime --timestamp=none --sign "$identity" "$runtime_path"
+    fi
+  done
 
   case "$SIGN_MODE" in
     local)
@@ -337,6 +341,7 @@ main() {
   fi
   build_app
   "$ROOT_DIR/Scripts/embed-whisper-runtime.sh" "$APP_SOURCE"
+  "$ROOT_DIR/Scripts/embed-sensevoice-runtime.sh" "$APP_SOURCE"
   mark_development_build
   remove_interrupted_codesign_artifacts
   preflight_codesign_access

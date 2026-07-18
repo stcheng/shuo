@@ -1,10 +1,11 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "profile": "full-dev",
   "enabledPlugins": [
     "provider.openai",
     "provider.elevenLabs",
     "provider.alibaba",
+    "provider.gemini",
     "provider.localWhisper",
     "history.basic",
     "metrics.basic",

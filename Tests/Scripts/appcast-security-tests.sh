@@ -100,6 +100,9 @@ EOF
 printf '%s\n' \
   '1.8.6:f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c:arm64;x86_64:test' \
   >"$APP/Contents/Resources/Runtime/whisper-runtime-provenance.txt"
+printf '%s\n' \
+  '0.1.4:7e41210ed16d97de8a21b5fec764e0cc287c1d40:9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af:8086439a4cea94c71a5dfb8fe4ad1546aebd640f:1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5:arm64;x86_64:16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a:test' \
+  >"$APP/Contents/Resources/Runtime/sensevoice-runtime-provenance.txt"
 ditto -c -k --keepParent "$APP" "$ARCHIVE"
 
 ZIP_SHA="$(shasum -a 256 "$ARCHIVE" | awk '{ print $1 }')"
@@ -131,6 +134,14 @@ jq -n \
       whisper_cpp: {
         version: "1.8.6",
         source_sha256: "f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c"
+      },
+      sensevoice_runtime: {
+        version: "0.1.4",
+        source_revision: "7e41210ed16d97de8a21b5fec764e0cc287c1d40",
+        source_sha256: "9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af",
+        llama_cpp_revision: "8086439a4cea94c71a5dfb8fe4ad1546aebd640f",
+        llama_cpp_source_sha256: "1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5",
+        segment_delimiter_patch_sha256: "16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a"
       }
     },
     artifacts: {

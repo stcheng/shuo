@@ -6,6 +6,7 @@ PACKAGE_SCRIPT="$ROOT_DIR/Scripts/package-app.sh"
 VERIFY_SCRIPT="$ROOT_DIR/Scripts/verify-release-artifacts.sh"
 APPCAST_SCRIPT="$ROOT_DIR/Scripts/generate-appcast.sh"
 WHISPER_PREPARE_SCRIPT="$ROOT_DIR/Scripts/prepare-whisper-runtime.sh"
+SENSEVOICE_PREPARE_SCRIPT="$ROOT_DIR/Scripts/prepare-sensevoice-runtime.sh"
 EXPORT_TEST_SCRIPT="$ROOT_DIR/Tests/Scripts/export-public-tests.sh"
 TEST_IDENTITY='Developer ID Application: Release Test (4GQ47468NJ)'
 WORK_DIR="$(mktemp -d /tmp/shuo-release-packaging-tests.XXXXXX)"
@@ -54,14 +55,29 @@ run_preflight() (
   export SHUO_SCHEME="${TEST_SCHEME:-ShuoDirect}"
   export SHUO_APP_NAME="${TEST_APP_NAME:-Shuo}"
   export SHUO_WHISPER_ARCHITECTURES="${TEST_ARCHITECTURES:-arm64;x86_64}"
+  export SHUO_SENSEVOICE_ARCHITECTURES="${TEST_SENSEVOICE_ARCHITECTURES:-arm64;x86_64}"
   export SHUO_ENTITLEMENTS="${TEST_ENTITLEMENTS:-$ROOT_DIR/App/ShuoDirect.entitlements}"
-  unset SHUO_WHISPER_CPP_VERSION SHUO_WHISPER_CPP_SHA256 SHUO_WHISPER_RUNTIME_CACHE
+  unset \
+    SHUO_WHISPER_CPP_VERSION \
+    SHUO_WHISPER_CPP_SHA256 \
+    SHUO_WHISPER_RUNTIME_CACHE \
+    SHUO_SENSEVOICE_RUNTIME_VERSION \
+    SHUO_SENSEVOICE_RUNTIME_COMMIT \
+    SHUO_SENSEVOICE_RUNTIME_SOURCE_SHA256 \
+    SHUO_SENSEVOICE_LLAMA_CPP_COMMIT \
+    SHUO_SENSEVOICE_LLAMA_CPP_SOURCE_SHA256 \
+    SHUO_SENSEVOICE_SEGMENT_DELIMITER_PATCH_SHA256 \
+    SHUO_SENSEVOICE_RUNTIME_CACHE
   [[ -z "${TEST_WHISPER_VERSION:-}" ]] \
     || export SHUO_WHISPER_CPP_VERSION="$TEST_WHISPER_VERSION"
   [[ -z "${TEST_WHISPER_SHA256:-}" ]] \
     || export SHUO_WHISPER_CPP_SHA256="$TEST_WHISPER_SHA256"
   [[ -z "${TEST_WHISPER_CACHE:-}" ]] \
     || export SHUO_WHISPER_RUNTIME_CACHE="$TEST_WHISPER_CACHE"
+  [[ -z "${TEST_SENSEVOICE_VERSION:-}" ]] \
+    || export SHUO_SENSEVOICE_RUNTIME_VERSION="$TEST_SENSEVOICE_VERSION"
+  [[ -z "${TEST_SENSEVOICE_CACHE:-}" ]] \
+    || export SHUO_SENSEVOICE_RUNTIME_CACHE="$TEST_SENSEVOICE_CACHE"
   set -- all
   # shellcheck source=../../Scripts/package-app.sh
   source "$PACKAGE_SCRIPT"
@@ -197,6 +213,12 @@ run_manifest_and_staging_test() (
       and .dependencies.sparkle.revision == "b6496a74a087257ef5e6da1c5b29a447a60f5bd7"
       and .dependencies.whisper_cpp.version == "1.8.6"
       and (.dependencies.whisper_cpp.source_sha256 | length) == 64
+      and .dependencies.sensevoice_runtime.version == "0.1.4"
+      and .dependencies.sensevoice_runtime.source_revision == "7e41210ed16d97de8a21b5fec764e0cc287c1d40"
+      and (.dependencies.sensevoice_runtime.source_sha256 | length) == 64
+      and .dependencies.sensevoice_runtime.llama_cpp_revision == "8086439a4cea94c71a5dfb8fe4ad1546aebd640f"
+      and (.dependencies.sensevoice_runtime.llama_cpp_source_sha256 | length) == 64
+      and (.dependencies.sensevoice_runtime.segment_delimiter_patch_sha256 | length) == 64
       and (.artifacts.zip.sha256 | length) == 64
       and (.artifacts.dmg.sha256 | length) == 64
       and (.artifacts.symbols.sha256 | length) == 64
@@ -342,8 +364,12 @@ run_fresh_derived_data_test() (
     || fail "release app path was not rebound to fresh DerivedData"
   [[ "$SHUO_WHISPER_RUNTIME_CACHE" == "$RELEASE_STAGING_DIR/whisper-runtime" ]] \
     || fail "release runtime cache was not isolated inside the fresh staging directory"
+  [[ "$SHUO_SENSEVOICE_RUNTIME_CACHE" == "$RELEASE_STAGING_DIR/sensevoice-runtime" ]] \
+    || fail "release SenseVoice runtime cache was not isolated inside the fresh staging directory"
   [[ "$SHUO_WHISPER_CPP_VERSION" == "1.8.6" ]] \
     || fail "release runtime version was not forced to the pinned value"
+  [[ "$SHUO_SENSEVOICE_RUNTIME_VERSION" == "0.1.4" ]] \
+    || fail "release SenseVoice runtime version was not forced to the pinned value"
 
   local temporary_derived="$RELEASE_TEMP_DERIVED_DATA"
   local temporary_stage="$RELEASE_STAGING_DIR"
@@ -420,6 +446,9 @@ EOF
   printf '%s' \
     '1.8.6:f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c:arm64;x86_64:test-script:test-cmake' \
     >"$app/Contents/Resources/Runtime/whisper-runtime-provenance.txt"
+  printf '%s' \
+    '0.1.4:7e41210ed16d97de8a21b5fec764e0cc287c1d40:9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af:8086439a4cea94c71a5dfb8fe4ad1546aebd640f:1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5:arm64;x86_64:16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a:test-script:test-cmake' \
+    >"$app/Contents/Resources/Runtime/sensevoice-runtime-provenance.txt"
   ditto -c -k --keepParent "$app" "$archive"
   zip_sha="$(shasum -a 256 "$archive" | awk '{ print $1 }')"
   dmg_sha="$(printf 'dmg payload' | shasum -a 256 | awk '{ print $1 }')"
@@ -450,6 +479,14 @@ EOF
         whisper_cpp: {
           version: "1.8.6",
           source_sha256: "f8e632016ceae556f3132a16c7f704be1e7715595041f474fa81a2b64c1abf7c"
+        },
+        sensevoice_runtime: {
+          version: "0.1.4",
+          source_revision: "7e41210ed16d97de8a21b5fec764e0cc287c1d40",
+          source_sha256: "9c67454515426253a0fb9bbe4f1bd1b836066b3396e2ea8ea1a4a1b3c0d506af",
+          llama_cpp_revision: "8086439a4cea94c71a5dfb8fe4ad1546aebd640f",
+          llama_cpp_source_sha256: "1984103666eb25bd45110a40cba22b9d4286116f26e51bbc76f6f41dc86bc7b5",
+          segment_delimiter_patch_sha256: "16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a"
         }
       },
       artifacts: {
@@ -610,6 +647,7 @@ EOF
 bash -n "$PACKAGE_SCRIPT"
 bash -n "$VERIFY_SCRIPT"
 bash -n "$APPCAST_SCRIPT"
+bash -n "$SENSEVOICE_PREPARE_SCRIPT"
 bash -n "$EXPORT_TEST_SCRIPT"
 bash -n "$0"
 
@@ -634,12 +672,18 @@ TEST_NOTARY_PROFILE='' \
   assert_failure_contains 'non-empty SHUO_NOTARY_PROFILE' run_preflight
 TEST_ARCHITECTURES='arm64' \
   assert_failure_contains 'arm64;x86_64' run_preflight
+TEST_SENSEVOICE_ARCHITECTURES='arm64' \
+  assert_failure_contains 'SHUO_SENSEVOICE_ARCHITECTURES=arm64;x86_64' run_preflight
 TEST_WHISPER_VERSION='9.9.9' \
   assert_failure_contains 'version must be 1.8.6' run_preflight
 TEST_WHISPER_SHA256='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
   assert_failure_contains 'source hash must match' run_preflight
 TEST_WHISPER_CACHE='/tmp/untrusted-whisper-cache' \
   assert_failure_contains 'caller-provided whisper runtime cache' run_preflight
+TEST_SENSEVOICE_VERSION='9.9.9' \
+  assert_failure_contains 'SenseVoice runtime version must be 0.1.4' run_preflight
+TEST_SENSEVOICE_CACHE='/tmp/untrusted-sensevoice-cache' \
+  assert_failure_contains 'caller-provided SenseVoice runtime cache' run_preflight
 TEST_ENTITLEMENTS="$WORK_DIR/empty.entitlements" \
   assert_failure_contains 'pinned App/ShuoDirect.entitlements' run_preflight
 TEST_LOCAL_TAG_SHA='2222222222222222222222222222222222222222' \
@@ -664,12 +708,18 @@ grep -Fq 'SHUO_NOTARIZE=1' <<<"$MAKE_DRY_RUN" \
   || fail "release-rc does not force notarization"
 grep -Fq "SHUO_WHISPER_ARCHITECTURES='arm64;x86_64'" <<<"$MAKE_DRY_RUN" \
   || fail "release-rc does not force a Universal whisper runtime"
+grep -Fq "SHUO_SENSEVOICE_ARCHITECTURES='arm64;x86_64'" <<<"$MAKE_DRY_RUN" \
+  || fail "release-rc does not force a Universal SenseVoice runtime"
 grep -Fq 'git status --porcelain --untracked-files=all' <<<"$MAKE_DRY_RUN" \
   || fail "release-rc does not reject a dirty source tree"
 grep -Fq 'stdout is a machine-readable contract' "$WHISPER_PREPARE_SCRIPT" \
   || fail "whisper runtime preparation does not document its stdout contract"
 grep -Fq '} >&2' "$WHISPER_PREPARE_SCRIPT" \
   || fail "fresh whisper builds can contaminate the executable path on stdout"
+grep -Fq 'stdout is a machine-readable contract' "$SENSEVOICE_PREPARE_SCRIPT" \
+  || fail "SenseVoice runtime preparation does not document its stdout contract"
+grep -Fq 'FETCHCONTENT_SOURCE_DIR_LLAMA' "$SENSEVOICE_PREPARE_SCRIPT" \
+  || fail "SenseVoice runtime preparation does not checksum-pin llama.cpp source"
 
 DMG_SIGN_LINE="$(grep -n 'sign_disk_image "$dmg_path"' "$PACKAGE_SCRIPT" | cut -d: -f1)"
 DMG_NOTARY_LINE="$(grep -n 'notarize_disk_image "$dmg_path"' "$PACKAGE_SCRIPT" | cut -d: -f1)"
@@ -693,9 +743,13 @@ for required_check in \
   'otool -L' \
   'unapproved dynamic dependency' \
   'Runtime/whisper-cli' \
+	'Runtime/sensevoice-cli' \
 	'resources/LICENSE' \
   'CORRESPONDING_SOURCE.txt' \
   'whisper.cpp-LICENSE' \
+	'SenseVoice-LICENSE.txt' \
+	'SenseVoiceSmall-GGUF-LICENSE.txt' \
+	'llama.cpp-LICENSE.txt' \
   'THIRD_PARTY_NOTICES.md' \
   'SUFeedURL' \
   'SUPublicEDKey' \
@@ -705,9 +759,11 @@ for required_check in \
   '.source.git_sha' \
   '.source.repository' \
   '.dependencies.whisper_cpp.version' \
+	'.dependencies.sensevoice_runtime.version' \
   '.artifacts.symbols' \
   '.artifacts.symbols.path' \
   'whisper-runtime-provenance.txt' \
+	'sensevoice-runtime-provenance.txt' \
   'CDHash' \
   'DMG Applications link does not target /Applications' \
   'EXPECTED_DMG_TOP_LEVEL' \

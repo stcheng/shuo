@@ -30,14 +30,18 @@ struct VocabularyView: View {
         AppLocalizer(language: appState.settings.appLanguage)
     }
 
+    private var usesSenseVoiceWithoutRecognitionHints: Bool {
+        appState.settings.usesSenseVoiceLocalTranscription
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 if presentation == .architecture {
                     promptContextSection
                 }
-                if appState.settings.provider == .alibaba {
-                    vocabularyProviderNotice
+                if shouldShowVocabularyProviderNotice {
+                    vocabularyProviderNoticeSection
                 }
                 vocabularySourcesSection
                 projectSourcesSection
@@ -67,9 +71,26 @@ struct VocabularyView: View {
         }
     }
 
-    private var vocabularyProviderNotice: some View {
+    @ViewBuilder
+    private var vocabularyProviderNoticeSection: some View {
         Section {
-            SettingsRowFeedback(text: localizer.alibabaVocabularyUnavailableDetail())
+            if appState.settings.provider == .alibaba {
+                SettingsRowFeedback(text: localizer.alibabaVocabularyUnavailableDetail())
+            } else if appState.settings.provider == .local,
+                      appState.settings.localTranscriptionEngine?.supportsVocabularyHints == false {
+                SettingsRowFeedback(text: localizer.senseVoiceVocabularyUnavailableDetail())
+            }
+        }
+    }
+
+    private var shouldShowVocabularyProviderNotice: Bool {
+        switch appState.settings.provider {
+        case .alibaba:
+            return true
+        case .local:
+            return appState.settings.localTranscriptionEngine?.supportsVocabularyHints == false
+        case .openAI, .elevenLabs, .gemini, .custom:
+            return false
         }
     }
 
@@ -122,6 +143,7 @@ struct VocabularyView: View {
                 target: .featurePromptContext
             )
         }
+        .disabled(usesSenseVoiceWithoutRecognitionHints)
     }
 
     private var vocabularySourcesSection: some View {
@@ -162,6 +184,7 @@ struct VocabularyView: View {
                 target: .manualTerms
             )
         }
+        .disabled(usesSenseVoiceWithoutRecognitionHints)
     }
 
     private var projectSourcesSection: some View {
@@ -225,6 +248,7 @@ struct VocabularyView: View {
                 target: .projectVocabulary
             )
         }
+        .disabled(usesSenseVoiceWithoutRecognitionHints)
     }
 
     private func bindingForPromptContext(id: UUID) -> Binding<PromptContextItem> {

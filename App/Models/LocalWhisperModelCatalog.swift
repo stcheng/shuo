@@ -1,5 +1,47 @@
 import Foundation
 
+/// The bundled local engines deliberately remain small command-line tools.
+/// The model file extension is part of the engine contract, rather than an
+/// invitation to run arbitrary GGUF files with the wrong runtime.
+enum LocalTranscriptionEngine: String, Equatable {
+    case whisper
+    case senseVoice
+
+    /// Only whisper.cpp exposes a request-scoped prompt interface. SenseVoice
+    /// deliberately remains honest about this limitation instead of silently
+    /// accepting vocabulary that cannot influence decoding.
+    var supportsVocabularyHints: Bool {
+        self == .whisper
+    }
+
+    /// whisper.cpp maps Shuo's balanced/fast control to decoder flags.
+    /// SenseVoice has no equivalent public CLI control.
+    var supportsPerformanceMode: Bool {
+        self == .whisper
+    }
+
+    static func infer(fromModelPath modelPath: String) -> LocalTranscriptionEngine? {
+        let trimmedPath = modelPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            return nil
+        }
+
+        let modelURL = URL(fileURLWithPath: trimmedPath)
+        switch modelURL.pathExtension.lowercased() {
+        case "bin":
+            return .whisper
+        case "gguf":
+            return modelURL.lastPathComponent
+                .lowercased()
+                .hasPrefix("sensevoice-")
+                ? .senseVoice
+                : nil
+        default:
+            return nil
+        }
+    }
+}
+
 enum LocalWhisperModelTier: String, CaseIterable, Identifiable {
     case small
     case balanced
@@ -8,38 +50,35 @@ enum LocalWhisperModelTier: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct LocalWhisperManagedModel: Identifiable, Equatable {
-    let id: String
-    let displayName: String
+enum LocalWhisperModelRecommendationReason: Equatable {
+    case chineseJapaneseAndMixedSpeech
+    case englishBestAccuracy
+    case englishLightweight
+    case widerLanguageBestAccuracy
+    case widerLanguageLightweight
+}
+
+struct LocalWhisperModelRecommendation: Equatable {
+    let modelID: String
+    let reason: LocalWhisperModelRecommendationReason
+}
+
+struct LocalWhisperManagedModelSupportingAsset: Equatable {
     let filename: String
-    let sizeDescription: String
-    let tier: LocalWhisperModelTier
     let downloadURL: URL
     let expectedByteCount: Int64
     let expectedSHA256: String
 
     init(
-        id: String,
-        displayName: String,
         filename: String,
-        sizeDescription: String,
-        tier: LocalWhisperModelTier,
         downloadURLString: String,
         expectedByteCount: Int64,
         expectedSHA256: String
     ) {
-        self.id = id
-        self.displayName = displayName
         self.filename = filename
-        self.sizeDescription = sizeDescription
-        self.tier = tier
         downloadURL = URL(string: downloadURLString)!
         self.expectedByteCount = expectedByteCount
         self.expectedSHA256 = expectedSHA256
-    }
-
-    var languageCapability: LocalWhisperLanguageCapability {
-        LocalWhisperLanguageCapability.infer(fromModelPath: filename)
     }
 
     func destinationURL(in directoryPath: String) -> URL {
@@ -57,30 +96,150 @@ struct LocalWhisperManagedModel: Identifiable, Equatable {
     }
 }
 
+struct LocalWhisperManagedModel: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let filename: String
+    let sizeDescription: String
+    let tier: LocalWhisperModelTier
+    let engine: LocalTranscriptionEngine
+    let supportingAssets: [LocalWhisperManagedModelSupportingAsset]
+    let downloadURL: URL
+    let expectedByteCount: Int64
+    let expectedSHA256: String
+
+    init(
+        id: String,
+        displayName: String,
+        filename: String,
+        sizeDescription: String,
+        tier: LocalWhisperModelTier,
+        engine: LocalTranscriptionEngine = .whisper,
+        supportingAssets: [LocalWhisperManagedModelSupportingAsset] = [],
+        downloadURLString: String,
+        expectedByteCount: Int64,
+        expectedSHA256: String
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.filename = filename
+        self.sizeDescription = sizeDescription
+        self.tier = tier
+        self.engine = engine
+        self.supportingAssets = supportingAssets
+        downloadURL = URL(string: downloadURLString)!
+        self.expectedByteCount = expectedByteCount
+        self.expectedSHA256 = expectedSHA256
+    }
+
+    var languageCapability: LocalWhisperLanguageCapability {
+        switch engine {
+        case .whisper:
+            return LocalWhisperLanguageCapability.infer(fromModelPath: filename)
+        case .senseVoice:
+            return .senseVoice
+        }
+    }
+
+    func destinationURL(in directoryPath: String) -> URL {
+        LocalWhisperModelCatalog.directoryURL(for: directoryPath)
+            .appendingPathComponent(filename)
+            .standardizedFileURL
+    }
+
+    func hasExpectedFileSize(at url: URL, fileManager: FileManager = .default) -> Bool {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+              let size = attributes[.size] as? NSNumber else {
+            return false
+        }
+        return size.int64Value == expectedByteCount
+    }
+
+    var totalDownloadByteCount: Int64 {
+        expectedByteCount + supportingAssets.reduce(0) { $0 + $1.expectedByteCount }
+    }
+
+    func isFullyInstalled(
+        in directoryPath: String,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        hasExpectedFileSize(
+            at: destinationURL(in: directoryPath),
+            fileManager: fileManager
+        ) && supportingAssets.allSatisfy {
+            $0.hasExpectedFileSize(
+                at: $0.destinationURL(in: directoryPath),
+                fileManager: fileManager
+            )
+        }
+    }
+}
+
 struct LocalWhisperModelCatalog {
     private static let cache = LocalWhisperModelCatalogCache()
 
     static let onboardingModelIDs = [
-        "base",
+        "sensevoice-small-q8",
         "small",
         "large-v3-turbo-q5_0"
     ]
+    static let chineseMixedOnboardingModelID = "sensevoice-small-q8"
     static let lightweightOnboardingModelID = "small"
     static let qualityOnboardingModelID = "large-v3-turbo-q5_0"
     static let largeModelRecommendedMemoryBytes: UInt64 = 16 * 1_024 * 1_024 * 1_024
 
-    /// Large Turbo Q5 is only a small download increase over Small and is the
-    /// stronger default on modern Apple Silicon. Keep Small as the conservative
-    /// choice on Intel and lower-memory Macs until that hardware matrix is
-    /// benchmarked.
+    /// Fresh Shuo installs begin with Chinese + English selected, so SenseVoice
+    /// is the sensible default there. For English-only or broader language
+    /// selections, choose the best Whisper tier the current hardware supports.
     static var defaultOnboardingModelID: String {
         recommendedOnboardingModelID(
+            for: [.chinese, .english],
             isAppleSilicon: isRunningOnAppleSilicon,
             physicalMemoryBytes: ProcessInfo.processInfo.physicalMemory
         )
     }
 
     static func recommendedOnboardingModelID(
+        for selectedLanguages: Set<TranscriptionLanguage>,
+        isAppleSilicon: Bool = isRunningOnAppleSilicon,
+        physicalMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory
+    ) -> String {
+        recommendedOnboardingModel(
+            for: selectedLanguages,
+            isAppleSilicon: isAppleSilicon,
+            physicalMemoryBytes: physicalMemoryBytes
+        ).modelID
+    }
+
+    static func recommendedOnboardingModel(
+        for selectedLanguages: Set<TranscriptionLanguage>,
+        isAppleSilicon: Bool = isRunningOnAppleSilicon,
+        physicalMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory
+    ) -> LocalWhisperModelRecommendation {
+        let senseVoiceLanguages: Set<TranscriptionLanguage> = [.chinese, .english, .japanese]
+        if !selectedLanguages.isDisjoint(with: [.chinese, .japanese]),
+           selectedLanguages.isSubset(of: senseVoiceLanguages) {
+            return LocalWhisperModelRecommendation(
+                modelID: chineseMixedOnboardingModelID,
+                reason: .chineseJapaneseAndMixedSpeech
+            )
+        }
+
+        let whisperModelID = recommendedWhisperOnboardingModelID(
+            isAppleSilicon: isAppleSilicon,
+            physicalMemoryBytes: physicalMemoryBytes
+        )
+        let isEnglishOnly = selectedLanguages == [.english]
+        let reason: LocalWhisperModelRecommendationReason
+        if whisperModelID == qualityOnboardingModelID {
+            reason = isEnglishOnly ? .englishBestAccuracy : .widerLanguageBestAccuracy
+        } else {
+            reason = isEnglishOnly ? .englishLightweight : .widerLanguageLightweight
+        }
+        return LocalWhisperModelRecommendation(modelID: whisperModelID, reason: reason)
+    }
+
+    static func recommendedWhisperOnboardingModelID(
         isAppleSilicon: Bool,
         physicalMemoryBytes: UInt64
     ) -> String {
@@ -98,31 +257,31 @@ struct LocalWhisperModelCatalog {
     }
 
     // Download URLs and LFS object metadata are pinned to the same verified
-    // revision of the official ggerganov/whisper.cpp Hugging Face repository.
+    // revision of their upstream repositories. Every managed download is
+    // verified by byte count and SHA-256 before it becomes selectable.
+    static let senseVoiceVADAsset = LocalWhisperManagedModelSupportingAsset(
+        filename: "fsmn-vad.gguf",
+        downloadURLString: "https://huggingface.co/FunAudioLLM/fsmn-vad-GGUF/resolve/6840bae4c5c92ee8c04faaf4db23dd0105098d7f/fsmn-vad.gguf",
+        expectedByteCount: 1_720_512,
+        expectedSHA256: "1270f2559c495f4e7b6e739541151027d360761a3fda43fc147034f5719f5479"
+    )
+
     static let managedModels: [LocalWhisperManagedModel] = [
         LocalWhisperManagedModel(
-            id: "base",
-            displayName: "Base",
-            filename: "ggml-base.bin",
-            sizeDescription: "142 MiB",
-            tier: .small,
-            downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin",
-            expectedByteCount: 147_951_465,
-            expectedSHA256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
-        ),
-        LocalWhisperManagedModel(
-            id: "base.en",
-            displayName: "Base English",
-            filename: "ggml-base.en.bin",
-            sizeDescription: "142 MiB",
-            tier: .small,
-            downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en.bin",
-            expectedByteCount: 147_964_211,
-            expectedSHA256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
+            id: "sensevoice-small-q8",
+            displayName: "SenseVoice Small",
+            filename: "sensevoice-small-q8.gguf",
+            sizeDescription: "242 MiB",
+            tier: .balanced,
+            engine: .senseVoice,
+            supportingAssets: [senseVoiceVADAsset],
+            downloadURLString: "https://huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF/resolve/90c1c61912018b70ada0fcc024ea24aca62f2e63/sensevoice-small-q8.gguf",
+            expectedByteCount: 254_208_320,
+            expectedSHA256: "4ae45c94422de949b387e2e0fb10d7e14e4c42c69db30c3444ecc7d4b844b7c5"
         ),
         LocalWhisperManagedModel(
             id: "small",
-            displayName: "Small",
+            displayName: "Whisper Small",
             filename: "ggml-small.bin",
             sizeDescription: "466 MiB",
             tier: .balanced,
@@ -131,44 +290,14 @@ struct LocalWhisperModelCatalog {
             expectedSHA256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
         ),
         LocalWhisperManagedModel(
-            id: "small.en",
-            displayName: "Small English",
-            filename: "ggml-small.en.bin",
-            sizeDescription: "466 MiB",
-            tier: .balanced,
-            downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.en.bin",
-            expectedByteCount: 487_614_201,
-            expectedSHA256: "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
-        ),
-        LocalWhisperManagedModel(
-            id: "medium",
-            displayName: "Medium",
-            filename: "ggml-medium.bin",
-            sizeDescription: "1.5 GiB",
-            tier: .large,
-            downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium.bin",
-            expectedByteCount: 1_533_763_059,
-            expectedSHA256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208"
-        ),
-        LocalWhisperManagedModel(
             id: "large-v3-turbo-q5_0",
-            displayName: "Large Turbo",
+            displayName: "Whisper Large Turbo",
             filename: "ggml-large-v3-turbo-q5_0.bin",
             sizeDescription: "547 MiB",
             tier: .large,
             downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
             expectedByteCount: 574_041_195,
             expectedSHA256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
-        ),
-        LocalWhisperManagedModel(
-            id: "large-v3-turbo-q8_0",
-            displayName: "Large Turbo · Q8",
-            filename: "ggml-large-v3-turbo-q8_0.bin",
-            sizeDescription: "834 MiB",
-            tier: .large,
-            downloadURLString: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q8_0.bin",
-            expectedByteCount: 874_188_075,
-            expectedSHA256: "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1"
         )
     ]
 
@@ -177,16 +306,15 @@ struct LocalWhisperModelCatalog {
         return onboardingModelIDs.compactMap { modelsByID[$0] }
     }
 
-    /// The short list shown before a user asks for additional model variants.
-    /// It intentionally offers one clear quality step at each practical size,
-    /// rather than presenting quantization variants as separate model families.
+    /// All downloadable models are intentional product choices. Existing and
+    /// custom local files remain available through Manual Setup, but Shuo no
+    /// longer presents legacy download variants as competing recommendations.
     static var featuredModels: [LocalWhisperManagedModel] {
         onboardingModels
     }
 
     static var additionalModels: [LocalWhisperManagedModel] {
-        let featuredIDs = Set(featuredModels.map(\.id))
-        return managedModels.filter { !featuredIDs.contains($0.id) }
+        []
     }
 
     static func directoryURL(for directoryPath: String) -> URL {
@@ -221,7 +349,7 @@ struct LocalWhisperModelCatalog {
         }
 
         let urls = contents
-            .filter { $0.pathExtension.lowercased() == "bin" }
+            .filter { isSelectableModelURL($0, in: directoryURL) }
             .filter { url in
                 guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey]) else {
                     return false
@@ -242,11 +370,67 @@ struct LocalWhisperModelCatalog {
     }
 
     static func isInstalled(_ model: LocalWhisperManagedModel, in directoryPath: String) -> Bool {
-        model.hasExpectedFileSize(at: model.destinationURL(in: directoryPath))
+        model.isFullyInstalled(in: directoryPath)
+    }
+
+    static func senseVoiceVADURL(in directoryPath: String) -> URL {
+        senseVoiceVADAsset.destinationURL(in: directoryPath)
     }
 
     static func invalidateCache(for directoryPath: String) {
         cache.invalidate(directoryURL(for: directoryPath).path)
+    }
+
+    /// A SenseVoice main model is not usable without its VAD companion. Keep a
+    /// valid, already-downloaded main file on disk so a retry need not fetch it
+    /// again, but never surface an incomplete pair as a selectable model.
+    private static func isSelectableModelURL(_ url: URL, in directoryURL: URL) -> Bool {
+        guard let engine = LocalTranscriptionEngine.infer(fromModelPath: url.path) else {
+            return false
+        }
+
+        switch engine {
+        case .whisper:
+            return true
+        case .senseVoice:
+            return senseVoiceVADAsset.hasExpectedFileSize(
+                at: senseVoiceVADAsset.destinationURL(in: directoryURL.path)
+            )
+        }
+    }
+
+    /// Supporting assets are shared by engine family rather than by one model
+    /// filename. This keeps a future SenseVoice model (or an advanced manual model)
+    /// from being broken when another SenseVoice model is removed.
+    static func hasAnotherModelUsing(
+        supportingAsset: LocalWhisperManagedModelSupportingAsset,
+        excludingModelURL: URL,
+        in directoryPath: String,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        let modelsDirectoryURL = directoryURL(for: directoryPath)
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: modelsDirectoryURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return false
+        }
+
+        let excludedURL = excludingModelURL.standardizedFileURL
+        return contents.contains { candidateURL in
+            guard candidateURL.standardizedFileURL != excludedURL,
+                  LocalTranscriptionEngine.infer(fromModelPath: candidateURL.path) == .senseVoice,
+                  let values = try? candidateURL.resourceValues(forKeys: [.isRegularFileKey]),
+                  values.isRegularFile == true else {
+                return false
+            }
+
+            // All current and planned SenseVoice variants use the same VAD
+            // filename. Leave the asset in place if another engine model is
+            // still present, even if that other model was copied in manually.
+            return supportingAsset.filename == senseVoiceVADAsset.filename
+        }
     }
 
     private static func directorySignature(for directoryURL: URL) -> Date? {
@@ -322,6 +506,26 @@ enum LocalWhisperExecutableResolver {
     static func bundledExecutableURL(bundle: Bundle = .main) -> URL? {
         bundle.url(
             forResource: "whisper-cli",
+            withExtension: nil,
+            subdirectory: "Runtime"
+        )
+    }
+}
+
+enum LocalSenseVoiceExecutableResolver {
+    static func resolvedExecutableURL(
+        bundledExecutableURL: URL? = bundledExecutableURL()
+    ) -> URL? {
+        guard let bundledExecutableURL,
+              FileManager.default.isExecutableFile(atPath: bundledExecutableURL.path) else {
+            return nil
+        }
+        return bundledExecutableURL.standardizedFileURL
+    }
+
+    static func bundledExecutableURL(bundle: Bundle = .main) -> URL? {
+        bundle.url(
+            forResource: "sensevoice-cli",
             withExtension: nil,
             subdirectory: "Runtime"
         )

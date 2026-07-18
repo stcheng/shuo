@@ -11,8 +11,9 @@ identity, local storage, and no production update feed.
 - Git
 - Internet access for the first Swift package resolution
 
-For local-model runtime preparation or packaging, also install CMake. The
-finished app does not require Homebrew.
+For local-model runtime preparation or packaging, also install CMake. It builds
+the bundled whisper.cpp and SenseVoice runtimes; the finished app does not
+require Homebrew.
 
 ~~~sh
 xcodebuild -version

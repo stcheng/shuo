@@ -242,17 +242,43 @@ final class AppState: ObservableObject {
             }
             persist(settings, key: Self.settingsKey)
 
+            let openAIKeyScopeChanged = OpenAICompatibleCredentialScope(
+                baseURLString: settings.openAIBaseURL
+            ) != OpenAICompatibleCredentialScope(
+                baseURLString: oldValue.openAIBaseURL
+            )
             if settings.openAIBaseURL != oldValue.openAIBaseURL
                 || settings.openAIOrganizationID != oldValue.openAIOrganizationID
                 || settings.openAIProjectID != oldValue.openAIProjectID {
                 resetOpenAIModelAvailability()
-                scheduleOpenAIModelRefresh(forceRefresh: false)
+                if openAIKeyScopeChanged {
+                    loadOpenAIAPIKeyIfNeeded()
+                }
+                if settings.provider != .gemini {
+                    scheduleOpenAIModelRefresh(forceRefresh: false)
+                }
+            }
+
+            if settings.provider == .openAI,
+               oldValue.provider != .openAI {
+                loadOpenAIAPIKeyIfNeeded()
+            }
+
+            if settings.provider == .gemini,
+               oldValue.provider != .gemini {
+                // A switch to Gemini must leave no pending OpenAI model
+                // availability request running in the background.
+                resetOpenAIModelAvailability()
             }
 
             if settings.pushToTalkEnabled != oldValue.pushToTalkEnabled
                 || settings.pushToTalkShortcut != oldValue.pushToTalkShortcut
+                || settings.customPushToTalkShortcut != oldValue.customPushToTalkShortcut
                 || settings.appLanguage != oldValue.appLanguage {
                 configurePushToTalkMonitor()
+            }
+            if settings.showDockIcon != oldValue.showDockIcon {
+                AppDockIconController.apply(showDockIcon: settings.showDockIcon)
             }
             appUpdateController.appLanguage = settings.appLanguage
         }
@@ -330,12 +356,24 @@ final class AppState: ObservableObject {
     @Published private(set) var floatingCorrectionSession: FloatingCorrectionSession?
     @Published private(set) var replacementSafetySessionID: UUID?
     @Published private(set) var openAIAPIKey = ""
+    @Published private(set) var cloudTextOpenAIAPIKey = ""
     @Published private(set) var elevenLabsAPIKey = ""
     @Published private(set) var alibabaAPIKey = ""
+    @Published private(set) var geminiAPIKey = ""
     @Published private(set) var openAIAvailableModelIDs = Set<String>()
     @Published private(set) var openAIModelAvailabilityFetchedAt: Date?
     @Published private(set) var openAIModelAvailabilityError: String?
     @Published private(set) var isRefreshingOpenAIModels = false
+    @Published private(set) var cloudTextAvailableModelIDs = Set<String>()
+    @Published private(set) var cloudTextModelAvailabilityFetchedAt: Date?
+    @Published private(set) var cloudTextModelAvailabilityError: String?
+    @Published private(set) var isRefreshingCloudTextModels = false
+    @Published private(set) var isTestingOpenAITranscriptionModel = false
+    @Published private(set) var openAITranscriptionModelTestSucceeded = false
+    @Published private(set) var openAITranscriptionModelTestError: String?
+    @Published private(set) var isTestingCloudTextModel = false
+    @Published private(set) var cloudTextModelTestSucceeded = false
+    @Published private(set) var cloudTextModelTestError: String?
     @Published private(set) var pushToTalkStatusMessage = ""
     @Published private(set) var isPreparingMicrophone = false
     @Published private(set) var isRecording = false
@@ -370,6 +408,7 @@ final class AppState: ObservableObject {
     private let voiceEditLocalResolver = VoiceEditLocalResolver()
     private let transcriptProcessingWorkflow = TranscriptProcessingWorkflow()
     private let openAIModelAvailabilityService = OpenAIModelAvailabilityService()
+    private let openAITranscriptionService = OpenAITranscriptionService()
     private let localWhisperSetupService = LocalWhisperSetupService()
     private let adaptiveRecognitionService = AdaptiveRecognitionService()
     private let adaptiveRecognitionStore = AdaptiveRecognitionStore()
@@ -384,9 +423,11 @@ final class AppState: ObservableObject {
     private var pushToTalkMonitor: RightOptionPushToTalkMonitor?
     private var pushToTalkIsHeld = false
     private var pushToTalkIntentGeneration: UInt64 = 0
-    private var hasLoadedOpenAIAPIKey = false
+    private var loadedOpenAIAPIKeyScope: OpenAICompatibleCredentialScope?
+    private var loadedCloudTextOpenAIAPIKeyScope: OpenAICompatibleCredentialScope?
     private var hasLoadedElevenLabsAPIKey = false
     private var hasLoadedAlibabaAPIKey = false
+    private var hasLoadedGeminiAPIKey = false
     private var lastInsertion: LastShuoInsertion? {
         didSet {
             replacementSafetySessionID = lastInsertion?.id
@@ -403,6 +444,13 @@ final class AppState: ObservableObject {
     private var localWhisperDownloadTask: Task<Void, Never>?
     private var openAIModelRefreshTask: Task<Void, Never>?
     private var openAIModelRefreshGeneration: UInt64 = 0
+    private var cloudTextModelRefreshTask: Task<Void, Never>?
+    private var cloudTextModelRefreshGeneration: UInt64 = 0
+    private var openAITranscriptionModelTestTask: Task<Void, Never>?
+    private var openAITranscriptionModelTestScopeID: String?
+    private var openAITranscriptionModelTestModelID: String?
+    private var cloudTextModelTestTask: Task<Void, Never>?
+    private var cloudTextModelTestConfigurationID: String?
     private var correctionLearningSnapshotTask: Task<Void, Never>?
     private var correctionLearningSnapshotRevision = 0
     private var recordingVocabularySnapshot: TranscriptionVocabularySnapshot?
@@ -430,14 +478,6 @@ final class AppState: ObservableObject {
 
     var isTranscribing: Bool {
         status == .transcribing
-    }
-
-    var openAITranscriptionModelOptions: [OpenAIModelDescriptor] {
-        OpenAIModelCatalog.transcriptionModels
-    }
-
-    var openAITextModelOptions: [OpenAIModelDescriptor] {
-        OpenAIModelCatalog.textModels
     }
 
     var openAIModelAvailabilityMessage: String {
@@ -478,8 +518,102 @@ final class AppState: ObservableObject {
         return localizer.openAIAutomaticTextModelHint(settings.automaticOpenAITextModel)
     }
 
+    var fixedOpenAITranscriptionModelValidationError: OpenAITranscriptionModelIDValidationError? {
+        guard settings.provider == .openAI,
+              settings.openAITranscriptionModelSelectionMode == .fixed else {
+            return nil
+        }
+
+        do {
+            _ = try OpenAIModelCatalog.validatedFixedTranscriptionModelID(settings.effectiveModel)
+            return nil
+        } catch let error as OpenAITranscriptionModelIDValidationError {
+            return error
+        } catch {
+            return .empty
+        }
+    }
+
+    var fixedOpenAITranscriptionModelIsEndpointReported: Bool {
+        guard let modelID = try? OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+            settings.effectiveModel
+        ), openAIModelAvailabilityFetchedAt != nil else {
+            return false
+        }
+        return openAIAvailableModelIDs.contains(modelID)
+    }
+
+    var openAITranscriptionModelTestMessage: String? {
+        guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey),
+              let modelID = try? OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+                  settings.effectiveModel
+              ),
+              let testScopeID = openAITranscriptionModelTestScopeID,
+              testScopeID == OpenAIModelAvailabilityService.scopeID(
+                  settings: settings,
+                  apiKey: apiKey
+              ),
+              openAITranscriptionModelTestModelID == modelID else {
+            return nil
+        }
+
+        if isTestingOpenAITranscriptionModel {
+            return localizer.testingOpenAITranscriptionModel()
+        }
+        if openAITranscriptionModelTestSucceeded {
+            return localizer.openAITranscriptionModelTestPassed()
+        }
+        if let openAITranscriptionModelTestError {
+            return localizer.openAITranscriptionModelTestFailed(openAITranscriptionModelTestError)
+        }
+        return nil
+    }
+
+    var cloudTextModelTestMessage: String? {
+        guard let configurationID = cloudTextModelConfigurationID,
+              cloudTextModelTestConfigurationID == configurationID else {
+            return nil
+        }
+
+        if isTestingCloudTextModel {
+            return localizer.testingCloudTextModel()
+        }
+        if cloudTextModelTestSucceeded {
+            return localizer.cloudTextModelTestPassed()
+        }
+        if let cloudTextModelTestError {
+            return localizer.cloudTextModelTestFailed(cloudTextModelTestError)
+        }
+        return nil
+    }
+
     private var localizer: AppLocalizer {
         AppLocalizer(language: settings.appLanguage)
+    }
+
+    private var openAIAPIKeyScope: OpenAICompatibleCredentialScope {
+        OpenAICompatibleCredentialScope(baseURLString: settings.openAIBaseURL)
+    }
+
+    private var cloudTextOpenAIAPIKeyScope: OpenAICompatibleCredentialScope? {
+        guard !settings.cloudTextUsesTranscriptionService,
+              settings.cloudTextServiceProvider == .openAI,
+              let baseURL = settings.effectiveCloudTextBaseURL else {
+            return nil
+        }
+        return OpenAICompatibleCredentialScope(baseURLString: baseURL)
+    }
+
+    private var cloudTextModelConfigurationID: String? {
+        guard let provider = settings.cloudTextServiceProvider else {
+            return nil
+        }
+        return [
+            provider.rawValue,
+            settings.effectiveCloudTextBaseURL ?? "",
+            settings.effectiveCloudTextModel,
+            settings.openAITextModelSelectionMode.rawValue
+        ].joined(separator: "\u{1F}")
     }
 
     var shouldShowOnboarding: Bool {
@@ -669,6 +803,13 @@ final class AppState: ObservableObject {
                 minutes: Int(AudioRecorder.maximumRecordingDuration / 60)
             )
             self.beginTranscriptionTask()
+        }
+        if settings.provider == .openAI {
+            // Before endpoint-scoped credentials existed, OpenAI-compatible
+            // services shared one credential. Migrate only the endpoint that
+            // was active when this version first launches; later user-driven
+            // service switches must start with that service's own key.
+            loadOpenAIAPIKeyIfNeeded(migratingLegacyDefault: true)
         }
         scheduleCorrectionLearningSnapshotRefresh()
     }
@@ -1273,13 +1414,17 @@ final class AppState: ObservableObject {
                 TranscriptionRequest(
                     audioFileURL: audioURL,
                     settings: effectiveSettings,
-                    context: effectiveSettings.effectiveContextPrompt,
+                    context: effectiveSettings.usesSenseVoiceLocalTranscription
+                        ? ""
+                        : effectiveSettings.effectiveContextPrompt,
                     vocabulary: vocabulary,
                     apiKey: apiKey
                 )
             )
         } catch {
-            refreshOpenAIModelsAfterFailureIfNeeded(error)
+            if provider == .openAI {
+                refreshOpenAIModelsAfterFailureIfNeeded(error)
+            }
             throw error
         }
         let preparedTranscript = transcriptProcessingWorkflow.prepare(
@@ -1610,32 +1755,142 @@ final class AppState: ObservableObject {
     }
 
     func updateOpenAIAPIKey(_ apiKey: String) {
+        let scope = openAIAPIKeyScope
         openAIAPIKey = apiKey
-        hasLoadedOpenAIAPIKey = true
+        loadedOpenAIAPIKeyScope = scope
         resetOpenAIModelAvailability()
 
         do {
-            try OpenAIAPIKeyStore.save(apiKey)
+            try OpenAIAPIKeyStore.save(apiKey, scope: scope)
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
 
-        scheduleOpenAIModelRefresh(forceRefresh: false)
+        if settings.provider != .gemini {
+            scheduleOpenAIModelRefresh(forceRefresh: false)
+        }
     }
 
-    func loadOpenAIAPIKeyIfNeeded() {
-        guard !hasLoadedOpenAIAPIKey else {
+    func loadOpenAIAPIKeyIfNeeded(migratingLegacyDefault: Bool = false) {
+        let scope = openAIAPIKeyScope
+        guard loadedOpenAIAPIKeyScope != scope else {
             return
         }
 
-        hasLoadedOpenAIAPIKey = true
+        loadedOpenAIAPIKeyScope = scope
         do {
-            openAIAPIKey = try OpenAIAPIKeyStore.load()
+            openAIAPIKey = try OpenAIAPIKeyStore.load(
+                scope: scope,
+                migrateLegacyDefault: migratingLegacyDefault
+            )
             restoreCachedOpenAIModelAvailability()
         } catch {
             openAIAPIKey = ""
             errorMessage = localizedErrorMessage(error)
         }
+    }
+
+    /// Reads the credential selected by a cloud-provider configuration. The
+    /// underlying stores remain separate where a provider uses a native API;
+    /// OpenAI-compatible providers share endpoint-scoped credentials.
+    func cloudAPIKey(for configuration: CloudTranscriptionProviderConfiguration) -> String {
+        loadCloudAPIKeyIfNeeded(for: configuration)
+
+        switch configuration.credential {
+        case .openAICompatible:
+            return openAIAPIKey
+        case .gemini:
+            return geminiAPIKey
+        case .elevenLabs:
+            return elevenLabsAPIKey
+        case .alibaba:
+            return alibabaAPIKey
+        }
+    }
+
+    func updateCloudAPIKey(
+        _ apiKey: String,
+        for configuration: CloudTranscriptionProviderConfiguration
+    ) {
+        switch configuration.credential {
+        case .openAICompatible:
+            updateOpenAIAPIKey(apiKey)
+        case .gemini:
+            updateGeminiAPIKey(apiKey)
+        case .elevenLabs:
+            updateElevenLabsAPIKey(apiKey)
+        case .alibaba:
+            updateAlibabaAPIKey(apiKey)
+        }
+    }
+
+    func loadCloudAPIKeyIfNeeded(for configuration: CloudTranscriptionProviderConfiguration) {
+        switch configuration.credential {
+        case .openAICompatible:
+            loadOpenAIAPIKeyIfNeeded()
+        case .gemini:
+            loadGeminiAPIKeyIfNeeded()
+        case .elevenLabs:
+            loadElevenLabsAPIKeyIfNeeded()
+        case .alibaba:
+            loadAlibabaAPIKeyIfNeeded()
+        }
+    }
+
+    func updateCloudTextOpenAIAPIKey(_ apiKey: String) {
+        guard let scope = cloudTextOpenAIAPIKeyScope else {
+            return
+        }
+
+        cloudTextOpenAIAPIKey = apiKey
+        loadedCloudTextOpenAIAPIKeyScope = scope
+        resetCloudTextModelAvailability()
+
+        do {
+            try OpenAIAPIKeyStore.save(apiKey, scope: scope)
+        } catch {
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
+    func loadCloudTextOpenAIAPIKeyIfNeeded() {
+        guard let scope = cloudTextOpenAIAPIKeyScope else {
+            cloudTextOpenAIAPIKey = ""
+            loadedCloudTextOpenAIAPIKeyScope = nil
+            return
+        }
+        guard loadedCloudTextOpenAIAPIKeyScope != scope else {
+            return
+        }
+
+        loadedCloudTextOpenAIAPIKeyScope = scope
+        do {
+            cloudTextOpenAIAPIKey = try OpenAIAPIKeyStore.load(scope: scope)
+            restoreCachedCloudTextModelAvailability()
+        } catch {
+            cloudTextOpenAIAPIKey = ""
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
+    func loadCloudTextCredentialsIfNeeded() {
+        switch settings.cloudTextServiceProvider {
+        case .gemini:
+            loadGeminiAPIKeyIfNeeded()
+        case .openAI:
+            if settings.cloudTextUsesTranscriptionService {
+                loadOpenAIAPIKeyIfNeeded()
+            } else {
+                loadCloudTextOpenAIAPIKeyIfNeeded()
+            }
+        case .none, .some(.local), .some(.elevenLabs), .some(.alibaba), .some(.custom):
+            break
+        }
+    }
+
+    func cloudTextConnectionConfigurationDidChange() {
+        resetCloudTextModelAvailability()
+        loadCloudTextCredentialsIfNeeded()
     }
 
     func updateElevenLabsAPIKey(_ apiKey: String) {
@@ -1688,20 +1943,191 @@ final class AppState: ObservableObject {
         }
     }
 
+    func updateGeminiAPIKey(_ apiKey: String) {
+        geminiAPIKey = apiKey
+        hasLoadedGeminiAPIKey = true
+
+        do {
+            try GeminiAPIKeyStore.save(apiKey)
+        } catch {
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
+    func loadGeminiAPIKeyIfNeeded() {
+        guard !hasLoadedGeminiAPIKey else {
+            return
+        }
+
+        hasLoadedGeminiAPIKey = true
+        do {
+            geminiAPIKey = try GeminiAPIKeyStore.load()
+        } catch {
+            geminiAPIKey = ""
+            errorMessage = localizedErrorMessage(error)
+        }
+    }
+
     func clearCloudAPIKeys() {
         updateOpenAIAPIKey("")
         updateElevenLabsAPIKey("")
         updateAlibabaAPIKey("")
+        updateGeminiAPIKey("")
     }
 
     func refreshOpenAIModelsIfNeeded() {
+        guard settings.provider != .gemini else {
+            return
+        }
         loadOpenAIAPIKeyIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: false, delayNanoseconds: 0)
     }
 
     func refreshOpenAIModels() {
+        guard settings.provider != .gemini else {
+            return
+        }
         loadOpenAIAPIKeyIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: true, delayNanoseconds: 0)
+    }
+
+    func testOpenAITranscriptionModel() {
+        guard !isTestingOpenAITranscriptionModel else {
+            return
+        }
+
+        loadOpenAIAPIKeyIfNeeded()
+        guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey) else {
+            return
+        }
+
+        let requestSettings = settings
+        let modelID: String
+        do {
+            modelID = try OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+                requestSettings.effectiveModel
+            )
+        } catch {
+            return
+        }
+
+        let scopeID = OpenAIModelAvailabilityService.scopeID(
+            settings: requestSettings,
+            apiKey: apiKey
+        )
+        openAITranscriptionModelTestTask?.cancel()
+        openAITranscriptionModelTestScopeID = scopeID
+        openAITranscriptionModelTestModelID = modelID
+        openAITranscriptionModelTestSucceeded = false
+        openAITranscriptionModelTestError = nil
+        isTestingOpenAITranscriptionModel = true
+
+        let service = openAITranscriptionService
+        openAITranscriptionModelTestTask = Task { [weak self] in
+            do {
+                try await service.verifySelectedModel(
+                    settings: requestSettings,
+                    apiKey: apiKey
+                )
+                guard let self,
+                      self.openAITranscriptionModelTestScopeID == scopeID,
+                      self.openAITranscriptionModelTestModelID == modelID else {
+                    return
+                }
+                self.openAITranscriptionModelTestSucceeded = true
+            } catch is CancellationError {
+                // Connection details or the selected model changed before the
+                // request completed, so it no longer owns visible state.
+            } catch {
+                guard let self,
+                      self.openAITranscriptionModelTestScopeID == scopeID,
+                      self.openAITranscriptionModelTestModelID == modelID else {
+                    return
+                }
+                self.openAITranscriptionModelTestError = self.localizedErrorMessage(error)
+            }
+
+            guard let self,
+                  self.openAITranscriptionModelTestScopeID == scopeID,
+                  self.openAITranscriptionModelTestModelID == modelID else {
+                return
+            }
+            self.isTestingOpenAITranscriptionModel = false
+        }
+    }
+
+    func acknowledgeOpenAICompatibleRelayAndTestModel() {
+        guard OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            baseURLString: settings.openAIBaseURL
+        ) else {
+            testOpenAITranscriptionModel()
+            return
+        }
+
+        var updatedSettings = settings
+        updatedSettings.acknowledgeOpenAICompatibleRelay()
+        settings = updatedSettings
+        testOpenAITranscriptionModel()
+    }
+
+    func testCloudTextModel() {
+        guard !isTestingCloudTextModel,
+              let configurationID = cloudTextModelConfigurationID,
+              CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings) else {
+            return
+        }
+
+        let requestSettings = settings
+        let apiKey = cloudTextAPIKey(for: requestSettings)
+        guard OpenAICompatibleRequestBuilder.normalizedAPIKey(apiKey) != nil else {
+            return
+        }
+
+        cloudTextModelTestTask?.cancel()
+        cloudTextModelTestConfigurationID = configurationID
+        cloudTextModelTestSucceeded = false
+        cloudTextModelTestError = nil
+        isTestingCloudTextModel = true
+
+        let service = voiceEditLLMService
+        cloudTextModelTestTask = Task { [weak self] in
+            do {
+                _ = try await service.rewrite(
+                    VoiceEditLLMRequest(
+                        previousText: "Shuo model test.",
+                        commandText: "Return the previous transcript unchanged.",
+                        settings: requestSettings,
+                        apiKey: apiKey
+                    )
+                )
+                guard let self,
+                      self.cloudTextModelTestConfigurationID == configurationID else {
+                    return
+                }
+                self.cloudTextModelTestSucceeded = true
+            } catch is CancellationError {
+                // A changed connection or model owns the next visible state.
+            } catch {
+                guard let self,
+                      self.cloudTextModelTestConfigurationID == configurationID else {
+                    return
+                }
+                self.cloudTextModelTestError = self.localizedErrorMessage(error)
+            }
+
+            guard let self,
+                  self.cloudTextModelTestConfigurationID == configurationID else {
+                return
+            }
+            self.isTestingCloudTextModel = false
+        }
+    }
+
+    func acknowledgeCloudTextRelayAndTestModel() {
+        var updatedSettings = settings
+        updatedSettings.acknowledgeCloudTextRelay()
+        settings = updatedSettings
+        testCloudTextModel()
     }
 
     func isOpenAIModelAvailable(_ modelID: String) -> Bool {
@@ -1711,12 +2137,54 @@ final class AppState: ObservableObject {
         return openAIAvailableModelIDs.contains(modelID)
     }
 
-    func openAIModelOptionLabel(_ model: OpenAIModelDescriptor) -> String {
+    func openAIModelOptionLabel(_ modelID: String) -> String {
+        guard let model = OpenAIModelCatalog.transcriptionModels.first(where: { $0.id == modelID }) else {
+            return modelID
+        }
+
         let base = "\(model.displayName) — \(localizer.openAIModelPurposeName(model.purpose))"
-        guard isOpenAIModelAvailable(model.id) else {
+        guard isOpenAIModelAvailable(modelID) else {
             return "\(base) · \(localizer.openAIModelUnavailableLabel())"
         }
         return base
+    }
+
+    func isCloudTextModelAvailable(_ modelID: String) -> Bool {
+        guard settings.cloudTextServiceProvider == .openAI else {
+            return true
+        }
+        if settings.cloudTextUsesTranscriptionService {
+            return isOpenAIModelAvailable(modelID)
+        }
+        guard cloudTextModelAvailabilityFetchedAt != nil else {
+            return true
+        }
+        return cloudTextAvailableModelIDs.contains(modelID)
+    }
+
+    func cloudTextModelOptionLabel(_ modelID: String) -> String {
+        guard let model = OpenAIModelCatalog.textModels.first(where: { $0.id == modelID }) else {
+            return modelID
+        }
+
+        let base = "\(model.displayName) — \(localizer.openAIModelPurposeName(model.purpose))"
+        guard !isCloudTextModelAvailable(modelID) else {
+            return base
+        }
+        return "\(base) · \(localizer.openAIModelUnavailableLabel())"
+    }
+
+    func refreshCloudTextModels() {
+        guard settings.cloudTextServiceProvider == .openAI else {
+            return
+        }
+        if settings.cloudTextUsesTranscriptionService {
+            refreshOpenAIModels()
+            return
+        }
+
+        loadCloudTextOpenAIAPIKeyIfNeeded()
+        scheduleCloudTextModelRefresh(forceRefresh: true, delayNanoseconds: 0)
     }
 
     private func scheduleOpenAIModelRefresh(
@@ -1726,6 +2194,9 @@ final class AppState: ObservableObject {
         openAIModelRefreshTask?.cancel()
         openAIModelRefreshGeneration &+= 1
         let refreshGeneration = openAIModelRefreshGeneration
+        guard settings.provider != .gemini else {
+            return
+        }
         guard OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey) != nil else {
             return
         }
@@ -1765,6 +2236,7 @@ final class AppState: ObservableObject {
 
         guard !Task.isCancelled,
               generation == openAIModelRefreshGeneration,
+              settings.provider != .gemini,
               let normalizedAPIKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey) else {
             return
         }
@@ -1843,6 +2315,138 @@ final class AppState: ObservableObject {
         openAIAvailableModelIDs = []
         openAIModelAvailabilityFetchedAt = nil
         openAIModelAvailabilityError = nil
+        resetOpenAITranscriptionModelTest()
+    }
+
+    private func resetOpenAITranscriptionModelTest() {
+        openAITranscriptionModelTestTask?.cancel()
+        openAITranscriptionModelTestTask = nil
+        openAITranscriptionModelTestScopeID = nil
+        openAITranscriptionModelTestModelID = nil
+        openAITranscriptionModelTestSucceeded = false
+        openAITranscriptionModelTestError = nil
+        isTestingOpenAITranscriptionModel = false
+    }
+
+    private func scheduleCloudTextModelRefresh(
+        forceRefresh: Bool,
+        delayNanoseconds: UInt64 = 0
+    ) {
+        cloudTextModelRefreshTask?.cancel()
+        cloudTextModelRefreshGeneration &+= 1
+        let refreshGeneration = cloudTextModelRefreshGeneration
+        guard settings.cloudTextServiceProvider == .openAI,
+              !settings.cloudTextUsesTranscriptionService,
+              OpenAICompatibleRequestBuilder.normalizedAPIKey(cloudTextOpenAIAPIKey) != nil else {
+            return
+        }
+
+        cloudTextModelRefreshTask = Task { [weak self] in
+            if delayNanoseconds > 0 {
+                try? await Task.sleep(nanoseconds: delayNanoseconds)
+            }
+            guard !Task.isCancelled, let self else {
+                return
+            }
+            await self.performCloudTextModelRefresh(
+                forceRefresh: forceRefresh,
+                generation: refreshGeneration
+            )
+        }
+    }
+
+    private func performCloudTextModelRefresh(
+        forceRefresh: Bool,
+        generation: UInt64
+    ) async {
+        guard !Task.isCancelled,
+              generation == cloudTextModelRefreshGeneration,
+              settings.cloudTextServiceProvider == .openAI,
+              !settings.cloudTextUsesTranscriptionService,
+              let normalizedAPIKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(
+                  cloudTextOpenAIAPIKey
+              ) else {
+            return
+        }
+
+        let requestSettings = settings.cloudTextExecutionSettings
+        let expectedScopeID = OpenAIModelAvailabilityService.scopeID(
+            settings: requestSettings,
+            apiKey: normalizedAPIKey
+        )
+        isRefreshingCloudTextModels = true
+        cloudTextModelAvailabilityError = nil
+        defer { isRefreshingCloudTextModels = false }
+
+        do {
+            let result = try await openAIModelAvailabilityService.models(
+                settings: requestSettings,
+                apiKey: normalizedAPIKey,
+                forceRefresh: forceRefresh
+            )
+            guard !Task.isCancelled,
+                  generation == cloudTextModelRefreshGeneration,
+                  result.snapshot.scopeID == expectedScopeID,
+                  OpenAIModelAvailabilityService.scopeID(
+                    settings: settings.cloudTextExecutionSettings,
+                    apiKey: cloudTextOpenAIAPIKey
+                  ) == expectedScopeID else {
+                return
+            }
+            applyCloudTextModelAvailability(result.snapshot)
+        } catch is CancellationError {
+            // A newer refresh superseded this one; it owns visible state.
+        } catch {
+            guard !Task.isCancelled,
+                  generation == cloudTextModelRefreshGeneration else {
+                return
+            }
+            cloudTextModelAvailabilityError = error.localizedDescription
+        }
+    }
+
+    private func restoreCachedCloudTextModelAvailability() {
+        guard settings.cloudTextServiceProvider == .openAI,
+              !settings.cloudTextUsesTranscriptionService,
+              let snapshot = openAIModelAvailabilityService.cachedSnapshot(
+                  settings: settings.cloudTextExecutionSettings,
+                  apiKey: cloudTextOpenAIAPIKey
+              ) else {
+            return
+        }
+        applyCloudTextModelAvailability(snapshot)
+    }
+
+    private func applyCloudTextModelAvailability(_ snapshot: OpenAIModelAvailabilitySnapshot) {
+        cloudTextAvailableModelIDs = snapshot.modelIDSet
+        cloudTextModelAvailabilityFetchedAt = snapshot.fetchedAt
+        cloudTextModelAvailabilityError = nil
+
+        if settings.openAITextModelSelectionMode == .automatic,
+           let recommendedModelID = OpenAIModelCatalog.recommendedTextModelID(
+               availableModelIDs: snapshot.modelIDSet
+           ),
+           settings.automaticOpenAITextModel != recommendedModelID {
+            settings.automaticOpenAITextModel = recommendedModelID
+        }
+    }
+
+    private func resetCloudTextModelAvailability() {
+        cloudTextModelRefreshTask?.cancel()
+        cloudTextModelRefreshGeneration &+= 1
+        cloudTextAvailableModelIDs = []
+        cloudTextModelAvailabilityFetchedAt = nil
+        cloudTextModelAvailabilityError = nil
+        resetCloudTextModelTest()
+    }
+
+    private func resetCloudTextModelTest() {
+        cloudTextModelTestTask?.cancel()
+        cloudTextModelTestTask = nil
+        cloudTextModelTestConfigurationID = nil
+        cloudTextModelTestSucceeded = false
+        cloudTextModelTestError = nil
+        isTestingCloudTextModel = false
     }
 
     private func refreshOpenAIModelsAfterFailureIfNeeded(_ error: Error) {
@@ -1961,7 +2565,7 @@ final class AppState: ObservableObject {
         localWhisperActiveManagedModelID = model.id
         localWhisperDownloadProgress = LocalWhisperDownloadProgress(
             receivedByteCount: 0,
-            totalByteCount: model.expectedByteCount
+            totalByteCount: model.totalDownloadByteCount
         )
         localWhisperSetupMessage = localizer.downloadingLocalWhisperModel(model.displayName)
         let directoryPath = settings.localWhisperModelDirectoryPath
@@ -2907,6 +3511,9 @@ final class AppState: ObservableObject {
         case .alibaba:
             loadAlibabaAPIKeyIfNeeded()
             return alibabaAPIKey
+        case .gemini:
+            loadGeminiAPIKeyIfNeeded()
+            return geminiAPIKey
         case .local:
             return ""
         }
@@ -2924,16 +3531,29 @@ final class AppState: ObservableObject {
             return ""
         }
 
-        loadOpenAIAPIKeyIfNeeded()
-        if requestSettings.openAITextModelSelectionMode == .automatic,
-           openAIModelAvailabilityFetchedAt != nil,
-           OpenAIModelCatalog.recommendedTextModelID(
-               availableModelIDs: openAIAvailableModelIDs
-           ) == nil {
-            errorMessage = OpenAIModelSelectionError.noCompatibleTextModel.localizedDescription
+        return cloudTextAPIKey(for: requestSettings)
+    }
+
+    private func cloudTextAPIKey(for requestSettings: AppSettings) -> String {
+        guard let provider = requestSettings.cloudTextServiceProvider else {
             return ""
         }
-        return openAIAPIKey
+
+        if provider == .gemini {
+            loadGeminiAPIKeyIfNeeded()
+            return geminiAPIKey
+        }
+
+        guard let baseURL = requestSettings.effectiveCloudTextBaseURL else {
+            return ""
+        }
+        let scope = OpenAICompatibleCredentialScope(baseURLString: baseURL)
+        do {
+            return try OpenAIAPIKeyStore.load(scope: scope)
+        } catch {
+            errorMessage = localizedErrorMessage(error)
+            return ""
+        }
     }
 
     private func scheduleCorrectionLearningSnapshotRefresh() {
@@ -2985,6 +3605,9 @@ final class AppState: ObservableObject {
         correctionLearningSnapshot: CorrectionLearningSnapshot? = nil
     ) -> TranscriptionVocabularySnapshot {
         let effectiveSettings = pluginCapabilityPolicy.applying(to: requestSettings ?? settings)
+        guard !effectiveSettings.usesSenseVoiceLocalTranscription else {
+            return .empty
+        }
         let learningSnapshot = correctionLearningSnapshot
             ?? correctionLearningSnapshotForExecution(settings: effectiveSettings)
         return projectVocabularyController.captureTranscriptionVocabulary(
@@ -3463,19 +4086,10 @@ final class AppState: ObservableObject {
     ) async throws -> String {
         let effectiveSettings = CloudTextAICapabilityPolicy.applying(to: requestSettings)
         guard CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: effectiveSettings) else {
-            throw effectiveSettings.provider == .local
-                ? VoiceEditLLMError.unavailableInLocalMode
-                : VoiceEditLLMError.disabledInSettings
+            throw VoiceEditLLMError.disabledInSettings
         }
 
-        loadOpenAIAPIKeyIfNeeded()
-        if effectiveSettings.openAITextModelSelectionMode == .automatic,
-           openAIModelAvailabilityFetchedAt != nil,
-           OpenAIModelCatalog.recommendedTextModelID(
-               availableModelIDs: openAIAvailableModelIDs
-           ) == nil {
-            throw OpenAIModelSelectionError.noCompatibleTextModel
-        }
+        let apiKey = cloudTextAPIKey(for: effectiveSettings)
 
         do {
             let rewritten = try await voiceEditLLMService.rewrite(
@@ -3483,12 +4097,18 @@ final class AppState: ObservableObject {
                     previousText: previousText,
                     commandText: commandText,
                     settings: effectiveSettings,
-                    apiKey: openAIAPIKey
+                    apiKey: apiKey
                 )
             )
             return TranscriptPostProcessor().process(rewritten, settings: effectiveSettings)
         } catch {
-            refreshOpenAIModelsAfterFailureIfNeeded(error)
+            if effectiveSettings.cloudTextServiceProvider == .openAI {
+                if effectiveSettings.cloudTextUsesTranscriptionService {
+                    refreshOpenAIModelsAfterFailureIfNeeded(error)
+                } else {
+                    refreshCloudTextModels()
+                }
+            }
             throw error
         }
     }
@@ -3741,6 +4361,17 @@ final class AppState: ObservableObject {
         settings.pushToTalkShortcut = shortcut
     }
 
+    func setCustomPushToTalkShortcut(_ shortcut: CustomPushToTalkShortcut) {
+        guard settings.customPushToTalkShortcut != shortcut
+            || settings.pushToTalkShortcut != .custom else {
+            return
+        }
+
+        cancelActiveRecording()
+        settings.customPushToTalkShortcut = shortcut
+        settings.pushToTalkShortcut = .custom
+    }
+
     func openAccessibilitySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
             return
@@ -3795,17 +4426,30 @@ final class AppState: ObservableObject {
         pushToTalkMonitor = nil
 
         guard !AppRuntime.isRunningUnderXCTest else {
-            pushToTalkStatusMessage = localizer.pushToTalkDisabled(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.pushToTalkDisabled(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
             return
         }
 
         guard settings.pushToTalkEnabled else {
-            pushToTalkStatusMessage = localizer.pushToTalkDisabled(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.pushToTalkDisabled(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
+            return
+        }
+
+        if settings.pushToTalkShortcut == .custom,
+           settings.customPushToTalkShortcut == nil {
+            pushToTalkStatusMessage = localizer.customShortcutNotRecorded()
             return
         }
 
         pushToTalkMonitor = RightOptionPushToTalkMonitor(
             shortcut: settings.pushToTalkShortcut,
+            customShortcut: settings.customPushToTalkShortcut,
             onPress: { [weak self] in
                 Task { @MainActor in
                     self?.beginPushToTalkRecording()
@@ -3820,11 +4464,20 @@ final class AppState: ObservableObject {
 
         if pushToTalkMonitor?.start() == true {
             stopPermissionRetryTimer()
-            pushToTalkStatusMessage = localizer.holdToDictate(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.holdToDictate(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         } else if !RightOptionPushToTalkMonitor.hasAccessibilityPermission {
-            pushToTalkStatusMessage = localizer.waitingForAccessibility(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.waitingForAccessibility(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         } else {
-            pushToTalkStatusMessage = localizer.shortcutMonitorCouldNotStart(shortcut: settings.pushToTalkShortcut)
+            pushToTalkStatusMessage = localizer.shortcutMonitorCouldNotStart(
+                shortcut: settings.pushToTalkShortcut,
+                customShortcut: settings.customPushToTalkShortcut
+            )
         }
     }
 
@@ -4002,8 +4655,14 @@ final class AppState: ObservableObject {
             return localizer.missingOpenAIAPIKey()
         case OpenAITranscriptionError.invalidBaseURL(let baseURL):
             return localizer.invalidOpenAIBaseURL(baseURL)
+        case OpenAITranscriptionError.invalidModelID(let error):
+            return localizer.invalidOpenAITranscriptionModelID(error)
+        case OpenAITranscriptionError.relayAcknowledgementRequired:
+            return localizer.openAICompatibleRelayAcknowledgementRequired()
         case OpenAITranscriptionError.requestFailed(let statusCode, let message):
             return localizer.openAIRequestFailed(statusCode: statusCode, message: message)
+        case OpenAITranscriptionError.invalidResponse:
+            return localizer.invalidOpenAITranscriptionResponse()
         case LocalWhisperTranscriptionError.missingExecutable:
             return localizer.missingLocalWhisperExecutable()
         case LocalWhisperTranscriptionError.executableNotFound(let path):
@@ -4012,8 +4671,20 @@ final class AppState: ObservableObject {
             return localizer.missingLocalWhisperModel()
         case LocalWhisperTranscriptionError.modelNotFound(let path):
             return localizer.localWhisperModelNotFound(path)
+        case LocalWhisperTranscriptionError.unsupportedModel(let path):
+            return localizer.unsupportedLocalModel(path)
         case LocalWhisperTranscriptionError.processFailed(let statusCode, let output):
             return localizer.localWhisperFailed(statusCode: statusCode, output: output)
+        case LocalWhisperTranscriptionError.processTimedOut(let timeout):
+            return localizer.localWhisperTimedOut(timeout)
+        case LocalSenseVoiceTranscriptionError.missingExecutable:
+            return localizer.missingSenseVoiceRuntime()
+        case LocalSenseVoiceTranscriptionError.missingVADAsset:
+            return localizer.missingSenseVoiceVADAsset()
+        case LocalSenseVoiceTranscriptionError.processFailed(let statusCode, let output):
+            return localizer.senseVoiceFailed(statusCode: statusCode, output: output)
+        case LocalSenseVoiceTranscriptionError.processTimedOut(let timeout):
+            return localizer.senseVoiceTimedOut(timeout)
         case LocalWhisperAssetInstallerError.homebrewNotFound:
             return localizer.localWhisperHomebrewNotFound()
         case LocalWhisperAssetInstallerError.processFailed(let command, let statusCode, let output):

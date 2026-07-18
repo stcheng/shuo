@@ -159,9 +159,14 @@ run_xcode_checks() {
     CODE_SIGNING_REQUIRED=NO
 
   local app_store_app="$derived_data/Build/Products/Release/Shuo.app"
+  local expected_short_version expected_build_number
+  expected_short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_store_app/Contents/Info.plist")"
+  expected_build_number="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_store_app/Contents/Info.plist")"
+  [[ "$expected_short_version" =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ ]]
+  [[ "$expected_build_number" =~ ^[0-9]+$ ]]
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app_store_app/Contents/Info.plist")" = "Shuo"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_store_app/Contents/Info.plist")" = "1.0.0"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_store_app/Contents/Info.plist")" = "3"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_store_app/Contents/Info.plist")" = "$expected_short_version"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_store_app/Contents/Info.plist")" = "$expected_build_number"
   test -x "$app_store_app/Contents/MacOS/Shuo"
   test -f "$app_store_app/Contents/Resources/LICENSE"
   cmp -s "$source_root/LICENSE" "$app_store_app/Contents/Resources/LICENSE"
@@ -182,8 +187,8 @@ run_xcode_checks() {
   local community_app="$derived_data-community/Build/Products/Community/Shuo Community.app"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$community_app/Contents/Info.plist")" = "org.shuo.community"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$community_app/Contents/Info.plist")" = "Shuo Community"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$community_app/Contents/Info.plist")" = "1.0.0"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$community_app/Contents/Info.plist")" = "3"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$community_app/Contents/Info.plist")" = "$expected_short_version"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$community_app/Contents/Info.plist")" = "$expected_build_number"
   test -x "$community_app/Contents/MacOS/Shuo Community"
   test -f "$community_app/Contents/Resources/LICENSE"
   cmp -s "$source_root/LICENSE" "$community_app/Contents/Resources/LICENSE"
@@ -211,8 +216,8 @@ run_xcode_checks() {
 
   local direct_app="$derived_data-direct/Build/Products/Release/Shuo.app"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$direct_app/Contents/Info.plist")" = "Shuo"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$direct_app/Contents/Info.plist")" = "1.0.0"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$direct_app/Contents/Info.plist")" = "3"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$direct_app/Contents/Info.plist")" = "$expected_short_version"
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$direct_app/Contents/Info.plist")" = "$expected_build_number"
   test -x "$direct_app/Contents/MacOS/Shuo"
   test -f "$direct_app/Contents/Resources/LICENSE"
   cmp -s "$source_root/LICENSE" "$direct_app/Contents/Resources/LICENSE"

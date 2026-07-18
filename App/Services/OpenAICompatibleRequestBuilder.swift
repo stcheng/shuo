@@ -106,6 +106,10 @@ struct OpenAICompatibleRequestBuilder {
               scheme == "https" || scheme == "http",
               let host = components.host,
               !host.isEmpty,
+              components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil,
               let baseURL = components.url else {
             throw OpenAICompatibleEndpointValidationError.invalidURL
         }
@@ -115,6 +119,32 @@ struct OpenAICompatibleRequestBuilder {
         }
 
         return baseURL.appendingPathComponent(path)
+    }
+
+    static func usesThirdPartyRelay(baseURLString: String) -> Bool {
+        connectionIdentity(baseURLString: baseURLString)
+            != "https://api.openai.com/v1"
+    }
+
+    static func connectionIdentity(baseURLString: String) -> String {
+        let trimmed = baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host?.lowercased(),
+              !host.isEmpty,
+              components.user == nil,
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil else {
+            return trimmed
+        }
+
+        let defaultPort = scheme == "https" ? 443 : 80
+        let port = components.port == defaultPort ? nil : components.port
+        let normalizedPath = components.percentEncodedPath
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let authority = port.map { "\(host):\($0)" } ?? host
+        return "\(scheme)://\(authority)/\(normalizedPath)"
     }
 
     static func endpointValidationMessage(baseURLString: String) -> String {

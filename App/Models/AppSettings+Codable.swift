@@ -4,20 +4,30 @@ extension AppSettings {
     enum CodingKeys: String, CodingKey {
         case hasCompletedOnboarding
         case appLanguage
+        case showDockIcon
         case provider
         case selectedModel
         case openAITranscriptionModelSelectionMode
         case automaticOpenAITranscriptionModel
+        case fixedOpenAITranscriptionModel
         case openAITextModelSelectionMode
         case automaticOpenAITextModel
         case fixedOpenAITextModel
+        case cloudTextUsesTranscriptionService
+        case cloudTextServicePreset
+        case cloudTextOpenAIBaseURL
+        case lastCustomCloudTextOpenAIBaseURL
+        case acknowledgedCloudTextRelayEndpoint
+        case cloudTextGeminiModel
         case customModelName
         case languageHint
         case selectedTranscriptionLanguages
         case chineseScriptPreference
         case openAIBaseURL
+        case lastCustomOpenAIBaseURL
         case openAIOrganizationID
         case openAIProjectID
+        case acknowledgedOpenAICompatibleRelayEndpoint
         case localWhisperExecutablePath
         case localWhisperModelDirectoryPath
         case localWhisperModelPath
@@ -26,6 +36,7 @@ extension AppSettings {
         case sendContextPrompt
         case pushToTalkEnabled
         case pushToTalkShortcut
+        case customPushToTalkShortcut
         case recordingStartSoundEnabled
         case recordingStartSound
         case rightOptionPushToTalkEnabled
@@ -79,6 +90,7 @@ extension AppSettings {
         )
         try container.encode(hasCompletedOnboarding, forKey: .hasCompletedOnboarding)
         try container.encode(appLanguage, forKey: .appLanguage)
+        try container.encode(showDockIcon, forKey: .showDockIcon)
         try container.encode(provider, forKey: .provider)
         try container.encode(selectedModel, forKey: .selectedModel)
         try container.encode(
@@ -89,9 +101,28 @@ extension AppSettings {
             automaticOpenAITranscriptionModel,
             forKey: .automaticOpenAITranscriptionModel
         )
+        try container.encode(
+            fixedOpenAITranscriptionModel,
+            forKey: .fixedOpenAITranscriptionModel
+        )
         try container.encode(openAITextModelSelectionMode, forKey: .openAITextModelSelectionMode)
         try container.encode(automaticOpenAITextModel, forKey: .automaticOpenAITextModel)
         try container.encode(fixedOpenAITextModel, forKey: .fixedOpenAITextModel)
+        try container.encode(
+            cloudTextUsesTranscriptionService,
+            forKey: .cloudTextUsesTranscriptionService
+        )
+        try container.encode(cloudTextServicePreset, forKey: .cloudTextServicePreset)
+        try container.encode(cloudTextOpenAIBaseURL, forKey: .cloudTextOpenAIBaseURL)
+        try container.encode(
+            lastCustomCloudTextOpenAIBaseURL,
+            forKey: .lastCustomCloudTextOpenAIBaseURL
+        )
+        try container.encode(
+            acknowledgedCloudTextRelayEndpoint,
+            forKey: .acknowledgedCloudTextRelayEndpoint
+        )
+        try container.encode(cloudTextGeminiModel, forKey: .cloudTextGeminiModel)
         try container.encode(customModelName, forKey: .customModelName)
         try container.encode(
             LanguageHint(transcriptionLanguages: persistedLanguages),
@@ -103,8 +134,13 @@ extension AppSettings {
         )
         try container.encode(chineseScriptPreference, forKey: .chineseScriptPreference)
         try container.encode(openAIBaseURL, forKey: .openAIBaseURL)
+        try container.encode(lastCustomOpenAIBaseURL, forKey: .lastCustomOpenAIBaseURL)
         try container.encode(openAIOrganizationID, forKey: .openAIOrganizationID)
         try container.encode(openAIProjectID, forKey: .openAIProjectID)
+        try container.encode(
+            acknowledgedOpenAICompatibleRelayEndpoint,
+            forKey: .acknowledgedOpenAICompatibleRelayEndpoint
+        )
         try container.encode(localWhisperExecutablePath, forKey: .localWhisperExecutablePath)
         try container.encode(localWhisperModelDirectoryPath, forKey: .localWhisperModelDirectoryPath)
         try container.encode(localWhisperModelPath, forKey: .localWhisperModelPath)
@@ -113,6 +149,7 @@ extension AppSettings {
         try container.encode(sendContextPrompt, forKey: .sendContextPrompt)
         try container.encode(pushToTalkEnabled, forKey: .pushToTalkEnabled)
         try container.encode(pushToTalkShortcut, forKey: .pushToTalkShortcut)
+        try container.encodeIfPresent(customPushToTalkShortcut, forKey: .customPushToTalkShortcut)
         try container.encode(recordingStartSoundEnabled, forKey: .recordingStartSoundEnabled)
         try container.encode(recordingStartSound, forKey: .recordingStartSound)
         try container.encode(voiceActivityGateEnabled, forKey: .voiceActivityGateEnabled)
@@ -169,6 +206,8 @@ extension AppSettings {
             forKey: .hasCompletedOnboarding
         ) ?? true
         appLanguage = try container.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? defaults.appLanguage
+        showDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon)
+            ?? defaults.showDockIcon
         provider = try container.decodeIfPresent(TranscriptionProvider.self, forKey: .provider) ?? defaults.provider
         selectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel) ?? defaults.selectedModel
         openAITranscriptionModelSelectionMode = try container.decodeIfPresent(
@@ -181,6 +220,12 @@ extension AppSettings {
                 forKey: .automaticOpenAITranscriptionModel
             ) ?? defaults.automaticOpenAITranscriptionModel
         )
+        fixedOpenAITranscriptionModel = try container.decodeIfPresent(
+            String.self,
+            forKey: .fixedOpenAITranscriptionModel
+        ) ?? (openAITranscriptionModelSelectionMode == .fixed
+            ? selectedModel
+            : defaults.fixedOpenAITranscriptionModel)
         let decodedVoiceEditLLMModel = try container.decodeIfPresent(String.self, forKey: .voiceEditLLMModel)
         let decodedTranscriptRetouchLLMModel = try container.decodeIfPresent(
             String.self,
@@ -221,6 +266,34 @@ extension AppSettings {
             try container.decodeIfPresent(String.self, forKey: .automaticOpenAITextModel)
                 ?? defaults.automaticOpenAITextModel
         )
+        cloudTextUsesTranscriptionService = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .cloudTextUsesTranscriptionService
+        ) ?? defaults.cloudTextUsesTranscriptionService
+        cloudTextServicePreset = try container.decodeIfPresent(
+            CloudTextServicePreset.self,
+            forKey: .cloudTextServicePreset
+        ) ?? defaults.cloudTextServicePreset
+        cloudTextOpenAIBaseURL = try container.decodeIfPresent(
+            String.self,
+            forKey: .cloudTextOpenAIBaseURL
+        ) ?? defaults.cloudTextOpenAIBaseURL
+        lastCustomCloudTextOpenAIBaseURL = try container.decodeIfPresent(
+            String.self,
+            forKey: .lastCustomCloudTextOpenAIBaseURL
+        ) ?? defaults.lastCustomCloudTextOpenAIBaseURL
+        if lastCustomCloudTextOpenAIBaseURL.isEmpty,
+           cloudTextServicePreset == .custom {
+            lastCustomCloudTextOpenAIBaseURL = cloudTextOpenAIBaseURL
+        }
+        acknowledgedCloudTextRelayEndpoint = try container.decodeIfPresent(
+            String.self,
+            forKey: .acknowledgedCloudTextRelayEndpoint
+        ) ?? defaults.acknowledgedCloudTextRelayEndpoint
+        cloudTextGeminiModel = try container.decodeIfPresent(
+            String.self,
+            forKey: .cloudTextGeminiModel
+        ) ?? defaults.cloudTextGeminiModel
         customModelName = try container.decodeIfPresent(String.self, forKey: .customModelName) ?? defaults.customModelName
         let legacyLanguageHint = try container.decodeIfPresent(LanguageHint.self, forKey: .languageHint)
             ?? defaults.languageHint
@@ -238,8 +311,23 @@ extension AppSettings {
         }
         chineseScriptPreference = try container.decodeIfPresent(ChineseScriptPreference.self, forKey: .chineseScriptPreference) ?? defaults.chineseScriptPreference
         openAIBaseURL = try container.decodeIfPresent(String.self, forKey: .openAIBaseURL) ?? defaults.openAIBaseURL
+        lastCustomOpenAIBaseURL = try container.decodeIfPresent(
+            String.self,
+            forKey: .lastCustomOpenAIBaseURL
+        ) ?? defaults.lastCustomOpenAIBaseURL
+        if lastCustomOpenAIBaseURL.isEmpty,
+           CloudTranscriptionPreset.inferred(
+               provider: provider,
+               openAIBaseURL: openAIBaseURL
+           ) == .custom {
+            lastCustomOpenAIBaseURL = openAIBaseURL
+        }
         openAIOrganizationID = try container.decodeIfPresent(String.self, forKey: .openAIOrganizationID) ?? defaults.openAIOrganizationID
         openAIProjectID = try container.decodeIfPresent(String.self, forKey: .openAIProjectID) ?? defaults.openAIProjectID
+        acknowledgedOpenAICompatibleRelayEndpoint = try container.decodeIfPresent(
+            String.self,
+            forKey: .acknowledgedOpenAICompatibleRelayEndpoint
+        ) ?? defaults.acknowledgedOpenAICompatibleRelayEndpoint
         localWhisperExecutablePath = try container.decodeIfPresent(String.self, forKey: .localWhisperExecutablePath) ?? defaults.localWhisperExecutablePath
         localWhisperModelPath = try container.decodeIfPresent(String.self, forKey: .localWhisperModelPath) ?? defaults.localWhisperModelPath
         localWhisperModelDirectoryPath = try container.decodeIfPresent(
@@ -252,14 +340,16 @@ extension AppSettings {
         ) ?? defaults.localWhisperPerformanceMode
         let decodedAudioInputDeviceID = try container.decodeIfPresent(String.self, forKey: .audioInputDeviceID)
             ?? defaults.audioInputDeviceID
-        audioInputDeviceID = decodedAudioInputDeviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? AudioInputDeviceCatalog.automaticDeviceID
-            : decodedAudioInputDeviceID
+        audioInputDeviceID = AudioInputDeviceCatalog.normalizedSelectionID(decodedAudioInputDeviceID)
         sendContextPrompt = try container.decodeIfPresent(Bool.self, forKey: .sendContextPrompt) ?? defaults.sendContextPrompt
         pushToTalkEnabled = try container.decodeIfPresent(Bool.self, forKey: .pushToTalkEnabled)
             ?? container.decodeIfPresent(Bool.self, forKey: .rightOptionPushToTalkEnabled)
             ?? defaults.pushToTalkEnabled
         pushToTalkShortcut = try container.decodeIfPresent(PushToTalkShortcut.self, forKey: .pushToTalkShortcut) ?? defaults.pushToTalkShortcut
+        customPushToTalkShortcut = try container.decodeIfPresent(
+            CustomPushToTalkShortcut.self,
+            forKey: .customPushToTalkShortcut
+        )
         recordingStartSoundEnabled = try container.decodeIfPresent(
             Bool.self,
             forKey: .recordingStartSoundEnabled

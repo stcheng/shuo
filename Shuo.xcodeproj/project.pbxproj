@@ -45,6 +45,7 @@
 		C10000000000000000000007 /* LocalWhisperModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000002 /* LocalWhisperModelCatalog.swift */; };
 		C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000003 /* AppSettings+Defaults.swift */; };
 		C10000000000000000000009 /* AppSettings+Codable.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000004 /* AppSettings+Codable.swift */; };
+		C1000000000000000000000B /* CloudTranscriptionProviderConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000000000000000000000A /* CloudTranscriptionProviderConfiguration.swift */; };
 		D10000000000000000000002 /* Localization.json in Resources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* Localization.json */; };
 		E70000000000000000000001 /* ThirdParty in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000011 /* ThirdParty */; };
 		E70000000000000000000002 /* ThirdParty in Resources */ = {isa = PBXBuildFile; fileRef = E70000000000000000000011 /* ThirdParty */; };
@@ -96,6 +97,7 @@
 		F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */; };
 		A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */; };
 		A7BA00000000000000000004 /* AlibabaTranscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */; };
+		A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BA00000000000000000005 /* GeminiTranscriptionService.swift */; };
 		G50000000000000000000002 /* SettingsSearchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = G50000000000000000000001 /* SettingsSearchModels.swift */; };
 		H60000000000000000000002 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
 		H60000000000000000000003 /* ArchitectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = H60000000000000000000001 /* ArchitectureView.swift */; };
@@ -136,6 +138,7 @@
 		F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsTranscriptionService.swift; sourceTree = "<group>"; };
 		A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionService.swift; sourceTree = "<group>"; };
 		A7BA00000000000000000003 /* AlibabaTranscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlibabaTranscriptionServiceTests.swift; sourceTree = "<group>"; };
+		A7BA00000000000000000005 /* GeminiTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiTranscriptionService.swift; sourceTree = "<group>"; };
 		G50000000000000000000001 /* SettingsSearchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchModels.swift; sourceTree = "<group>"; };
 		H60000000000000000000001 /* ArchitectureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureView.swift; sourceTree = "<group>"; };
 		E80000000000000000000001 /* CorrectionMappingAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionMappingAggregator.swift; sourceTree = "<group>"; };
@@ -165,6 +168,7 @@
 		C10000000000000000000002 /* LocalWhisperModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWhisperModelCatalog.swift; sourceTree = "<group>"; };
 		C10000000000000000000003 /* AppSettings+Defaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Defaults.swift"; sourceTree = "<group>"; };
 		C10000000000000000000004 /* AppSettings+Codable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+Codable.swift"; sourceTree = "<group>"; };
+		C1000000000000000000000A /* CloudTranscriptionProviderConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTranscriptionProviderConfiguration.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* Localization.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localization.json; sourceTree = "<group>"; };
 		E10000000000000000000001 /* TranscriptProcessingWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingWorkflow.swift; sourceTree = "<group>"; };
 		F10000000000000000000001 /* AppRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRuntime.swift; sourceTree = "<group>"; };
@@ -271,6 +275,7 @@
 				A10000000000000000000002 /* AppSettings.swift */,
 				C10000000000000000000003 /* AppSettings+Defaults.swift */,
 				C10000000000000000000004 /* AppSettings+Codable.swift */,
+				C1000000000000000000000A /* CloudTranscriptionProviderConfiguration.swift */,
 				J10000000000000000000001 /* AdaptiveRecognitionModels.swift */,
 				R10000000000000000000001 /* PluginConfiguration.swift */,
 				Y10000000000000000000001 /* OpenAIModelCatalog.swift */,
@@ -297,6 +302,7 @@
 				A10000000000000000000011 /* OpenAITranscriptionService.swift */,
 				F40000000000000000000001 /* ElevenLabsTranscriptionService.swift */,
 				A7BA00000000000000000001 /* AlibabaTranscriptionService.swift */,
+				A7BA00000000000000000005 /* GeminiTranscriptionService.swift */,
 				A10000000000000000000012 /* RightOptionPushToTalkMonitor.swift */,
 				A10000000000000000000013 /* SingleInstanceGuard.swift */,
 				A10000000000000000000014 /* AudioActivityAnalyzer.swift */,
@@ -550,6 +556,7 @@
 				D20000000000000000000028 /* VocabularyView.swift in Sources */,
 				A10000000000000000000020 /* ShuoApp.swift in Sources */,
 				C10000000000000000000006 /* SettingsOptions.swift in Sources */,
+				C1000000000000000000000B /* CloudTranscriptionProviderConfiguration.swift in Sources */,
 				A10000000000000000000021 /* AppSettings.swift in Sources */,
 				C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */,
 				C10000000000000000000009 /* AppSettings+Codable.swift in Sources */,
@@ -570,6 +577,7 @@
 				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
 				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
 				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */,
 				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
 				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
 				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
@@ -641,6 +649,7 @@
 				D20000000000000000000038 /* VocabularyView.swift in Sources */,
 				A10000000000000000000020 /* ShuoApp.swift in Sources */,
 				C10000000000000000000006 /* SettingsOptions.swift in Sources */,
+				C1000000000000000000000B /* CloudTranscriptionProviderConfiguration.swift in Sources */,
 				A10000000000000000000021 /* AppSettings.swift in Sources */,
 				C10000000000000000000008 /* AppSettings+Defaults.swift in Sources */,
 				C10000000000000000000009 /* AppSettings+Codable.swift in Sources */,
@@ -661,6 +670,7 @@
 				A1000000000000000000002E /* OpenAITranscriptionService.swift in Sources */,
 				F40000000000000000000002 /* ElevenLabsTranscriptionService.swift in Sources */,
 				A7BA00000000000000000002 /* AlibabaTranscriptionService.swift in Sources */,
+				A7BA00000000000000000006 /* GeminiTranscriptionService.swift in Sources */,
 				A1000000000000000000002F /* RightOptionPushToTalkMonitor.swift in Sources */,
 				A10000000000000000000033 /* SingleInstanceGuard.swift in Sources */,
 				A10000000000000000000034 /* AudioActivityAnalyzer.swift in Sources */,
@@ -903,7 +913,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -924,7 +934,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = Shuo;
@@ -944,7 +954,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -965,7 +975,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = Shuo;
@@ -986,7 +996,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -996,7 +1006,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = org.shuo.community;
 				PRODUCT_MODULE_NAME = Shuo;
 				PRODUCT_NAME = "Shuo Community";
@@ -1088,7 +1098,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = NO;
@@ -1099,7 +1109,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = ShuoDirect;
 				PRODUCT_NAME = Shuo;
@@ -1121,7 +1131,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4GQ47468NJ;
 				ENABLE_APP_SANDBOX = NO;
@@ -1132,7 +1142,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.shuotian.Shuo;
 				PRODUCT_MODULE_NAME = ShuoDirect;
 				PRODUCT_NAME = Shuo;

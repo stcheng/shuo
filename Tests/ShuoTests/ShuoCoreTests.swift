@@ -1,4 +1,5 @@
 import AVFoundation
+import ApplicationServices
 import CoreAudio
 import XCTest
 @testable import Shuo
@@ -33,6 +34,32 @@ final class AppSettingsTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
 
         XCTAssertTrue(decoded.hasCompletedOnboarding)
+    }
+
+    func testDockIconIsHiddenByDefaultAndPersists() throws {
+        XCTAssertFalse(AppSettings().showDockIcon)
+
+        var settings = AppSettings()
+        settings.showDockIcon = true
+
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+
+        XCTAssertTrue(decoded.showDockIcon)
+    }
+
+    func testCustomCloudBaseURLPersistsForServiceSwitching() throws {
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.openAIBaseURL = "https://relay.example.com/v1"
+        settings.lastCustomOpenAIBaseURL = settings.openAIBaseURL
+
+        let decoded = try JSONDecoder().decode(
+            AppSettings.self,
+            from: JSONEncoder().encode(settings)
+        )
+
+        XCTAssertEqual(decoded.lastCustomOpenAIBaseURL, "https://relay.example.com/v1")
     }
 
     func testLegacyTerminologyPresetIDsMigrateIntoEditableVocabularies() throws {
@@ -147,15 +174,88 @@ final class AppSettingsTests: XCTestCase {
     func testPushToTalkShortcutChoicesPersistAndUseRightSideKeyCodes() throws {
         XCTAssertEqual(PushToTalkShortcut.rightOption.keyCode, 0x3D)
         XCTAssertEqual(PushToTalkShortcut.rightCommand.keyCode, 0x36)
+        XCTAssertEqual(PushToTalkShortcut.pickerCases, [.rightCommand, .rightOption, .custom])
 
         var settings = AppSettings()
-        settings.pushToTalkShortcut = .rightCommand
+        let customShortcut = CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control])
+        settings.pushToTalkShortcut = .custom
+        settings.customPushToTalkShortcut = customShortcut
         let decoded = try JSONDecoder().decode(
             AppSettings.self,
             from: JSONEncoder().encode(settings)
         )
 
-        XCTAssertEqual(decoded.pushToTalkShortcut, .rightCommand)
+        XCTAssertEqual(decoded.pushToTalkShortcut, .custom)
+        XCTAssertEqual(decoded.customPushToTalkShortcut, customShortcut)
+    }
+
+    func testCustomPushToTalkShortcutValidationAvoidsBareTextKeys() {
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x00).isValidHoldShortcut)
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x31).isValidHoldShortcut)
+
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x00, modifiers: [.control]).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control]).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x69).isValidHoldShortcut)
+        XCTAssertTrue(CustomPushToTalkShortcut(keyCode: 0x3E).isValidHoldShortcut)
+        XCTAssertFalse(CustomPushToTalkShortcut(keyCode: 0x32).isValidHoldShortcut)
+        XCTAssertEqual(
+            CustomPushToTalkShortcut(keyCode: 0x32, modifiers: [.command]).displayName,
+            "Command + `"
+        )
+    }
+
+    func testCustomPushToTalkShortcutNameUsesRecordedShortcut() {
+        let localizer = AppLocalizer(language: .english)
+        let customShortcut = CustomPushToTalkShortcut(keyCode: 0x31, modifiers: [.control])
+
+        XCTAssertEqual(
+            localizer.shortcutName(.custom, customShortcut: customShortcut),
+            "Control + Space"
+        )
+        XCTAssertEqual(localizer.shortcutName(.custom), "Custom")
+    }
+
+    func testModifierShortcutStateFallsBackToEventFlags() {
+        let rightCommand = ResolvedPushToTalkShortcut(
+            keyCode: PushToTalkShortcut.rightCommand.keyCode
+        )
+
+        XCTAssertTrue(
+            rightCommand.downState(
+                keyStateDown: false,
+                eventFlags: .maskCommand,
+                previousDown: false
+            )
+        )
+        XCTAssertFalse(
+            rightCommand.downState(
+                keyStateDown: false,
+                eventFlags: [],
+                previousDown: true
+            )
+        )
+    }
+
+    func testModifierComboShortcutStateRequiresBothKeyAndModifiers() {
+        let rightOptionWithControl = ResolvedPushToTalkShortcut(
+            keyCode: PushToTalkShortcut.rightOption.keyCode,
+            modifiers: [.control]
+        )
+
+        XCTAssertTrue(
+            rightOptionWithControl.downState(
+                keyStateDown: false,
+                eventFlags: [.maskAlternate, .maskControl],
+                previousDown: false
+            )
+        )
+        XCTAssertFalse(
+            rightOptionWithControl.downState(
+                keyStateDown: true,
+                eventFlags: .maskAlternate,
+                previousDown: false
+            )
+        )
     }
 
     func testFreshLanguageSelectionPrioritizesChineseAndEnglish() {
@@ -218,12 +318,14 @@ final class AppSettingsTests: XCTestCase {
         settings.openAIBaseURL = "https://example.com/v1"
         settings.openAIOrganizationID = "org-test"
         settings.openAIProjectID = "project-test"
+        settings.acknowledgedOpenAICompatibleRelayEndpoint = "https://example.com/v1"
 
         settings.resetOpenAIConnectionDetails()
 
         XCTAssertEqual(settings.openAIBaseURL, AppSettings.defaultOpenAIBaseURL)
         XCTAssertEqual(settings.openAIOrganizationID, "")
         XCTAssertEqual(settings.openAIProjectID, "")
+        XCTAssertEqual(settings.acknowledgedOpenAICompatibleRelayEndpoint, "")
     }
 
     @MainActor
@@ -504,8 +606,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.audioInputDeviceID, "headset-mic-id")
     }
 
-    func testAudioInputDeviceDefaultsToAutomatic() {
-        XCTAssertEqual(AppSettings().audioInputDeviceID, AudioInputDeviceCatalog.automaticDeviceID)
+    func testAudioInputDeviceDefaultsToSystemDefault() {
+        XCTAssertEqual(AppSettings().audioInputDeviceID, AudioInputDeviceCatalog.systemDefaultDeviceID)
     }
 
     func testAudioRouteExposesResolvedOutputDeviceID() {
@@ -544,12 +646,31 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.recordingStartSound, .brightChime)
     }
 
-    func testLegacyEmptyAudioInputDeviceMigratesToAutomatic() throws {
+    func testLegacyEmptyAudioInputDeviceMigratesToSystemDefault() throws {
         let json = #"{"audioInputDeviceID":""}"#.data(using: .utf8)!
 
         let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
 
-        XCTAssertEqual(decoded.audioInputDeviceID, AudioInputDeviceCatalog.automaticDeviceID)
+        XCTAssertEqual(decoded.audioInputDeviceID, AudioInputDeviceCatalog.systemDefaultDeviceID)
+    }
+
+    func testLegacyAutomaticAudioInputMigratesToSystemDefault() throws {
+        let json = #"{"audioInputDeviceID":"__automatic__"}"#.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
+
+        XCTAssertEqual(decoded.audioInputDeviceID, AudioInputDeviceCatalog.systemDefaultDeviceID)
+    }
+
+    func testAudioInputSelectionNormalizationKeepsExplicitDevice() {
+        XCTAssertEqual(
+            AudioInputDeviceCatalog.normalizedSelectionID("headset-mic-id"),
+            "headset-mic-id"
+        )
+        XCTAssertEqual(
+            AudioInputDeviceCatalog.normalizedSelectionID(AudioInputDeviceCatalog.automaticDeviceID),
+            AudioInputDeviceCatalog.systemDefaultDeviceID
+        )
     }
 
     func testLegacyTranscriptItemWithoutAudioFileNameDecodes() throws {
@@ -663,7 +784,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.languageHint, .english)
     }
 
-    func testLocalWhisperCatalogFindsOnlyVisibleBinFilesInStableOrder() throws {
+    func testLocalWhisperCatalogFindsSupportedVisibleLocalModelFilesInStableOrder() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -671,36 +792,54 @@ final class AppSettingsTests: XCTestCase {
 
         try Data().write(to: directory.appendingPathComponent("ggml-small.bin"))
         try Data().write(to: directory.appendingPathComponent("ggml-base.en.bin"))
+        try Data().write(to: directory.appendingPathComponent("sensevoice-small-q8.gguf"))
+        try makeSparseFile(
+            at: LocalWhisperModelCatalog.senseVoiceVADAsset.destinationURL(in: directory.path),
+            byteCount: LocalWhisperModelCatalog.senseVoiceVADAsset.expectedByteCount
+        )
+        try Data().write(to: directory.appendingPathComponent("unrelated-model.gguf"))
         try Data().write(to: directory.appendingPathComponent("notes.txt"))
         try Data().write(to: directory.appendingPathComponent(".hidden.bin"))
 
         let names = LocalWhisperModelCatalog.modelURLs(in: directory.path)
             .map(\.lastPathComponent)
 
-        XCTAssertEqual(names, ["ggml-base.en.bin", "ggml-small.bin"])
+        XCTAssertEqual(
+            names,
+            ["ggml-base.en.bin", "ggml-small.bin", "sensevoice-small-q8.gguf"]
+        )
     }
 
-    func testManagedWhisperModelsAreDownloadableGGMLBins() {
+    func testManagedLocalModelsUsePinnedSupportedEngineContracts() {
         let models = LocalWhisperModelCatalog.managedModels
 
-        XCTAssertFalse(models.isEmpty)
-        XCTAssertTrue(models.contains { $0.tier == .small })
+        XCTAssertEqual(models.count, 3)
         XCTAssertTrue(models.contains { $0.tier == .balanced })
         XCTAssertTrue(models.contains { $0.tier == .large })
         XCTAssertEqual(Set(models.map(\.id)).count, models.count)
         XCTAssertEqual(Set(models.map(\.filename)).count, models.count)
 
         for model in models {
-            XCTAssertTrue(model.filename.hasPrefix("ggml-"))
-            XCTAssertEqual(URL(fileURLWithPath: model.filename).pathExtension, "bin")
             XCTAssertEqual(model.downloadURL.host(), "huggingface.co")
-            XCTAssertTrue(
-                model.downloadURL.path().contains("/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/"),
-                "Managed model downloads must remain pinned to the verified Hugging Face revision."
-            )
             XCTAssertTrue(model.downloadURL.path().hasSuffix(model.filename))
             XCTAssertGreaterThan(model.expectedByteCount, 1_000_000)
             XCTAssertEqual(model.expectedSHA256.count, 64)
+
+            switch model.engine {
+            case .whisper:
+                XCTAssertTrue(model.filename.hasPrefix("ggml-"))
+                XCTAssertEqual(URL(fileURLWithPath: model.filename).pathExtension, "bin")
+                XCTAssertTrue(
+                    model.downloadURL.path().contains("/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/")
+                )
+            case .senseVoice:
+                XCTAssertEqual(model.filename, "sensevoice-small-q8.gguf")
+                XCTAssertEqual(URL(fileURLWithPath: model.filename).pathExtension, "gguf")
+                XCTAssertTrue(
+                    model.downloadURL.path().contains("/resolve/90c1c61912018b70ada0fcc024ea24aca62f2e63/")
+                )
+                XCTAssertEqual(model.supportingAssets, [LocalWhisperModelCatalog.senseVoiceVADAsset])
+            }
         }
     }
 
@@ -709,12 +848,13 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(
             models.map(\.id),
-            ["base", "small", "large-v3-turbo-q5_0"]
+            ["sensevoice-small-q8", "small", "large-v3-turbo-q5_0"]
         )
         XCTAssertTrue(
             models.map(\.id).contains(LocalWhisperModelCatalog.defaultOnboardingModelID)
         )
-        XCTAssertTrue(models.allSatisfy { $0.languageCapability == .multilingual })
+        XCTAssertEqual(models.first?.languageCapability, .senseVoice)
+        XCTAssertTrue(models.dropFirst().allSatisfy { $0.languageCapability == .multilingual })
     }
 
     func testLocalModelRecommendationAdaptsToHardwareCapacity() {
@@ -722,13 +862,15 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(
             LocalWhisperModelCatalog.recommendedOnboardingModelID(
+                for: [.chinese, .english],
                 isAppleSilicon: true,
                 physicalMemoryBytes: threshold
             ),
-            "large-v3-turbo-q5_0"
+            "sensevoice-small-q8"
         )
         XCTAssertEqual(
             LocalWhisperModelCatalog.recommendedOnboardingModelID(
+                for: [.english],
                 isAppleSilicon: true,
                 physicalMemoryBytes: threshold - 1
             ),
@@ -736,6 +878,15 @@ final class AppSettingsTests: XCTestCase {
         )
         XCTAssertEqual(
             LocalWhisperModelCatalog.recommendedOnboardingModelID(
+                for: [.english],
+                isAppleSilicon: true,
+                physicalMemoryBytes: threshold
+            ),
+            "large-v3-turbo-q5_0"
+        )
+        XCTAssertEqual(
+            LocalWhisperModelCatalog.recommendedOnboardingModelID(
+                for: [.spanish, .french],
                 isAppleSilicon: false,
                 physicalMemoryBytes: 64 * 1_024 * 1_024 * 1_024
             ),
@@ -748,20 +899,20 @@ final class AppSettingsTests: XCTestCase {
             uniqueKeysWithValues: LocalWhisperModelCatalog.managedModels.map { ($0.id, $0) }
         )
         let expectedMetadata: [String: (filename: String, byteCount: Int64, sha256: String)] = [
-            "small.en": (
-                "ggml-small.en.bin",
-                487_614_201,
-                "c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
+            "sensevoice-small-q8": (
+                "sensevoice-small-q8.gguf",
+                254_208_320,
+                "4ae45c94422de949b387e2e0fb10d7e14e4c42c69db30c3444ecc7d4b844b7c5"
             ),
-            "medium": (
-                "ggml-medium.bin",
-                1_533_763_059,
-                "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208"
+            "small": (
+                "ggml-small.bin",
+                487_601_967,
+                "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
             ),
-            "large-v3-turbo-q8_0": (
-                "ggml-large-v3-turbo-q8_0.bin",
-                874_188_075,
-                "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1"
+            "large-v3-turbo-q5_0": (
+                "ggml-large-v3-turbo-q5_0.bin",
+                574_041_195,
+                "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
             )
         ]
 
@@ -772,9 +923,66 @@ final class AppSettingsTests: XCTestCase {
             XCTAssertEqual(model.expectedSHA256, expected.sha256)
         }
 
-        XCTAssertEqual(modelsByID["small.en"]?.languageCapability, .englishOnly)
-        XCTAssertEqual(modelsByID["medium"]?.languageCapability, .multilingual)
-        XCTAssertEqual(modelsByID["large-v3-turbo-q8_0"]?.languageCapability, .multilingual)
+        XCTAssertEqual(modelsByID["sensevoice-small-q8"]?.languageCapability, .senseVoice)
+        XCTAssertEqual(modelsByID["small"]?.languageCapability, .multilingual)
+        XCTAssertEqual(modelsByID["large-v3-turbo-q5_0"]?.languageCapability, .multilingual)
+        XCTAssertEqual(Set(modelsByID.keys), Set(expectedMetadata.keys))
+        XCTAssertEqual(
+            LocalWhisperModelCatalog.senseVoiceVADAsset.expectedByteCount,
+            1_720_512
+        )
+        XCTAssertEqual(
+            LocalWhisperModelCatalog.senseVoiceVADAsset.expectedSHA256,
+            "1270f2559c495f4e7b6e739541151027d360761a3fda43fc147034f5719f5479"
+        )
+    }
+
+    func testSelectingSenseVoiceModelRetainsOnlyItsSupportedLanguages() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "sensevoice-small-q8" }
+        )
+        try makeSparseFile(
+            at: model.destinationURL(in: directory.path),
+            byteCount: model.expectedByteCount
+        )
+        for asset in model.supportingAssets {
+            try makeSparseFile(
+                at: asset.destinationURL(in: directory.path),
+                byteCount: asset.expectedByteCount
+            )
+        }
+
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.localWhisperModelDirectoryPath = directory.path
+        settings.selectedTranscriptionLanguages = [.chinese, .english, .spanish, .french]
+
+        let updatedSettings = try XCTUnwrap(
+            LocalWhisperSetupService().settingsSelectingInstalledModel(
+                model,
+                currentSettings: settings
+            )
+        )
+
+        XCTAssertEqual(updatedSettings.selectedTranscriptionLanguages, [.chinese, .english])
+        XCTAssertEqual(updatedSettings.availableTranscriptionLanguages, [.chinese, .english, .japanese])
+    }
+
+    func testSenseVoiceLocalSettingsIdentifyUnavailableRecognitionHints() {
+        var settings = AppSettings()
+        settings.provider = .local
+        settings.localWhisperModelPath = "/tmp/sensevoice-small-q8.gguf"
+
+        XCTAssertTrue(settings.usesSenseVoiceLocalTranscription)
+
+        settings.localWhisperModelPath = "/tmp/ggml-large-v3-turbo-q5_0.bin"
+
+        XCTAssertFalse(settings.usesSenseVoiceLocalTranscription)
     }
 
     func testLocalWhisperExecutableResolverUsesBundledRuntimeWithoutHomebrew() throws {
@@ -804,7 +1012,9 @@ final class AppSettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = try XCTUnwrap(LocalWhisperModelCatalog.managedModels.first)
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "small" }
+        )
         XCTAssertFalse(LocalWhisperModelCatalog.isInstalled(model, in: directory.path))
 
         try makeSparseFile(
@@ -815,13 +1025,81 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(LocalWhisperModelCatalog.isInstalled(model, in: directory.path))
     }
 
+    func testSenseVoiceRequiresVADBeforeItIsSelectableOrInstalled() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "sensevoice-small-q8" }
+        )
+        let modelURL = model.destinationURL(in: directory.path)
+        try makeSparseFile(at: modelURL, byteCount: model.expectedByteCount)
+
+        XCTAssertFalse(LocalWhisperModelCatalog.isInstalled(model, in: directory.path))
+        XCTAssertFalse(
+            LocalWhisperModelCatalog.modelURLs(in: directory.path).contains(modelURL)
+        )
+
+        for asset in model.supportingAssets {
+            try makeSparseFile(
+                at: asset.destinationURL(in: directory.path),
+                byteCount: asset.expectedByteCount
+            )
+        }
+        LocalWhisperModelCatalog.invalidateCache(for: directory.path)
+
+        XCTAssertTrue(LocalWhisperModelCatalog.isInstalled(model, in: directory.path))
+        XCTAssertTrue(
+            LocalWhisperModelCatalog.modelURLs(in: directory.path).contains(modelURL)
+        )
+    }
+
+    func testDeletingSenseVoiceKeepsSharedVADForAnotherSenseVoiceModel() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "sensevoice-small-q8" }
+        )
+        let modelURL = model.destinationURL(in: directory.path)
+        try makeSparseFile(at: modelURL, byteCount: model.expectedByteCount)
+        for asset in model.supportingAssets {
+            try makeSparseFile(
+                at: asset.destinationURL(in: directory.path),
+                byteCount: asset.expectedByteCount
+            )
+        }
+        let alternateModelURL = directory.appendingPathComponent("sensevoice-custom-q8.gguf")
+        try Data([0x01]).write(to: alternateModelURL)
+
+        var settings = AppSettings()
+        settings.provider = .local
+        settings.localWhisperModelDirectoryPath = directory.path
+        settings.localWhisperModelPath = modelURL.path
+
+        _ = try LocalWhisperSetupService().deleteModel(model, currentSettings: settings)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: LocalWhisperModelCatalog.senseVoiceVADURL(in: directory.path).path
+            )
+        )
+    }
+
     func testLocalWhisperSetupServiceSelectsOnlyAnInstalledManagedModel() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = try XCTUnwrap(LocalWhisperModelCatalog.managedModels.first)
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "small" }
+        )
         var settings = AppSettings()
         settings.provider = .openAI
         settings.localWhisperModelDirectoryPath = directory.path
@@ -840,28 +1118,23 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(updatedSettings.localWhisperModelPath, modelURL.path)
     }
 
-    func testSelectingInstalledEnglishOnlyManagedModelNormalizesLanguages() throws {
+    func testSelectingRetiredEnglishOnlyModelManuallyNormalizesLanguages() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = try XCTUnwrap(
-            LocalWhisperModelCatalog.managedModels.first { $0.id == "base.en" }
-        )
-        let modelURL = model.destinationURL(in: directory.path)
-        try makeSparseFile(at: modelURL, byteCount: model.expectedByteCount)
+        let modelURL = directory.appendingPathComponent("ggml-base.en.bin")
+        try Data([0x00]).write(to: modelURL)
 
         var settings = AppSettings()
         settings.provider = .openAI
         settings.localWhisperModelDirectoryPath = directory.path
         settings.selectedTranscriptionLanguages = [.chinese, .english, .spanish, .french]
 
-        let updatedSettings = try XCTUnwrap(
-            LocalWhisperSetupService().settingsSelectingInstalledModel(
-                model,
-                currentSettings: settings
-            )
+        let updatedSettings = LocalWhisperSetupService().settingsSelectingModel(
+            at: modelURL,
+            currentSettings: settings
         )
 
         XCTAssertEqual(updatedSettings.provider, .local)
@@ -893,13 +1166,34 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(updatedSettings.selectedTranscriptionLanguages, [.english])
     }
 
+    func testRetiredLocalModelPathSurvivesSelectionNormalization() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let retiredModelURL = directory.appendingPathComponent("ggml-medium.bin")
+        try Data([0x00]).write(to: retiredModelURL)
+
+        var settings = AppSettings()
+        settings.provider = .local
+        settings.localWhisperModelDirectoryPath = directory.path
+        settings.localWhisperModelPath = retiredModelURL.path
+
+        settings.normalizeSelections()
+
+        XCTAssertEqual(settings.localWhisperModelPath, retiredModelURL.standardizedFileURL.path)
+    }
+
     func testLocalWhisperSetupServiceClearsSelectionWhenDeletingSelectedModel() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let model = try XCTUnwrap(LocalWhisperModelCatalog.managedModels.first)
+        let model = try XCTUnwrap(
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "small" }
+        )
         let modelURL = model.destinationURL(in: directory.path)
         try Data().write(to: modelURL)
         var settings = AppSettings()
@@ -923,10 +1217,10 @@ final class AppSettingsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let selectedModel = try XCTUnwrap(
-            LocalWhisperModelCatalog.managedModels.first { $0.id == "base" }
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "small" }
         )
         let fallbackModel = try XCTUnwrap(
-            LocalWhisperModelCatalog.managedModels.first { $0.id == "small" }
+            LocalWhisperModelCatalog.managedModels.first { $0.id == "large-v3-turbo-q5_0" }
         )
         let selectedURL = selectedModel.destinationURL(in: directory.path)
         let fallbackURL = fallbackModel.destinationURL(in: directory.path)
@@ -1000,7 +1294,57 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(argumentValue(after: "--prompt", in: arguments), prompt)
     }
 
-    func testLocalWhisperPromptUsesPunctuatedSimplifiedChineseStyleAndVocabulary() {
+    func testSenseVoiceCommandUsesVADOnlyWhenRequested() {
+        let longRecordingArguments = LocalSenseVoiceCommandArguments.make(
+            modelURL: URL(fileURLWithPath: "/tmp/sensevoice-small-q8.gguf"),
+            audioFileURL: URL(fileURLWithPath: "/tmp/audio.wav"),
+            vadURL: URL(fileURLWithPath: "/tmp/fsmn-vad.gguf")
+        )
+        let shortRecordingArguments = LocalSenseVoiceCommandArguments.make(
+            modelURL: URL(fileURLWithPath: "/tmp/sensevoice-small-q8.gguf"),
+            audioFileURL: URL(fileURLWithPath: "/tmp/audio.wav"),
+            vadURL: nil
+        )
+
+        XCTAssertEqual(argumentValue(after: "-m", in: longRecordingArguments), "/tmp/sensevoice-small-q8.gguf")
+        XCTAssertEqual(argumentValue(after: "-a", in: longRecordingArguments), "/tmp/audio.wav")
+        XCTAssertEqual(argumentValue(after: "--vad", in: longRecordingArguments), "/tmp/fsmn-vad.gguf")
+        XCTAssertEqual(argumentValue(after: "--vad-maxseg", in: longRecordingArguments), "30000")
+        XCTAssertNil(argumentValue(after: "--vad", in: shortRecordingArguments))
+        XCTAssertNil(argumentValue(after: "--vad-maxseg", in: shortRecordingArguments))
+    }
+
+    func testSenseVoiceUsesDirectRecognitionForShortAudioAndVADForLongAudio() {
+        XCTAssertFalse(LocalSenseVoiceSegmentationPolicy.shouldUseVAD(forDuration: 0.5))
+        XCTAssertFalse(LocalSenseVoiceSegmentationPolicy.shouldUseVAD(forDuration: 29.99))
+        XCTAssertTrue(LocalSenseVoiceSegmentationPolicy.shouldUseVAD(forDuration: 30))
+        XCTAssertTrue(LocalSenseVoiceSegmentationPolicy.shouldUseVAD(forDuration: nil))
+    }
+
+    func testSenseVoiceOutputDropsRuntimeLogsWithoutChangingTranscript() {
+        let text = LocalSenseVoiceTranscriptionService.transcriptText(
+            from: "我想问我在滨海新区有房。\n[sensevoice] 2 vad segments\n[sensevoice] done 0.51s\n"
+        )
+
+        XCTAssertEqual(text, "我想问我在滨海新区有房。")
+    }
+
+    func testSenseVoiceOutputRestoresLatinBoundariesWithoutAddingCJKSpaces() {
+        XCTAssertEqual(
+            LocalSenseVoiceTranscriptionService.transcriptText(
+                from: "Hello.\nWorld.\n"
+            ),
+            "Hello. World."
+        )
+        XCTAssertEqual(
+            LocalSenseVoiceTranscriptionService.transcriptText(
+                from: "你好。\n世界。\n"
+            ),
+            "你好。世界。"
+        )
+    }
+
+    func testLocalWhisperPromptDoesNotInjectLanguageSamplesForMixedInput() {
         var settings = AppSettings()
         settings.selectedTranscriptionLanguages = [.chinese, .english]
         settings.setPreferredChineseTextConversionMode(.simplified)
@@ -1010,8 +1354,31 @@ final class AppSettingsTests: XCTestCase {
             vocabularyPrompt: "Shuo, SwiftUI"
         )
 
+        XCTAssertEqual(prompt, "Shuo, SwiftUI.")
+        XCTAssertFalse(prompt.contains("今天我们来试一下。效果不错，我们继续。"))
+        XCTAssertFalse(prompt.contains("Let's try this."))
+    }
+
+    func testLocalWhisperPromptOmitsBuiltInShuoMarkerForMixedInput() {
+        var settings = AppSettings()
+        settings.selectedTranscriptionLanguages = [.chinese, .english]
+
+        XCTAssertEqual(
+            LocalWhisperInitialPrompt.make(settings: settings, vocabularyPrompt: "Shuo"),
+            ""
+        )
+    }
+
+    func testLocalWhisperPromptUsesEnglishStyleForEnglishOnlyInput() {
+        var settings = AppSettings()
+        settings.selectedTranscriptionLanguages = [.english]
+
+        let prompt = LocalWhisperInitialPrompt.make(
+            settings: settings,
+            vocabularyPrompt: "Shuo, SwiftUI"
+        )
+
         XCTAssertTrue(prompt.hasPrefix("Shuo, SwiftUI. "))
-        XCTAssertTrue(prompt.contains("今天我们来试一下。效果不错，我们继续。"))
         XCTAssertTrue(prompt.contains("Let's try this."))
     }
 
@@ -1028,7 +1395,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(prompt, "今天我們來試一下。效果不錯，我們繼續。")
     }
 
-    func testLocalWhisperPromptIncludesSpanishAndFrenchPunctuationStyles() {
+    func testLocalWhisperPromptDoesNotInjectSamplesForAnyMixedLanguageSelection() {
         var settings = AppSettings()
         settings.selectedTranscriptionLanguages = [.spanish, .french]
 
@@ -1037,10 +1404,7 @@ final class AppSettingsTests: XCTestCase {
             vocabularyPrompt: ""
         )
 
-        XCTAssertEqual(
-            prompt,
-            "Vamos a probarlo. Suena bien, así que continuaremos. Essayons. Le résultat est bon, alors continuons."
-        )
+        XCTAssertEqual(prompt, "")
     }
 
     func testLegacyContextToggleCannotSilentlyDisablePromptContext() {
@@ -1059,6 +1423,7 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertTrue(prompt.contains("Shuo, gpt-4o-transcribe"))
         XCTAssertTrue(prompt.contains("explicit context"))
+        XCTAssertTrue(prompt.contains("下方上下文和拼写提示仅作参考"))
     }
 
     private func argumentValue(after flag: String, in arguments: [String]) -> String? {
@@ -1779,6 +2144,131 @@ final class OpenAIAPIKeyStoreTests: XCTestCase {
         XCTAssertTrue(credentialStore.values.isEmpty)
     }
 
+    func testOpenAICompatibleEndpointsKeepSeparateCredentials() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentialStore = InMemoryCredentialStore()
+        let customScope = OpenAICompatibleCredentialScope(
+            baseURLString: "https://relay.example.com/v1"
+        )
+
+        try OpenAIAPIKeyStore.save(
+            "sk-openai",
+            scope: .openAI,
+            userDefaults: defaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: nil
+        )
+        try OpenAIAPIKeyStore.save(
+            "gsk-groq",
+            scope: .groq,
+            userDefaults: defaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: nil
+        )
+        try OpenAIAPIKeyStore.save(
+            "relay-key",
+            scope: customScope,
+            userDefaults: defaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: nil
+        )
+
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .openAI,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            "sk-openai"
+        )
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .groq,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            "gsk-groq"
+        )
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: customScope,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            "relay-key"
+        )
+        XCTAssertEqual(credentialStore.values.count, 3)
+    }
+
+    func testCurrentNonOpenAIEndpointMigratesItsLegacyCredentialOnce() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentialStore = InMemoryCredentialStore()
+        try credentialStore.set(
+            Data("gsk-existing".utf8),
+            service: AppCredentialServices.openAI,
+            account: "default"
+        )
+
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .groq,
+                migrateLegacyDefault: true,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            "gsk-existing"
+        )
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .openAI,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            ""
+        )
+        XCTAssertEqual(credentialStore.values.count, 1)
+    }
+
+    func testNewEndpointDoesNotReuseAnExistingOpenAICredential() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let credentialStore = InMemoryCredentialStore()
+        try credentialStore.set(
+            Data("sk-openai".utf8),
+            service: AppCredentialServices.openAI,
+            account: "default"
+        )
+
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .groq,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            ""
+        )
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .openAI,
+                userDefaults: defaults,
+                credentialStore: credentialStore,
+                developmentCredentialStore: nil
+            ),
+            "sk-openai"
+        )
+    }
+
     func testFailedMigrationPreservesLegacyDefaultsValue() throws {
         let suiteName = UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -1852,6 +2342,46 @@ final class OpenAIAPIKeyStoreTests: XCTestCase {
                 account: "default"
             ),
             Data("secret".utf8)
+        )
+    }
+
+    func testDevelopmentStorageKeepsOpenAICompatibleEndpointsSeparate() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let developmentStore = DevelopmentFileCredentialStore(baseDirectory: directory)
+
+        try OpenAIAPIKeyStore.save(
+            "sk-openai",
+            scope: .openAI,
+            userDefaults: defaults,
+            developmentCredentialStore: developmentStore
+        )
+        try OpenAIAPIKeyStore.save(
+            "gsk-groq",
+            scope: .groq,
+            userDefaults: defaults,
+            developmentCredentialStore: developmentStore
+        )
+
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .openAI,
+                userDefaults: defaults,
+                developmentCredentialStore: developmentStore
+            ),
+            "sk-openai"
+        )
+        XCTAssertEqual(
+            try OpenAIAPIKeyStore.load(
+                scope: .groq,
+                userDefaults: defaults,
+                developmentCredentialStore: developmentStore
+            ),
+            "gsk-groq"
         )
     }
 
@@ -1941,6 +2471,28 @@ final class AlibabaAPIKeyStoreTests: XCTestCase {
         try AlibabaAPIKeyStore.save("   ", credentialStore: credentialStore)
         XCTAssertEqual(
             try AlibabaAPIKeyStore.load(credentialStore: credentialStore),
+            ""
+        )
+        XCTAssertTrue(credentialStore.values.isEmpty)
+    }
+}
+
+final class GeminiAPIKeyStoreTests: XCTestCase {
+    func testSaveTrimsAndDeleteRemovesSecureValue() throws {
+        let credentialStore = InMemoryCredentialStore()
+
+        try GeminiAPIKeyStore.save(
+            "  gemini-secret  ",
+            credentialStore: credentialStore
+        )
+        XCTAssertEqual(
+            try GeminiAPIKeyStore.load(credentialStore: credentialStore),
+            "gemini-secret"
+        )
+
+        try GeminiAPIKeyStore.save("   ", credentialStore: credentialStore)
+        XCTAssertEqual(
+            try GeminiAPIKeyStore.load(credentialStore: credentialStore),
             ""
         )
         XCTAssertTrue(credentialStore.values.isEmpty)
@@ -2065,6 +2617,28 @@ final class OpenAICompatibleRequestBuilderTests: XCTestCase {
         XCTAssertEqual(
             OpenAICompatibleRequestBuilder.cleanedModelOutput("```text\n\"hello\"\n```"),
             "hello"
+        )
+        XCTAssertNil(OpenAICompatibleRequestBuilder.endpoint(
+            baseURLString: "https://relay.example.test/v1?token=not-allowed",
+            path: "audio/transcriptions"
+        ))
+    }
+
+    func testRecognizesTheOfficialEndpointAndThirdPartyRelays() {
+        XCTAssertFalse(
+            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                baseURLString: "https://api.openai.com/v1/"
+            )
+        )
+        XCTAssertTrue(
+            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                baseURLString: "https://relay.example.test/v1"
+            )
+        )
+        XCTAssertTrue(
+            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+                baseURLString: "http://localhost:11434/v1"
+            )
         )
     }
 
@@ -3163,7 +3737,7 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeCorrectionLearningAndVocabularyBudgetsInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointTwoFourAndCurrentCapabilitiesInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
                 "at most 60 high-priority terms",
@@ -3171,7 +3745,11 @@ final class AppLocalizerTests: XCTestCase {
                 "enabled individually",
                 "local Replacement",
                 "Cloud AI hints",
-                "Adaptive Whisper Mode"
+                "Adaptive Whisper Mode",
+                "New in 1.2.4",
+                "Groq",
+                "SiliconFlow",
+                "custom OpenAI-compatible endpoint support"
             ],
             .simplifiedChinese: [
                 "最多保留 60 个高优先级术语",
@@ -3179,7 +3757,11 @@ final class AppLocalizerTests: XCTestCase {
                 "均需单独开启",
                 "本地“替换”",
                 "“云端 AI”提示",
-                "自适应轻声模式"
+                "自适应轻声模式",
+                "1.2.4 更新",
+                "Groq",
+                "硅基流动",
+                "自定义 OpenAI-compatible 端点支持"
             ],
             .traditionalChinese: [
                 "最多保留 60 個優先術語",
@@ -3187,7 +3769,11 @@ final class AppLocalizerTests: XCTestCase {
                 "均需個別啟用",
                 "本機「替換」",
                 "「雲端 AI」提示",
-                "自適應輕聲模式"
+                "自適應輕聲模式",
+                "1.2.4 更新",
+                "Groq",
+                "矽基流動",
+                "自訂 OpenAI 相容端點支援"
             ],
             .japanese: [
                 "最大60件保存",
@@ -3195,7 +3781,11 @@ final class AppLocalizerTests: XCTestCase {
                 "各パターンを個別に有効化",
                 "ローカル「置換」",
                 "「クラウドAI」へのヒント",
-                "適応型のささやきモード"
+                "適応型のささやきモード",
+                "1.2.4 の新機能",
+                "Groq",
+                "SiliconFlow",
+                "カスタム OpenAI 互換エンドポイントに対応"
             ]
         ]
 
@@ -3204,7 +3794,7 @@ final class AppLocalizerTests: XCTestCase {
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                10,
+                11,
                 "Unexpected release-note bullet count for \(language)"
             )
             XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))
@@ -3242,6 +3832,7 @@ final class AppLocalizerTests: XCTestCase {
 
         XCTAssertEqual(simplifiedChinese.checkingForUpdates(), "正在检查更新…")
         XCTAssertEqual(simplifiedChinese.updateCheckFinished(), "更新检查已完成。")
+        XCTAssertEqual(simplifiedChinese.updateCheckUpToDate(), "已是最新版本。")
         XCTAssertEqual(simplifiedChinese.updateCheckAlreadyInProgress(), "正在检查更新。")
     }
 
@@ -3620,6 +4211,7 @@ final class ArchitectureStageTests: XCTestCase {
 
         let intentionallyOutsidePipeline: Set<SettingsSearchTarget> = [
             .appLanguage,
+            .showDockIcon,
             .launchAtLogin,
             .updates,
             .exportSettings,
@@ -3832,7 +4424,13 @@ final class DiagnosticsPrivacyPolicyTests: XCTestCase {
             DiagnosticsPrivacyPolicy.audioInputSelection(
                 deviceID: AudioInputDeviceCatalog.automaticDeviceID
             ),
-            "Automatic"
+            "System Default"
+        )
+        XCTAssertEqual(
+            DiagnosticsPrivacyPolicy.audioInputSelection(
+                deviceID: AudioInputDeviceCatalog.systemDefaultDeviceID
+            ),
+            "System Default"
         )
         let summary = DiagnosticsPrivacyPolicy.audioInputSelection(
             deviceID: "private-hardware-identifier"
@@ -4124,6 +4722,41 @@ final class TranscriptPostProcessorTests: XCTestCase {
         )
     }
 
+    func testAutomaticSentenceEndingUsesCJKPunctuationForMixedCJKClause() {
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "这个先用 Cursor",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "这个先用 Cursor。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "先 deploy 到 staging",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "先 deploy 到 staging。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "版本 2",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "版本 2。"
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "你好。Ship it",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "你好。Ship it. "
+        )
+    }
+
     func testAutomaticSentenceEndingPreservesPunctuationAndInsertsBeforeQuotes() {
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
@@ -4159,14 +4792,14 @@ final class TranscriptPostProcessorTests: XCTestCase {
         )
     }
 
-    func testAutomaticSentenceEndingConvertsContinuationPunctuationToAFullStop() {
+    func testAutomaticSentenceEndingPreservesExistingContinuationPunctuation() {
         let cases: [(String, String)] = [
-            ("Hello,", "Hello. "),
-            ("Hello:", "Hello. "),
-            ("Hello;", "Hello. "),
-            ("你好，", "你好。"),
-            ("你好：", "你好。"),
-            ("これは良い、", "これは良い。")
+            ("Hello,", "Hello, "),
+            ("Hello:", "Hello: "),
+            ("Hello;", "Hello; "),
+            ("你好，", "你好，"),
+            ("你好：", "你好："),
+            ("これは良い、", "これは良い、")
         ]
 
         for (input, expected) in cases {
@@ -4181,14 +4814,14 @@ final class TranscriptPostProcessorTests: XCTestCase {
         }
     }
 
-    func testAutomaticSentenceEndingNormalizesMismatchedFullStops() {
+    func testAutomaticSentenceEndingPreservesExistingTerminalPunctuation() {
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
                 to: "Hello。",
                 punctuationMode: .automatic,
                 mode: .smartSpace
             ),
-            "Hello. "
+            "Hello。"
         )
         XCTAssertEqual(
             TranscriptInsertionBoundaryPolicy.apply(
@@ -4196,7 +4829,15 @@ final class TranscriptPostProcessorTests: XCTestCase {
                 punctuationMode: .automatic,
                 mode: .smartSpace
             ),
-            "你好。"
+            "你好."
+        )
+        XCTAssertEqual(
+            TranscriptInsertionBoundaryPolicy.apply(
+                to: "这个先用 Cursor。",
+                punctuationMode: .automatic,
+                mode: .smartSpace
+            ),
+            "这个先用 Cursor。"
         )
     }
 
@@ -5328,6 +5969,7 @@ final class PluginConfigurationTests: XCTestCase {
         let configuration = PluginConfiguration.mvp
 
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.historyBasic))
         XCTAssertTrue(configuration.isEnabled(.metricsBasic))
@@ -5363,6 +6005,7 @@ final class PluginConfigurationTests: XCTestCase {
 
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
         XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
         XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
@@ -5416,6 +6059,7 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
         XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
     }
 
     func testVersionThreePublicProfilePreservesExplicitlyDisabledProvider() throws {
@@ -5439,6 +6083,7 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
         XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
     }
 
     func testExistingEnabledBetaProvidersRemainEnabledAcrossSchemaUpgrade() throws {
@@ -5461,6 +6106,39 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
         XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
         XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerGemini))
+    }
+
+    func testVersionFourConfigurationPreservesExplicitGeminiOptOut() throws {
+        let json = """
+        {
+          "schemaVersion": 4,
+          "profile": "public",
+          "enabledPlugins": ["provider.openai", "provider.localWhisper"],
+          "disabledPlugins": ["provider.gemini"]
+        }
+        """.data(using: .utf8)!
+
+        let configuration = try PluginConfigurationStore.configuration(from: json)
+
+        XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
+        XCTAssertFalse(configuration.isEnabled(.providerGemini))
+    }
+
+    func testVersionFourCustomProfileDoesNotGainGeminiImplicitly() throws {
+        let json = """
+        {
+          "schemaVersion": 4,
+          "profile": "custom-team",
+          "enabledPlugins": ["provider.openai", "provider.localWhisper"],
+          "disabledPlugins": []
+        }
+        """.data(using: .utf8)!
+
+        let configuration = try PluginConfigurationStore.configuration(from: json)
+
+        XCTAssertEqual(configuration.schemaVersion, PluginConfiguration.currentSchemaVersion)
+        XCTAssertFalse(configuration.isEnabled(.providerGemini))
     }
 
     func testFreshProfilePreservesAProviderSelectedByAnExistingUser() {
@@ -5476,7 +6154,8 @@ final class PluginConfigurationTests: XCTestCase {
 
         for (provider, pluginID) in [
             (TranscriptionProvider.elevenLabs, PluginID.providerElevenLabs),
-            (.alibaba, .providerAlibaba)
+            (.alibaba, .providerAlibaba),
+            (.gemini, .providerGemini)
         ] {
             defaults.removeObject(forKey: PluginConfigurationStore.userDefaultsKey)
 
@@ -5511,7 +6190,7 @@ final class PluginConfigurationTests: XCTestCase {
     }
 
     func testOptionalCloudProvidersAreMarkedAsPublicBetaCapabilities() throws {
-        for pluginID in [PluginID.providerElevenLabs, .providerAlibaba] {
+        for pluginID in [PluginID.providerElevenLabs, .providerAlibaba, .providerGemini] {
             let descriptor = try XCTUnwrap(PluginCatalog.descriptor(for: pluginID))
             XCTAssertTrue(descriptor.isPublic)
             XCTAssertTrue(descriptor.isExperimental)

@@ -7,7 +7,24 @@ enum CancellableProcessRunnerError: Error, Equatable {
 
 struct CancellableProcessResult: Equatable {
     let terminationStatus: Int32
-    let output: String
+    let standardOutput: String
+    let standardError: String
+
+    /// Preserve the historical combined output for existing diagnostics while
+    /// allowing transcription engines to treat stdout as the sole text
+    /// protocol. Interleaving stderr with recognized text is not safe.
+    var output: String {
+        switch (standardOutput.isEmpty, standardError.isEmpty) {
+        case (true, true):
+            return ""
+        case (false, true):
+            return standardOutput
+        case (true, false):
+            return standardError
+        case (false, false):
+            return standardOutput + "\n" + standardError
+        }
+    }
 }
 
 enum CancellableProcessRunner {
@@ -23,24 +40,43 @@ enum CancellableProcessRunner {
             return try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
                     let process = Process()
-                    let outputPipe = Pipe()
+                    let standardOutputPipe = Pipe()
+                    let standardErrorPipe = Pipe()
+                    let outputCapture = ProcessOutputCapture()
+                    let outputReadGroup = DispatchGroup()
                     process.executableURL = executableURL
                     process.arguments = arguments
-                    process.standardOutput = outputPipe
-                    process.standardError = outputPipe
+                    process.standardOutput = standardOutputPipe
+                    process.standardError = standardErrorPipe
                     controller.register(process)
 
                     do {
                         try process.run()
                         controller.processDidStart()
+
+                        outputReadGroup.enter()
+                        DispatchQueue.global(qos: .utility).async {
+                            outputCapture.captureStandardOutput(
+                                standardOutputPipe.fileHandleForReading.readDataToEndOfFile()
+                            )
+                            outputReadGroup.leave()
+                        }
+                        outputReadGroup.enter()
+                        DispatchQueue.global(qos: .utility).async {
+                            outputCapture.captureStandardError(
+                                standardErrorPipe.fileHandleForReading.readDataToEndOfFile()
+                            )
+                            outputReadGroup.leave()
+                        }
+
                         if timeout > 0 {
                             DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout) {
                                 controller.stop(reason: .timedOut(timeout))
                             }
                         }
 
-                        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
                         process.waitUntilExit()
+                        outputReadGroup.wait()
                         let stopReason = controller.complete()
 
                         switch stopReason {
@@ -53,7 +89,8 @@ enum CancellableProcessRunner {
                         case nil:
                             continuation.resume(returning: CancellableProcessResult(
                                 terminationStatus: process.terminationStatus,
-                                output: String(data: outputData, encoding: .utf8) ?? ""
+                                standardOutput: outputCapture.standardOutput,
+                                standardError: outputCapture.standardError
                             ))
                         }
                     } catch {
@@ -65,6 +102,36 @@ enum CancellableProcessRunner {
         } onCancel: {
             controller.stop(reason: .cancelled)
         }
+    }
+}
+
+private final class ProcessOutputCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var capturedStandardOutput = ""
+    private var capturedStandardError = ""
+
+    var standardOutput: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return capturedStandardOutput
+    }
+
+    var standardError: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return capturedStandardError
+    }
+
+    func captureStandardOutput(_ data: Data) {
+        lock.lock()
+        capturedStandardOutput = String(data: data, encoding: .utf8) ?? ""
+        lock.unlock()
+    }
+
+    func captureStandardError(_ data: Data) {
+        lock.lock()
+        capturedStandardError = String(data: data, encoding: .utf8) ?? ""
+        lock.unlock()
     }
 }
 

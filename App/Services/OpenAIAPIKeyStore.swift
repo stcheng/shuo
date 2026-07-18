@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import OSLog
 import Security
 
@@ -22,8 +23,12 @@ enum AppCredentialServices {
         AppBuildIdentity.credentialService("alibaba-api-key")
     }
 
+    static var gemini: String {
+        AppBuildIdentity.credentialService("gemini-api-key")
+    }
+
     static var all: [String] {
-        [openAI, elevenLabs, alibaba]
+        [openAI, elevenLabs, alibaba, gemini]
     }
 }
 
@@ -121,16 +126,20 @@ struct DevelopmentFileCredentialStore: SecureCredentialStoring {
 
     private func credentialURL(service: String, account: String) -> URL {
         let fileName: String
+        let safeAccount = account.map { $0.isLetter || $0.isNumber ? $0 : "_" }
         switch service {
         case AppCredentialServices.openAI:
-            fileName = "openai-api-key"
+            fileName = account == "default"
+                ? "openai-api-key"
+                : "openai-api-key-\(String(safeAccount))"
         case AppCredentialServices.elevenLabs:
             fileName = "elevenlabs-api-key"
         case AppCredentialServices.alibaba:
             fileName = "alibaba-api-key"
+        case AppCredentialServices.gemini:
+            fileName = "gemini-api-key"
         default:
             let safeService = service.map { $0.isLetter || $0.isNumber ? $0 : "_" }
-            let safeAccount = account.map { $0.isLetter || $0.isNumber ? $0 : "_" }
             fileName = "\(String(safeService))-\(String(safeAccount))"
         }
         return baseDirectory.appendingPathComponent(fileName, isDirectory: false)
@@ -223,6 +232,8 @@ struct KeychainCredentialStore: SecureCredentialStoring {
             descriptor = "Shuo ElevenLabs API Key"
         case AppCredentialServices.alibaba:
             descriptor = "Shuo Alibaba Model Studio API Key"
+        case AppCredentialServices.gemini:
+            descriptor = "Shuo Gemini API Key"
         default:
             descriptor = "Shuo Secure Credential"
         }
@@ -243,25 +254,106 @@ struct KeychainCredentialStoreError: LocalizedError {
     }
 }
 
+enum OpenAICompatibleCredentialScope: Hashable {
+    case openAI
+    case groq
+    case siliconFlow
+    case custom(endpointIdentity: String)
+
+    init(baseURLString: String) {
+        let identity = OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: baseURLString
+        )
+        if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: CloudTranscriptionProviderConfiguration.openAI.endpoint.defaultURLString
+        ) {
+            self = .openAI
+        } else if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: CloudTranscriptionProviderConfiguration.groq.endpoint.defaultURLString
+        ) {
+            self = .groq
+        } else if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
+            baseURLString: CloudTranscriptionProviderConfiguration.siliconFlow.endpoint.defaultURLString
+        ) {
+            self = .siliconFlow
+        } else {
+            self = .custom(endpointIdentity: identity)
+        }
+    }
+
+    var credentialAccount: String {
+        switch self {
+        case .openAI:
+            // Keep the legacy account name so existing OpenAI credentials
+            // continue to work without a migration prompt.
+            return "default"
+        case .groq:
+            return "groq"
+        case .siliconFlow:
+            return "siliconflow"
+        case .custom(let endpointIdentity):
+            let digest = SHA256.hash(data: Data(endpointIdentity.utf8))
+            let identifier = digest.map { String(format: "%02x", $0) }.joined()
+            return "custom-\(identifier)"
+        }
+    }
+
+    var migrationIdentifier: String {
+        switch self {
+        case .openAI:
+            return "openAI"
+        case .groq:
+            return "groq"
+        case .siliconFlow:
+            return "siliconflow"
+        case .custom:
+            return credentialAccount
+        }
+    }
+}
+
 enum OpenAIAPIKeyStore {
     private static let defaultsKey = "openAIAPIKey"
     private static var service: String { AppCredentialServices.openAI }
-    private static let account = "default"
-    private static var accessMigrationKey: String {
-        scopedAccessMigrationKey("credentialAccess.openAI.version")
+    private static let legacyAccount = "default"
+
+    private static func accessMigrationKey(for scope: OpenAICompatibleCredentialScope) -> String {
+        let key = scope == .openAI
+            ? "credentialAccess.openAI.version"
+            : "credentialAccess.openAI.\(scope.migrationIdentifier).version"
+        return scopedAccessMigrationKey(key)
     }
 
     static func load(
+        scope: OpenAICompatibleCredentialScope = .openAI,
+        migrateLegacyDefault: Bool = false,
         userDefaults: UserDefaults = .standard,
         credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
         developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
             .activeForCurrentBuild
     ) throws -> String {
+        let account = scope.credentialAccount
         if let developmentCredentialStore {
             if let data = try developmentCredentialStore.data(service: service, account: account),
                let storedKey = String(data: data, encoding: .utf8) {
                 CredentialStorageLog.logger.info(
-                    "Loaded OpenAI credential from development storage"
+                    "Loaded OpenAI-compatible credential from development storage"
+                )
+                userDefaults.removeObject(forKey: defaultsKey)
+                return storedKey
+            }
+
+            if migrateLegacyDefault,
+               scope != .openAI,
+               let data = try developmentCredentialStore.data(
+                   service: service,
+                   account: legacyAccount
+               ),
+               let storedKey = String(data: data, encoding: .utf8) {
+                try developmentCredentialStore.set(data, service: service, account: account)
+                try developmentCredentialStore.remove(service: service, account: legacyAccount)
+                CredentialStorageLog.logger.notice(
+                    "Moved legacy OpenAI-compatible credential into its endpoint-specific development storage"
                 )
                 userDefaults.removeObject(forKey: defaultsKey)
                 return storedKey
@@ -271,7 +363,7 @@ enum OpenAIAPIKeyStore {
                let storedKey = String(data: data, encoding: .utf8) {
                 try developmentCredentialStore.set(data, service: service, account: account)
                 CredentialStorageLog.logger.notice(
-                    "Migrated OpenAI credential from Keychain to development storage"
+                    "Migrated OpenAI-compatible credential from Keychain to development storage"
                 )
                 userDefaults.removeObject(forKey: defaultsKey)
                 return storedKey
@@ -287,7 +379,7 @@ enum OpenAIAPIKeyStore {
                 account: account
             )
             CredentialStorageLog.logger.notice(
-                "Migrated OpenAI credential from legacy defaults to development storage"
+                "Migrated OpenAI-compatible credential from legacy defaults to development storage"
             )
             userDefaults.removeObject(forKey: defaultsKey)
             return legacyKey
@@ -298,9 +390,26 @@ enum OpenAIAPIKeyStore {
             CredentialAccessMigration.runIfNeeded(
                 service: service,
                 account: account,
-                defaultsKey: accessMigrationKey,
+                defaultsKey: accessMigrationKey(for: scope),
                 userDefaults: userDefaults,
                 credentialStore: credentialStore
+            )
+            userDefaults.removeObject(forKey: defaultsKey)
+            return storedKey
+        }
+
+        if migrateLegacyDefault,
+           scope != .openAI,
+           let data = try credentialStore.data(service: service, account: legacyAccount),
+           let storedKey = String(data: data, encoding: .utf8) {
+            try credentialStore.set(data, service: service, account: account)
+            try credentialStore.remove(service: service, account: legacyAccount)
+            CredentialAccessMigration.markComplete(
+                defaultsKey: accessMigrationKey(for: scope),
+                userDefaults: userDefaults
+            )
+            CredentialStorageLog.logger.notice(
+                "Moved legacy OpenAI-compatible credential into its endpoint-specific Keychain item"
             )
             userDefaults.removeObject(forKey: defaultsKey)
             return storedKey
@@ -313,7 +422,7 @@ enum OpenAIAPIKeyStore {
 
         try credentialStore.set(Data(legacyKey.utf8), service: service, account: account)
         CredentialAccessMigration.markComplete(
-            defaultsKey: accessMigrationKey,
+            defaultsKey: accessMigrationKey(for: scope),
             userDefaults: userDefaults
         )
         userDefaults.removeObject(forKey: defaultsKey)
@@ -322,12 +431,14 @@ enum OpenAIAPIKeyStore {
 
     static func save(
         _ apiKey: String,
+        scope: OpenAICompatibleCredentialScope = .openAI,
         userDefaults: UserDefaults = .standard,
         credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
         developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
             .activeForCurrentBuild
     ) throws {
         let trimmed = normalized(apiKey)
+        let account = scope.credentialAccount
 
         if let developmentCredentialStore {
             if trimmed.isEmpty {
@@ -340,7 +451,7 @@ enum OpenAIAPIKeyStore {
                 )
             }
             CredentialStorageLog.logger.info(
-                "Updated OpenAI credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
+                "Updated OpenAI-compatible credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
             )
             userDefaults.removeObject(forKey: defaultsKey)
             return
@@ -348,7 +459,7 @@ enum OpenAIAPIKeyStore {
 
         if trimmed.isEmpty {
             try credentialStore.remove(service: service, account: account)
-            userDefaults.removeObject(forKey: accessMigrationKey)
+            userDefaults.removeObject(forKey: accessMigrationKey(for: scope))
         } else {
             try credentialStore.set(Data(trimmed.utf8), service: service, account: account)
         }
@@ -510,6 +621,133 @@ enum AlibabaAPIKeyStore {
             }
             CredentialStorageLog.logger.info(
                 "Updated Alibaba credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
+            )
+            return
+        }
+
+        if trimmed.isEmpty {
+            try credentialStore.remove(service: service, account: account)
+            userDefaults.removeObject(forKey: accessMigrationKey)
+        } else {
+            try credentialStore.set(Data(trimmed.utf8), service: service, account: account)
+        }
+    }
+
+    private static func normalized(_ apiKey: String) -> String {
+        apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+enum GeminiAPIKeyStore {
+    private static var service: String { AppCredentialServices.gemini }
+    private static let account = "default"
+    private static var accessMigrationKey: String {
+        scopedAccessMigrationKey("credentialAccess.gemini.version")
+    }
+
+    static func load(
+        userDefaults: UserDefaults = .standard,
+        credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
+        developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
+            .activeForCurrentBuild
+    ) throws -> String {
+        try ProviderAPIKeyStore.load(
+            service: service,
+            account: account,
+            accessMigrationKey: accessMigrationKey,
+            providerName: "Gemini",
+            userDefaults: userDefaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: developmentCredentialStore
+        )
+    }
+
+    static func save(
+        _ apiKey: String,
+        userDefaults: UserDefaults = .standard,
+        credentialStore: SecureCredentialStoring = KeychainCredentialStore(),
+        developmentCredentialStore: SecureCredentialStoring? = DevelopmentFileCredentialStore
+            .activeForCurrentBuild
+    ) throws {
+        try ProviderAPIKeyStore.save(
+            apiKey,
+            service: service,
+            account: account,
+            accessMigrationKey: accessMigrationKey,
+            providerName: "Gemini",
+            userDefaults: userDefaults,
+            credentialStore: credentialStore,
+            developmentCredentialStore: developmentCredentialStore
+        )
+    }
+}
+
+private enum ProviderAPIKeyStore {
+    static func load(
+        service: String,
+        account: String,
+        accessMigrationKey: String,
+        providerName: String,
+        userDefaults: UserDefaults,
+        credentialStore: SecureCredentialStoring,
+        developmentCredentialStore: SecureCredentialStoring?
+    ) throws -> String {
+        if let developmentCredentialStore {
+            if let data = try developmentCredentialStore.data(service: service, account: account),
+               let storedKey = String(data: data, encoding: .utf8) {
+                CredentialStorageLog.logger.info(
+                    "Loaded \(providerName, privacy: .public) credential from development storage"
+                )
+                return normalized(storedKey)
+            }
+            guard let data = try credentialStore.data(service: service, account: account),
+                  let storedKey = String(data: data, encoding: .utf8) else {
+                return ""
+            }
+            try developmentCredentialStore.set(data, service: service, account: account)
+            CredentialStorageLog.logger.notice(
+                "Migrated \(providerName, privacy: .public) credential from Keychain to development storage"
+            )
+            return normalized(storedKey)
+        }
+
+        guard let data = try credentialStore.data(service: service, account: account),
+              let storedKey = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        CredentialAccessMigration.runIfNeeded(
+            service: service,
+            account: account,
+            defaultsKey: accessMigrationKey,
+            userDefaults: userDefaults,
+            credentialStore: credentialStore
+        )
+        return normalized(storedKey)
+    }
+
+    static func save(
+        _ apiKey: String,
+        service: String,
+        account: String,
+        accessMigrationKey: String,
+        providerName: String,
+        userDefaults: UserDefaults,
+        credentialStore: SecureCredentialStoring,
+        developmentCredentialStore: SecureCredentialStoring?
+    ) throws {
+        let trimmed = normalized(apiKey)
+        if let developmentCredentialStore {
+            if trimmed.isEmpty {
+                try developmentCredentialStore.remove(service: service, account: account)
+            } else {
+                try developmentCredentialStore.set(
+                    Data(trimmed.utf8),
+                    service: service,
+                    account: account
+                )
+            }
+            CredentialStorageLog.logger.info(
+                "Updated \(providerName, privacy: .public) credential in development storage; removed=\(trimmed.isEmpty, privacy: .public)"
             )
             return
         }

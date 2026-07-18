@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import OSLog
+import UniformTypeIdentifiers
 
 enum ShuoSyntheticEventMarker {
     private static let marker: Int64 = 0x5348_554F // "SHUO"
@@ -1300,6 +1301,13 @@ final class PasteboardInjector {
 }
 
 struct PasteboardContentsSnapshot {
+    /// Clipboard owners sometimes advertise malformed legacy/private types
+    /// (notably WeChat/QQ RichEdit types) that AppKit cannot read. Those types
+    /// have no representable data to preserve, so skipping only malformed
+    /// identifiers lets us retain every readable representation without
+    /// mistaking this condition for a slow clipboard owner.
+    static let captureTimeout: TimeInterval = 0.35
+
     struct Item {
         let values: [(type: NSPasteboard.PasteboardType, data: Data)]
     }
@@ -1316,6 +1324,9 @@ struct PasteboardContentsSnapshot {
             values.reserveCapacity(pasteboardItem.types.count)
             for type in pasteboardItem.types {
                 guard let data = pasteboardItem.data(forType: type) else {
+                    if shouldSkipUnreadableMalformedType(type) {
+                        continue
+                    }
                     return nil
                 }
                 values.append((type: type, data: data))
@@ -1329,7 +1340,7 @@ struct PasteboardContentsSnapshot {
     @MainActor
     static func captureWithoutBlockingMain(
         from pasteboard: NSPasteboard,
-        timeout: TimeInterval = 0.12,
+        timeout: TimeInterval = captureTimeout,
         coordinator: PasteboardSnapshotCaptureCoordinator = .shared
     ) async -> PasteboardContentsSnapshot? {
         await captureWithoutBlockingMain(
@@ -1341,10 +1352,14 @@ struct PasteboardContentsSnapshot {
 
     static func captureWithoutBlockingMain(
         named pasteboardName: NSPasteboard.Name,
-        timeout: TimeInterval = 0.12,
+        timeout: TimeInterval = captureTimeout,
         coordinator: PasteboardSnapshotCaptureCoordinator = .shared
     ) async -> PasteboardContentsSnapshot? {
         await coordinator.capture(named: pasteboardName, timeout: timeout)
+    }
+
+    static func shouldSkipUnreadableMalformedType(_ type: NSPasteboard.PasteboardType) -> Bool {
+        UTType(type.rawValue) == nil
     }
 
     @discardableResult

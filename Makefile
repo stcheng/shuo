@@ -102,6 +102,7 @@ release-rc:
 	SHUO_NOTARIZE=1 \
 	SHUO_NOTARY_PROFILE="$${SHUO_NOTARY_PROFILE:-Shuo-Notary}" \
 	SHUO_WHISPER_ARCHITECTURES='arm64;x86_64' \
+	SHUO_SENSEVOICE_ARCHITECTURES='arm64;x86_64' \
 	./Scripts/package-app.sh all
 
 # Print the complete public-upload allowlist for one verified RC manifest.
@@ -128,8 +129,9 @@ release-public-assets:
 	test "$$(jq -r '.source.tag // empty' "$$manifest")" = "v$$version"; \
 	test "$$(jq -r '.dependencies.sparkle.repository // empty' "$$manifest")" = https://github.com/sparkle-project/Sparkle; \
 	test "$$(jq -r '.dependencies.sparkle.version // empty' "$$manifest")" = 2.9.4; \
-	test "$$(jq -r '.dependencies.sparkle.revision // empty' "$$manifest")" = b6496a74a087257ef5e6da1c5b29a447a60f5bd7; \
-	test -f "$$directory/$$zip"; \
+		test "$$(jq -r '.dependencies.sparkle.revision // empty' "$$manifest")" = b6496a74a087257ef5e6da1c5b29a447a60f5bd7; \
+		test "$$(jq -r '.dependencies.sensevoice_runtime.segment_delimiter_patch_sha256 // empty' "$$manifest")" = 16b5a7420bfb79fe4d6a4564adf2bae8552735413f46fd80d2e2f234063e955a; \
+		test -f "$$directory/$$zip"; \
 	test -f "$$directory/$$dmg"; \
 	test -f "$$checksum"; \
 	test -f "$$latest_zip"; \
