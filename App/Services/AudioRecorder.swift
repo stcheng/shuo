@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import AudioToolbox
 import CoreAudio
 import Foundation
 import OSLog
@@ -26,6 +27,25 @@ enum AudioRecorderError: LocalizedError {
 struct AudioInputDeviceOption: Identifiable, Equatable {
     let id: String
     let name: String
+}
+
+enum AudioInputSelectionDiagnostics: Equatable {
+    case systemDefault
+    case custom
+}
+
+struct AudioInputDeviceDiagnostics: Equatable {
+    let transport: String
+    let isConnected: Bool
+}
+
+/// A redacted, support-safe view of the current input route. Device names and
+/// identifiers stay out of copied diagnostics because either can contain
+/// personal information.
+struct AudioInputDiagnostics: Equatable {
+    let selection: AudioInputSelectionDiagnostics
+    let resolvedDevice: AudioInputDeviceDiagnostics?
+    let availableDeviceCount: Int
 }
 
 struct AudioRoute: Equatable {
@@ -58,6 +78,12 @@ struct AudioCaptureGraphReusePolicy {
     }
 }
 
+struct AudioCaptureStartRetryPolicy {
+    static func maximumAttemptCount(forTransportType transportType: Int32) -> Int {
+        UInt32(bitPattern: transportType) == kAudioDeviceTransportTypeUSB ? 2 : 1
+    }
+}
+
 struct AudioCaptureSegmentCallbackPolicy {
     static func shouldAccept(
         activeGeneration: UInt64?,
@@ -86,6 +112,13 @@ struct AudioCaptureReadinessPolicy: Equatable {
         timeout: 8,
         maximumPreRollFrameCount: outputSampleRate / 2
     )
+    static let usb = AudioCaptureReadinessPolicy(
+        requiredStableFrameCount: outputSampleRate / 10,
+        minimumActiveFraction: 0.02,
+        digitalSilenceFloor: 0.000_000_1,
+        timeout: 3,
+        maximumPreRollFrameCount: outputSampleRate / 2
+    )
 
     let requiredStableFrameCount: Int
     let minimumActiveFraction: Double
@@ -98,6 +131,8 @@ struct AudioCaptureReadinessPolicy: Equatable {
         case kAudioDeviceTransportTypeBluetooth,
              kAudioDeviceTransportTypeBluetoothLE:
             return .bluetooth
+        case kAudioDeviceTransportTypeUSB:
+            return .usb
         default:
             return nil
         }
@@ -340,7 +375,10 @@ final class AudioCaptureBufferConverter {
     }
 
     func convert(_ sampleBuffer: CMSampleBuffer) throws -> ConvertedAudioSamples {
-        let inputBuffer = try Self.ownedPCMBuffer(from: sampleBuffer)
+        try convert(Self.ownedPCMBuffer(from: sampleBuffer))
+    }
+
+    func convert(_ inputBuffer: AVAudioPCMBuffer) throws -> ConvertedAudioSamples {
         var previousFormatTailSamples: [Float] = []
         var sourceFormatChange: AudioCaptureSourceFormatChange?
 
@@ -540,6 +578,62 @@ enum AudioInputDeviceCatalog {
             }
     }
 
+    static func diagnostics(for uniqueID: String) -> AudioInputDiagnostics {
+        let availableDevices = captureDevices()
+        let normalizedID = normalizedSelectionID(uniqueID)
+        let selection: AudioInputSelectionDiagnostics = normalizedID == systemDefaultDeviceID
+            ? .systemDefault
+            : .custom
+        let resolvedDevice: AVCaptureDevice?
+        if selection == .systemDefault {
+            resolvedDevice = AVCaptureDevice.default(for: .audio)
+        } else {
+            resolvedDevice = availableDevices.first { $0.uniqueID == normalizedID }
+        }
+
+        return AudioInputDiagnostics(
+            selection: selection,
+            resolvedDevice: resolvedDevice.map {
+                AudioInputDeviceDiagnostics(
+                    transport: transportDescription(for: $0.transportType),
+                    isConnected: $0.isConnected
+                )
+            },
+            availableDeviceCount: availableDevices.count
+        )
+    }
+
+    static func transportDescription(for transportType: Int32) -> String {
+        switch UInt32(bitPattern: transportType) {
+        case kAudioDeviceTransportTypeBluetooth:
+            return "Bluetooth"
+        case kAudioDeviceTransportTypeBluetoothLE:
+            return "Bluetooth LE"
+        case kAudioDeviceTransportTypeBuiltIn:
+            return "Built-in"
+        case kAudioDeviceTransportTypeUSB:
+            return "USB"
+        case kAudioDeviceTransportTypeAggregate,
+             kAudioDeviceTransportTypeAutoAggregate:
+            return "Aggregate"
+        case kAudioDeviceTransportTypeVirtual:
+            return "Virtual"
+        case kAudioDeviceTransportTypeThunderbolt:
+            return "Thunderbolt"
+        default:
+            return String(format: "0x%08X", UInt32(bitPattern: transportType))
+        }
+    }
+
+    static func audioObjectID(for uniqueID: String) -> AudioObjectID? {
+        allAudioDeviceIDs().first { deviceID in
+            coreAudioStringProperty(
+                deviceID,
+                selector: kAudioDevicePropertyDeviceUID
+            ) == uniqueID
+        }
+    }
+
     static func device(for uniqueID: String) -> AVCaptureDevice? {
         let trimmedID = uniqueID.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedID = normalizedSelectionID(trimmedID)
@@ -580,6 +674,64 @@ enum AudioInputDeviceCatalog {
             position: .unspecified
         )
         .devices
+    }
+
+    private static func allAudioDeviceIDs() -> [AudioObjectID] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &dataSize
+        ) == noErr else {
+            return []
+        }
+
+        var deviceIDs = [AudioObjectID](
+            repeating: 0,
+            count: Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        )
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &dataSize,
+            &deviceIDs
+        ) == noErr else {
+            return []
+        }
+        return deviceIDs
+    }
+
+    private static func coreAudioStringProperty(
+        _ deviceID: AudioObjectID,
+        selector: AudioObjectPropertySelector
+    ) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        var value: Unmanaged<CFString>?
+        guard AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &dataSize,
+            &value
+        ) == noErr else {
+            return nil
+        }
+        return value?.takeUnretainedValue() as String?
     }
 
 }
@@ -669,6 +821,7 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
     private let maximumRecordingDuration: TimeInterval
     private let bufferConverter = AudioCaptureBufferConverter()
     private var captureGraph: CaptureGraph?
+    private var usbCaptureEngine: AVAudioEngine?
     private var segmentSampleBufferDelegate: SegmentSampleBufferDelegate?
     private var nextSegmentGeneration: UInt64 = 0
     private var activeSegmentGeneration: UInt64?
@@ -694,7 +847,8 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
 
     var isRecording: Bool {
         captureQueue.sync {
-            recordingURL != nil && captureGraph?.session.isRunning == true
+            recordingURL != nil
+                && (captureGraph?.session.isRunning == true || usbCaptureEngine?.isRunning == true)
         }
     }
 
@@ -710,9 +864,24 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             .appendingPathComponent("shuo-\(UUID().uuidString)")
             .appendingPathExtension("wav")
 
+        let inputDiagnostics = AudioInputDeviceCatalog.diagnostics(for: inputDeviceID)
+        let selectionDescription = inputDiagnostics.selection == .systemDefault
+            ? "system-default"
+            : "custom"
+        let resolvedTransport = inputDiagnostics.resolvedDevice?.transport ?? "unavailable"
+        let resolvedIsConnected = inputDiagnostics.resolvedDevice?.isConnected ?? false
+        Self.logger.info(
+            "Audio input requested: selection=\(selectionDescription, privacy: .public), resolved=\(inputDiagnostics.resolvedDevice != nil, privacy: .public), transport=\(resolvedTransport, privacy: .public), connected=\(resolvedIsConnected, privacy: .public), availableInputs=\(inputDiagnostics.availableDeviceCount, privacy: .public)"
+        )
+
         guard let device = AudioInputDeviceCatalog.device(for: inputDeviceID) else {
+            Self.logger.error("Requested audio input is unavailable")
             throw AudioRecorderError.selectedInputDeviceUnavailable
         }
+
+        Self.logger.info(
+            "Audio input resolved: name=\(device.localizedName, privacy: .private), identifier=\(device.uniqueID, privacy: .private), transport=\(AudioInputDeviceCatalog.transportDescription(for: device.transportType), privacy: .public), connected=\(device.isConnected, privacy: .public)"
+        )
 
         let inputDevice = AudioInputDeviceOption(
             id: device.uniqueID,
@@ -728,22 +897,43 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             let policy = AudioCaptureReadinessPolicy.policy(
                 forTransportType: device.transportType
             )
-            let transport = Self.transportDescription(for: device.transportType)
+            let transport = AudioInputDeviceCatalog.transportDescription(for: device.transportType)
 
-            try Task.checkCancellation()
-            try await prepareSegmentAndStartCapture(
-                device: device,
-                url: url,
-                readinessPolicy: policy,
-                transportDescription: transport
+            let maximumAttemptCount = AudioCaptureStartRetryPolicy.maximumAttemptCount(
+                forTransportType: device.transportType
             )
-            try Task.checkCancellation()
-            if let policy {
-                try await waitForInputReadiness(timeout: policy.timeout)
+            for attempt in 1...maximumAttemptCount {
+                do {
+                    try Task.checkCancellation()
+                    try await prepareSegmentAndStartCapture(
+                        device: device,
+                        url: url,
+                        readinessPolicy: policy,
+                        transportDescription: transport
+                    )
+                    try Task.checkCancellation()
+                    if let policy {
+                        try await waitForInputReadiness(timeout: policy.timeout)
+                    }
+                    try Task.checkCancellation()
+                    return AudioRecordingStartResult(url: url, route: route)
+                } catch AudioRecorderError.inputDidNotBecomeReady
+                    where attempt < maximumAttemptCount {
+                    Self.logger.notice(
+                        "USB input produced no live audio; rebuilding capture graph before retry: attempt=\(attempt, privacy: .public), maximumAttempts=\(maximumAttemptCount, privacy: .public)"
+                    )
+                    await abortActiveSegment(invalidateGraph: true)
+                }
             }
-            try Task.checkCancellation()
-            return AudioRecordingStartResult(url: url, route: route)
+            throw AudioRecorderError.inputDidNotBecomeReady
         } catch {
+            if error is CancellationError {
+                Self.logger.info("Audio capture start cancelled")
+            } else {
+                Self.logger.error(
+                    "Audio capture start failed: \(String(describing: error), privacy: .public)"
+                )
+            }
             await abortActiveSegment(invalidateGraph: !(error is CancellationError))
             try? FileManager.default.removeItem(at: url)
             if error is AudioRecorderError || error is CancellationError {
@@ -759,6 +949,9 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         }
 
         guard !snapshot.samples.isEmpty else {
+            Self.logger.error(
+                "Audio capture stopped without samples: finalRate=\(snapshot.latestSourceFormat?.sampleRate ?? 0, privacy: .public), finalChannels=\(snapshot.latestSourceFormat?.channelCount ?? 0, privacy: .public), formatChanges=\(snapshot.sourceFormatChangeCount, privacy: .public), conversionFailures=\(snapshot.conversionFailureCount, privacy: .public), discardedZeroFrames=\(snapshot.discardedZeroFrameCount, privacy: .public)"
+            )
             try? FileManager.default.removeItem(at: snapshot.url)
             return nil
         }
@@ -772,11 +965,15 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
                 )
             }.value
         } catch {
+            Self.logger.error(
+                "Failed to write captured audio: \(String(describing: error), privacy: .public)"
+            )
             try? FileManager.default.removeItem(at: snapshot.url)
             return nil
         }
 
         guard Self.isReadableAudioFile(snapshot.url) else {
+            Self.logger.error("Captured audio file failed readability validation")
             try? FileManager.default.removeItem(at: snapshot.url)
             return nil
         }
@@ -833,6 +1030,33 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             return
         }
 
+        consumeConvertedAudio(convertedAudio)
+    }
+
+    private func consumeUSBInputBuffer(
+        _ inputBuffer: AVAudioPCMBuffer,
+        generation: UInt64
+    ) {
+        guard activeSegmentGeneration == generation,
+              recordingURL != nil,
+              usbCaptureEngine != nil else {
+            Self.logger.debug(
+                "Discarded stale USB audio callback: generation=\(generation, privacy: .public)"
+            )
+            return
+        }
+
+        do {
+            consumeConvertedAudio(try bufferConverter.convert(inputBuffer))
+        } catch {
+            conversionFailureCount += 1
+            Self.logger.error(
+                "USB audio buffer conversion failed: \(String(describing: error), privacy: .public)"
+            )
+        }
+    }
+
+    private func consumeConvertedAudio(_ convertedAudio: ConvertedAudioSamples) {
         if latestSourceFormat == nil {
             Self.logger.info(
                 "Audio input format: rate=\(convertedAudio.sourceFormat.sampleRate, privacy: .public), channels=\(convertedAudio.sourceFormat.channelCount, privacy: .public)"
@@ -924,6 +1148,16 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         readinessPolicy: AudioCaptureReadinessPolicy?,
         transportDescription: String
     ) async throws {
+        if UInt32(bitPattern: device.transportType) == kAudioDeviceTransportTypeUSB {
+            try await prepareUSBEngineAndStartCapture(
+                device: device,
+                url: url,
+                readinessPolicy: readinessPolicy ?? .usb,
+                transportDescription: transportDescription
+            )
+            return
+        }
+
         try await withCheckedThrowingContinuation { continuation in
             captureQueue.async {
                 do {
@@ -975,7 +1209,7 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
                     }
 
                     Self.logger.info(
-                        "Audio capture starting: transport=\(transportDescription, privacy: .public), readinessHandshake=\(readinessPolicy != nil, privacy: .public), graphReused=\(graphReused, privacy: .public), graphSetupDuration=\(graphSetupDuration, privacy: .public), sessionStartDuration=\(sessionStartDuration, privacy: .public)"
+                        "Audio capture starting: transport=\(transportDescription, privacy: .public), readinessHandshake=\(readinessPolicy != nil, privacy: .public), graphReused=\(graphReused, privacy: .public), graphSetupDuration=\(graphSetupDuration, privacy: .public), sessionStartDuration=\(sessionStartDuration, privacy: .public), deviceName=\(device.localizedName, privacy: .private), deviceIdentifier=\(device.uniqueID, privacy: .private)"
                     )
                     continuation.resume()
                 } catch {
@@ -983,6 +1217,153 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private func prepareUSBEngineAndStartCapture(
+        device: AVCaptureDevice,
+        url: URL,
+        readinessPolicy: AudioCaptureReadinessPolicy,
+        transportDescription: String
+    ) async throws {
+        guard let audioObjectID = AudioInputDeviceCatalog.audioObjectID(
+            for: device.uniqueID
+        ) else {
+            throw AudioRecorderError.selectedInputDeviceUnavailable
+        }
+
+        try await withCheckedThrowingContinuation { continuation in
+            captureQueue.async {
+                let setupStartedAt = CFAbsoluteTimeGetCurrent()
+                let engine = AVAudioEngine()
+                let inputNode = engine.inputNode
+                var tapInstalled = false
+
+                do {
+                    guard self.recordingURL == nil else {
+                        throw AudioRecorderError.failedToStart
+                    }
+
+                    // AVCaptureSession can deliver digital zeros from a live
+                    // USB microphone on macOS. Bind AVAudioEngine's input unit
+                    // directly to the Core Audio device, as Yuwp does.
+                    if let captureGraph = self.captureGraph {
+                        self.discardCaptureGraphOnCaptureQueue(captureGraph)
+                    }
+                    guard let audioUnit = inputNode.audioUnit else {
+                        throw AudioRecorderError.failedToStart
+                    }
+                    var selectedDeviceID = audioObjectID
+                    let selectionStatus = AudioUnitSetProperty(
+                        audioUnit,
+                        kAudioOutputUnitProperty_CurrentDevice,
+                        kAudioUnitScope_Global,
+                        0,
+                        &selectedDeviceID,
+                        UInt32(MemoryLayout<AudioObjectID>.size)
+                    )
+                    guard selectionStatus == noErr else {
+                        Self.logger.error(
+                            "Failed to bind USB input audio unit: status=\(selectionStatus, privacy: .public)"
+                        )
+                        throw AudioRecorderError.failedToStart
+                    }
+
+                    let sourceFormat = inputNode.inputFormat(forBus: 0)
+                    guard sourceFormat.sampleRate > 0,
+                          sourceFormat.channelCount > 0 else {
+                        Self.logger.error(
+                            "USB input exposed an invalid format: rate=\(sourceFormat.sampleRate, privacy: .public), channels=\(sourceFormat.channelCount, privacy: .public)"
+                        )
+                        throw AudioRecorderError.failedToStart
+                    }
+
+                    self.resetSegmentStateOnCaptureQueue()
+                    self.recordingURL = url
+                    self.readinessBuffer = AudioCaptureReadinessBuffer(
+                        policy: readinessPolicy
+                    )
+                    self.readinessWarmupStartedAt = Date()
+                    self.nextSegmentGeneration &+= 1
+                    let generation = self.nextSegmentGeneration
+                    self.activeSegmentGeneration = generation
+                    self.usbCaptureEngine = engine
+
+                    let bufferSize = AVAudioFrameCount(sourceFormat.sampleRate * 0.1)
+                    inputNode.installTap(
+                        onBus: 0,
+                        bufferSize: bufferSize,
+                        format: sourceFormat
+                    ) { [weak self] buffer, _ in
+                        guard let self,
+                              let copiedBuffer = Self.copyPCMBuffer(buffer) else {
+                            return
+                        }
+                        self.captureQueue.async {
+                            self.consumeUSBInputBuffer(
+                                copiedBuffer,
+                                generation: generation
+                            )
+                        }
+                    }
+                    tapInstalled = true
+
+                    engine.prepare()
+                    try engine.start()
+                    guard engine.isRunning else {
+                        throw AudioRecorderError.failedToStart
+                    }
+
+                    let setupDuration = CFAbsoluteTimeGetCurrent() - setupStartedAt
+                    Self.logger.info(
+                        "Audio capture starting: backend=AVAudioEngine, transport=\(transportDescription, privacy: .public), readinessHandshake=true, graphReused=false, setupDuration=\(setupDuration, privacy: .public), sourceRate=\(sourceFormat.sampleRate, privacy: .public), sourceChannels=\(sourceFormat.channelCount, privacy: .public), deviceName=\(device.localizedName, privacy: .private), deviceIdentifier=\(device.uniqueID, privacy: .private)"
+                    )
+                    continuation.resume()
+                } catch {
+                    if tapInstalled {
+                        inputNode.removeTap(onBus: 0)
+                    }
+                    engine.stop()
+                    engine.reset()
+                    self.usbCaptureEngine = nil
+                    self.resetSegmentStateOnCaptureQueue()
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private static func copyPCMBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(
+            pcmFormat: buffer.format,
+            frameCapacity: buffer.frameLength
+        ) else {
+            return nil
+        }
+        copy.frameLength = buffer.frameLength
+
+        let sourceBuffers = UnsafeMutableAudioBufferListPointer(
+            buffer.mutableAudioBufferList
+        )
+        let destinationBuffers = UnsafeMutableAudioBufferListPointer(
+            copy.mutableAudioBufferList
+        )
+        guard sourceBuffers.count == destinationBuffers.count else {
+            return nil
+        }
+
+        for index in sourceBuffers.indices {
+            guard let source = sourceBuffers[index].mData,
+                  let destination = destinationBuffers[index].mData else {
+                return nil
+            }
+            let byteCount = min(
+                Int(sourceBuffers[index].mDataByteSize),
+                Int(destinationBuffers[index].mDataByteSize)
+            )
+            memcpy(destination, source, byteCount)
+            destinationBuffers[index].mDataByteSize = UInt32(byteCount)
+        }
+        return copy
     }
 
     private func abortActiveSegment(invalidateGraph: Bool) async {
@@ -1027,9 +1408,16 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         }
     }
 
-    /// All AVCaptureSession and sample-buffer delegate teardown is serialized
-    /// with capture callbacks. Callers must already be running on captureQueue.
+    /// All capture teardown is serialized with capture callbacks. Callers must
+    /// already be running on captureQueue.
     private func quiesceCaptureGraphOnCaptureQueue(drainConverter: Bool) {
+        if let engine = usbCaptureEngine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+            engine.reset()
+            usbCaptureEngine = nil
+        }
+
         captureGraph?.output.setSampleBufferDelegate(nil, queue: nil)
         if captureGraph?.session.isRunning == true {
             captureGraph?.session.stopRunning()
@@ -1099,13 +1487,19 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
             forName: AVCaptureSession.runtimeErrorNotification,
             object: session,
             queue: nil
-        ) { [weak self, weak graph] _ in
+        ) { [weak self, weak graph] notification in
             guard let self, let graph else {
                 return
             }
+            let runtimeError = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
+            let errorDomain = runtimeError?.domain ?? "unknown"
+            let errorCode = runtimeError?.code ?? 0
+            let errorDescription = runtimeError?.localizedDescription ?? "unavailable"
             self.captureQueue.async {
                 graph.runtimeInvalidated = true
-                Self.logger.error("Audio capture graph received a runtime error and will be rebuilt")
+                Self.logger.error(
+                    "Audio capture runtime error; graph will be rebuilt: domain=\(errorDomain, privacy: .public), code=\(errorCode, privacy: .public), description=\(errorDescription, privacy: .private)"
+                )
             }
         }
         graph.deviceDisconnectObserver = NotificationCenter.default.addObserver(
@@ -1119,9 +1513,13 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
                   disconnectedDevice.uniqueID == graph.input.device.uniqueID else {
                 return
             }
+            let deviceName = disconnectedDevice.localizedName
+            let deviceID = disconnectedDevice.uniqueID
             self.captureQueue.async {
                 graph.runtimeInvalidated = true
-                Self.logger.info("Audio input disconnected; cached capture graph invalidated")
+                Self.logger.info(
+                    "Audio input disconnected; cached capture graph invalidated: name=\(deviceName, privacy: .private), identifier=\(deviceID, privacy: .private)"
+                )
             }
         }
         return graph
@@ -1202,21 +1600,6 @@ final class AudioRecorder: NSObject, @unchecked Sendable {
         )
         readinessWarmupStartedAt = nil
         readinessZeroFrameBaseline = readinessBuffer.discardedDigitalSilenceFrameCount
-    }
-
-    private static func transportDescription(for transportType: Int32) -> String {
-        switch UInt32(bitPattern: transportType) {
-        case kAudioDeviceTransportTypeBluetooth:
-            return "bluetooth"
-        case kAudioDeviceTransportTypeBluetoothLE:
-            return "bluetooth-le"
-        case kAudioDeviceTransportTypeBuiltIn:
-            return "built-in"
-        case kAudioDeviceTransportTypeUSB:
-            return "usb"
-        default:
-            return String(format: "0x%08X", UInt32(bitPattern: transportType))
-        }
     }
 
     private func trackPresentationTimestamp(of sampleBuffer: CMSampleBuffer) {
