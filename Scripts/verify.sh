@@ -43,13 +43,9 @@ run_static_checks() {
     "$source_root/Evaluation/evaluate_transcripts.py"
 
   plutil -lint \
-	"$source_root/App/Info.plist" \
 	"$source_root/App/Info-Community.plist" \
 	"$source_root/App/Info-Direct.plist" \
-    "$source_root/App/Shuo.entitlements" \
     "$source_root/App/ShuoDirect.entitlements"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsAutomaticTermination' "$source_root/App/Info.plist")" = "false"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsSuddenTermination' "$source_root/App/Info.plist")" = "false"
   test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsAutomaticTermination' "$source_root/App/Info-Direct.plist")" = "false"
   test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsSuddenTermination' "$source_root/App/Info-Direct.plist")" = "false"
   test "$(/usr/libexec/PlistBuddy -c 'Print :ShuoDistributionChannel' "$source_root/App/Info-Community.plist")" = "community"
@@ -58,7 +54,6 @@ run_static_checks() {
   ! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$source_root/App/Info-Community.plist" >/dev/null 2>&1
   ! /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$source_root/App/Info-Community.plist" >/dev/null 2>&1
   xmllint --noout \
-	"$source_root/Shuo.xcodeproj/xcshareddata/xcschemes/Shuo.xcscheme" \
 	"$source_root/Shuo.xcodeproj/xcshareddata/xcschemes/ShuoCommunity.xcscheme" \
 	"$source_root/Shuo.xcodeproj/xcshareddata/xcschemes/ShuoDirect.xcscheme" \
     "$source_root/web/appcast.xml"
@@ -140,40 +135,11 @@ run_xcode_checks() {
   xcodebuild test \
     -quiet \
     -project "$source_root/Shuo.xcodeproj" \
-    -scheme Shuo \
+    -scheme ShuoCommunity \
+    -configuration Community \
     -destination "$DESTINATION" \
-    -derivedDataPath "$derived_data" \
-    "${PACKAGE_RESOLUTION_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
-
-  xcodebuild build \
-    -quiet \
-    -project "$source_root/Shuo.xcodeproj" \
-    -scheme Shuo \
-    -configuration Release \
-    -destination "$DESTINATION" \
-    -derivedDataPath "$derived_data" \
-    "${PACKAGE_RESOLUTION_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO
-
-  local app_store_app="$derived_data/Build/Products/Release/Shuo.app"
-  local expected_short_version expected_build_number
-  expected_short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_store_app/Contents/Info.plist")"
-  expected_build_number="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_store_app/Contents/Info.plist")"
-  [[ "$expected_short_version" =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ ]]
-  [[ "$expected_build_number" =~ ^[0-9]+$ ]]
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app_store_app/Contents/Info.plist")" = "Shuo"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_store_app/Contents/Info.plist")" = "$expected_short_version"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_store_app/Contents/Info.plist")" = "$expected_build_number"
-  test -x "$app_store_app/Contents/MacOS/Shuo"
-  test -f "$app_store_app/Contents/Resources/LICENSE"
-  cmp -s "$source_root/LICENSE" "$app_store_app/Contents/Resources/LICENSE"
-  test ! -e "$app_store_app/Contents/Frameworks/Sparkle.framework"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsAutomaticTermination' "$app_store_app/Contents/Info.plist")" = "false"
-  test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsSuddenTermination' "$app_store_app/Contents/Info.plist")" = "false"
-  ! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$app_store_app/Contents/Info.plist" >/dev/null 2>&1
+    -derivedDataPath "$derived_data-community" \
+    "${PACKAGE_RESOLUTION_ARGS[@]}"
 
   xcodebuild build \
     -quiet \
@@ -185,6 +151,11 @@ run_xcode_checks() {
     "${PACKAGE_RESOLUTION_ARGS[@]}"
 
   local community_app="$derived_data-community/Build/Products/Community/Shuo Community.app"
+  local expected_short_version expected_build_number
+  expected_short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$community_app/Contents/Info.plist")"
+  expected_build_number="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$community_app/Contents/Info.plist")"
+  [[ "$expected_short_version" =~ ^[0-9A-Za-z][0-9A-Za-z.+-]*$ ]]
+  [[ "$expected_build_number" =~ ^[0-9]+$ ]]
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$community_app/Contents/Info.plist")" = "org.shuo.community"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$community_app/Contents/Info.plist")" = "Shuo Community"
   test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$community_app/Contents/Info.plist")" = "$expected_short_version"
@@ -238,7 +209,6 @@ run_xcode_checks "$ROOT_DIR" "$DERIVED_DATA"
 "$ROOT_DIR/Scripts/export-public.sh" "$EXPORT_DIR"
 
 test -f "$EXPORT_DIR/App/ShuoApp.swift"
-test -f "$EXPORT_DIR/Shuo.xcodeproj/xcshareddata/xcschemes/Shuo.xcscheme"
 test -f "$EXPORT_DIR/Shuo.xcodeproj/xcshareddata/xcschemes/ShuoCommunity.xcscheme"
 test -f "$EXPORT_DIR/Shuo.xcodeproj/xcshareddata/xcschemes/ShuoDirect.xcscheme"
 test -f "$EXPORT_DIR/web/appcast.xml"

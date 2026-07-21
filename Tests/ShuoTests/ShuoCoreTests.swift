@@ -318,24 +318,12 @@ final class AppSettingsTests: XCTestCase {
         settings.openAIBaseURL = "https://example.com/v1"
         settings.openAIOrganizationID = "org-test"
         settings.openAIProjectID = "project-test"
-        settings.acknowledgedOpenAICompatibleRelayEndpoint = "https://example.com/v1"
 
         settings.resetOpenAIConnectionDetails()
 
         XCTAssertEqual(settings.openAIBaseURL, AppSettings.defaultOpenAIBaseURL)
         XCTAssertEqual(settings.openAIOrganizationID, "")
         XCTAssertEqual(settings.openAIProjectID, "")
-        XCTAssertEqual(settings.acknowledgedOpenAICompatibleRelayEndpoint, "")
-    }
-
-    @MainActor
-    func testAppStoreBuildDoesNotExposeDirectUpdater() {
-        let controller = AppUpdateController()
-
-        controller.start()
-
-        XCTAssertFalse(controller.supportsDirectUpdates)
-        XCTAssertFalse(controller.canCheckForUpdates)
     }
 
     func testErrorSummaryCompactsAndTruncatesLongMessages() {
@@ -2624,19 +2612,19 @@ final class OpenAICompatibleRequestBuilderTests: XCTestCase {
         ))
     }
 
-    func testRecognizesTheOfficialEndpointAndThirdPartyRelays() {
+    func testRecognizesEndpointsThatNeedTheCompatibilityPayload() {
         XCTAssertFalse(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "https://api.openai.com/v1/"
             )
         )
         XCTAssertTrue(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "https://relay.example.test/v1"
             )
         )
         XCTAssertTrue(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "http://localhost:11434/v1"
             )
         )
@@ -3426,18 +3414,45 @@ final class AudioCapturePipelineTests: XCTestCase {
 }
 
 final class AudioActivityAnalyzerTests: XCTestCase {
-    func testQuietAudibleRecordingIsNotIgnoredByDefaultGate() throws {
+    func testAdaptiveGateAdmitsQuietSpeechWithoutRequiringWhisperMode() throws {
         let url = temporaryWAVURL()
         defer { try? FileManager.default.removeItem(at: url) }
-        try writeSineWAV(to: url, peakDBFS: -58)
+        try writeSineWAV(to: url, peakDBFS: -44)
 
-        let analysis = try AudioActivityAnalyzer().analyze(
+        let analyzer = AudioActivityAnalyzer()
+        let standardAnalysis = try analyzer.analyze(
             url,
             silenceThresholdDBFS: AppSettings().silenceThresholdDBFS
         )
 
-        XCTAssertEqual(analysis.activeDuration, 0, accuracy: 0.001)
-        XCTAssertTrue(analysis.containsSpeech(settings: AppSettings()))
+        XCTAssertEqual(standardAnalysis.activeDuration, 0, accuracy: 0.001)
+        XCTAssertFalse(standardAnalysis.containsSpeech(settings: AppSettings()))
+
+        let adaptiveAnalysis = try analyzer.analyze(
+            url,
+            silenceThresholdDBFS: AppSettings().silenceThresholdDBFS,
+            adaptsToNoiseFloor: true
+        )
+
+        XCTAssertGreaterThan(adaptiveAnalysis.activeDuration, 0.9)
+        XCTAssertTrue(adaptiveAnalysis.containsSpeech(settings: AppSettings()))
+    }
+
+    func testAdaptiveGateRejectsLowLevelNoiseEvenWhenItsWindowIsActive() throws {
+        let url = temporaryWAVURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try writeSineWAV(to: url, peakDBFS: -49)
+
+        let settings = AppSettings()
+        let analysis = try AudioActivityAnalyzer().analyze(
+            url,
+            silenceThresholdDBFS: settings.silenceThresholdDBFS,
+            adaptsToNoiseFloor: true
+        )
+
+        XCTAssertGreaterThan(analysis.activeDuration, 0.9)
+        XCTAssertLessThan(analysis.speechLevelDBFS, -50)
+        XCTAssertFalse(analysis.containsSpeech(settings: settings))
     }
 
     func testNearSilentRecordingIsIgnoredByDefaultGate() throws {
@@ -3451,6 +3466,34 @@ final class AudioActivityAnalyzerTests: XCTestCase {
         )
 
         XCTAssertFalse(analysis.containsSpeech(settings: AppSettings()))
+    }
+
+    func testAmbientNoiseWithShortPeaksDoesNotPassDefaultGate() throws {
+        let samples: [(name: String, duration: TimeInterval, transientTimes: [TimeInterval])] = [
+            ("opening transient", 1.8, [0.01]),
+            ("late transient", 3.2, [2.9]),
+            ("several short transients", 3.4, [0.7, 1.4, 2.6])
+        ]
+
+        let analyzer = AudioActivityAnalyzer()
+        for sample in samples {
+            let url = temporaryWAVURL()
+            defer { try? FileManager.default.removeItem(at: url) }
+            try writeAmbientNoiseWAV(
+                to: url,
+                duration: sample.duration,
+                transientTimes: sample.transientTimes
+            )
+
+            let analysis = try analyzer.analyze(
+                url,
+                silenceThresholdDBFS: AppSettings().silenceThresholdDBFS,
+                adaptsToNoiseFloor: true
+            )
+
+            XCTAssertGreaterThan(analysis.peakDBFS, -65, sample.name)
+            XCTAssertFalse(analysis.containsSpeech(settings: AppSettings()), sample.name)
+        }
     }
 
     func testWhisperAnalysisAdaptsThresholdToRecordingLevels() throws {
@@ -3565,6 +3608,28 @@ final class AudioActivityAnalyzerTests: XCTestCase {
         wavData.append(pcmData)
 
         try wavData.write(to: url)
+    }
+
+    private func writeAmbientNoiseWAV(
+        to url: URL,
+        duration: TimeInterval,
+        transientTimes: [TimeInterval]
+    ) throws {
+        let sampleRate = 16_000
+        let ambientAmplitude = Float(pow(10.0, -49.0 / 20.0))
+        let transientAmplitude = Float(pow(10.0, -38.0 / 20.0))
+        let sampleCount = Int((duration * Double(sampleRate)).rounded())
+        var samples = (0..<sampleCount).map { index in
+            let phase = Double(index) * 2 * Double.pi * 173 / Double(sampleRate)
+            return Float(sin(phase)) * ambientAmplitude
+        }
+
+        for time in transientTimes {
+            let index = min(sampleCount - 1, max(0, Int((time * Double(sampleRate)).rounded())))
+            samples[index] = transientAmplitude
+        }
+
+        try AudioRecorder.writeWAV(samples: samples, sampleRate: sampleRate, to: url)
     }
 }
 
@@ -3848,6 +3913,20 @@ final class AppLocalizerTests: XCTestCase {
 
         XCTAssertTrue(message.contains("not been verified"))
         XCTAssertTrue(message.contains("first transcription"))
+    }
+
+    func testCustomServiceVerificationWarningIsLocalized() {
+        for language in AppLanguage.allCases {
+            let message = AppLocalizer(language: language)
+                .customOpenAIServiceModelTestRequired()
+            XCTAssertFalse(message.isEmpty)
+        }
+
+        XCTAssertTrue(
+            AppLocalizer(language: .simplifiedChinese)
+                .customOpenAIServiceModelTestRequired()
+                .contains("尚未测试")
+        )
     }
 
     func testUpdateStatusMessagesUseTheSelectedLanguage() {
@@ -6039,8 +6118,8 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertTrue(configuration.isEnabled(.outputCleanup))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
 
-        XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
         XCTAssertFalse(configuration.isEnabled(.outputEmoji))
         XCTAssertFalse(configuration.isEnabled(.outputLLMRetouch))
         XCTAssertFalse(configuration.isEnabled(.commandModifyPrevious))
@@ -6062,15 +6141,15 @@ final class PluginConfigurationTests: XCTestCase {
         }
     }
 
-    func testPublicReleaseProfileKeepsOptionalExperimentsDisabled() {
+    func testPublicReleaseProfileShowsAllCloudProviders() {
         let configuration = PluginConfiguration.publicRelease
 
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
         XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
-        XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
         XCTAssertFalse(configuration.isEnabled(.outputLLMRetouch))
         XCTAssertFalse(configuration.isEnabled(.smartAdaptiveRecognition))
         XCTAssertTrue(configuration.isEnabled(.smartCorrectionWindow))
@@ -6248,7 +6327,7 @@ final class PluginConfigurationTests: XCTestCase {
             preservingConfiguredProvider: .alibaba
         )
 
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
     }
 
     func testOptionalCloudProvidersAreMarkedAsPublicBetaCapabilities() throws {
@@ -6351,6 +6430,23 @@ final class PluginConfigurationTests: XCTestCase {
 
         XCTAssertEqual(policy.availableProvider(fallingBackFrom: .local), .openAI)
         XCTAssertTrue(policy.isTranscriptionProviderEnabled(.custom))
+    }
+
+    func testCapabilityPolicyKeepsConfiguredCustomEndpointAvailableWithoutBuiltInCloudPlugins() {
+        let localOnly = PluginConfiguration(
+            profile: "local-only",
+            enabledPlugins: [.providerLocalWhisper]
+        )
+        let policy = PluginCapabilityPolicy(configuration: localOnly)
+        var settings = AppSettings()
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(.custom),
+            to: &settings
+        )
+
+        XCTAssertFalse(policy.isTranscriptionProviderEnabled(.openAI))
+        XCTAssertTrue(settings.isCustomOpenAITranscriptionService)
+        XCTAssertTrue(policy.isTranscriptionEnabled(for: settings))
     }
 }
 

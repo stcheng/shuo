@@ -69,6 +69,10 @@ done
 for private_path in \
   NOTES.md \
   errors \
+  EvaluationPrivate \
+  Internal \
+  InternalScripts \
+  InternalTests \
   docs/open-source-1.0-progress.md \
   docs/optimization-progress-2026-07.md \
   docs/release-plan-2026-07-08.md \

@@ -89,9 +89,9 @@ private struct AlibabaTranscriptionResponse: Decodable {
 struct AlibabaTranscriptionService: TranscriptionService {
     typealias DataLoader = (URLRequest) async throws -> (Data, URLResponse)
 
-    static let baseURL = CloudTranscriptionProviderConfiguration.alibaba.endpoint.fixedURL!
+    static let baseURL = CloudServiceCatalog.definition(for: .alibaba).endpoint.fixedURL!
     static let endpoint = baseURL.appendingPathComponent("chat/completions")
-    static let modelID = CloudTranscriptionProviderConfiguration.alibaba.fixedTranscriptionModelID!
+    static let modelID = CloudServiceCatalog.definition(for: .alibaba).fixedTranscriptionModelID!
 
     /// Model Studio applies this limit to the Base64 value, after encoding.
     static let maximumEncodedAudioByteCount = 10 * 1_024 * 1_024

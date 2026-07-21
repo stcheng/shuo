@@ -17,7 +17,6 @@ extension AppSettings {
         case cloudTextServicePreset
         case cloudTextOpenAIBaseURL
         case lastCustomCloudTextOpenAIBaseURL
-        case acknowledgedCloudTextRelayEndpoint
         case cloudTextGeminiModel
         case customModelName
         case languageHint
@@ -25,9 +24,10 @@ extension AppSettings {
         case chineseScriptPreference
         case openAIBaseURL
         case lastCustomOpenAIBaseURL
+        case openAIUsesCustomEndpoint
+        case customOpenAIEndpointProfiles
         case openAIOrganizationID
         case openAIProjectID
-        case acknowledgedOpenAICompatibleRelayEndpoint
         case localWhisperExecutablePath
         case localWhisperModelDirectoryPath
         case localWhisperModelPath
@@ -118,10 +118,6 @@ extension AppSettings {
             lastCustomCloudTextOpenAIBaseURL,
             forKey: .lastCustomCloudTextOpenAIBaseURL
         )
-        try container.encode(
-            acknowledgedCloudTextRelayEndpoint,
-            forKey: .acknowledgedCloudTextRelayEndpoint
-        )
         try container.encode(cloudTextGeminiModel, forKey: .cloudTextGeminiModel)
         try container.encode(customModelName, forKey: .customModelName)
         try container.encode(
@@ -135,12 +131,13 @@ extension AppSettings {
         try container.encode(chineseScriptPreference, forKey: .chineseScriptPreference)
         try container.encode(openAIBaseURL, forKey: .openAIBaseURL)
         try container.encode(lastCustomOpenAIBaseURL, forKey: .lastCustomOpenAIBaseURL)
+        try container.encode(openAIUsesCustomEndpoint, forKey: .openAIUsesCustomEndpoint)
+        try container.encode(
+            customOpenAIEndpointProfiles,
+            forKey: .customOpenAIEndpointProfiles
+        )
         try container.encode(openAIOrganizationID, forKey: .openAIOrganizationID)
         try container.encode(openAIProjectID, forKey: .openAIProjectID)
-        try container.encode(
-            acknowledgedOpenAICompatibleRelayEndpoint,
-            forKey: .acknowledgedOpenAICompatibleRelayEndpoint
-        )
         try container.encode(localWhisperExecutablePath, forKey: .localWhisperExecutablePath)
         try container.encode(localWhisperModelDirectoryPath, forKey: .localWhisperModelDirectoryPath)
         try container.encode(localWhisperModelPath, forKey: .localWhisperModelPath)
@@ -286,10 +283,6 @@ extension AppSettings {
            cloudTextServicePreset == .custom {
             lastCustomCloudTextOpenAIBaseURL = cloudTextOpenAIBaseURL
         }
-        acknowledgedCloudTextRelayEndpoint = try container.decodeIfPresent(
-            String.self,
-            forKey: .acknowledgedCloudTextRelayEndpoint
-        ) ?? defaults.acknowledgedCloudTextRelayEndpoint
         cloudTextGeminiModel = try container.decodeIfPresent(
             String.self,
             forKey: .cloudTextGeminiModel
@@ -316,18 +309,25 @@ extension AppSettings {
             forKey: .lastCustomOpenAIBaseURL
         ) ?? defaults.lastCustomOpenAIBaseURL
         if lastCustomOpenAIBaseURL.isEmpty,
-           CloudTranscriptionPreset.inferred(
-               provider: provider,
-               openAIBaseURL: openAIBaseURL
-           ) == .custom {
+           CloudServiceCatalog.inferred(
+               backendProvider: provider,
+               compatibleBaseURL: openAIBaseURL
+           ).id == .custom {
             lastCustomOpenAIBaseURL = openAIBaseURL
         }
+        openAIUsesCustomEndpoint = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .openAIUsesCustomEndpoint
+        ) ?? (CloudServiceCatalog.inferred(
+            backendProvider: provider,
+            compatibleBaseURL: openAIBaseURL
+        ).id == .custom)
+        customOpenAIEndpointProfiles = try container.decodeIfPresent(
+            [String: CustomOpenAIEndpointProfile].self,
+            forKey: .customOpenAIEndpointProfiles
+        ) ?? defaults.customOpenAIEndpointProfiles
         openAIOrganizationID = try container.decodeIfPresent(String.self, forKey: .openAIOrganizationID) ?? defaults.openAIOrganizationID
         openAIProjectID = try container.decodeIfPresent(String.self, forKey: .openAIProjectID) ?? defaults.openAIProjectID
-        acknowledgedOpenAICompatibleRelayEndpoint = try container.decodeIfPresent(
-            String.self,
-            forKey: .acknowledgedOpenAICompatibleRelayEndpoint
-        ) ?? defaults.acknowledgedOpenAICompatibleRelayEndpoint
         localWhisperExecutablePath = try container.decodeIfPresent(String.self, forKey: .localWhisperExecutablePath) ?? defaults.localWhisperExecutablePath
         localWhisperModelPath = try container.decodeIfPresent(String.self, forKey: .localWhisperModelPath) ?? defaults.localWhisperModelPath
         localWhisperModelDirectoryPath = try container.decodeIfPresent(

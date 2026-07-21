@@ -563,9 +563,7 @@ final class AppUpdateController: NSObject, ObservableObject {
 
     func start() {}
 
-    func checkForUpdates() {
-        statusMessage = localizer.appStoreUpdateHint()
-    }
+    func checkForUpdates() {}
 
     func setAutomaticallyChecksForUpdates(_ enabled: Bool) {}
     func setAutomaticallyDownloadsUpdates(_ enabled: Bool) {}

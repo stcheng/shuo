@@ -89,8 +89,6 @@ final class PasteboardContentsSnapshotTests: XCTestCase {
         item.setDataProvider(provider, forTypes: [.string])
         pasteboard.clearContents()
         XCTAssertTrue(pasteboard.writeObjects([item]))
-        let startedAt = Date()
-
         let snapshot = await PasteboardContentsSnapshot.captureWithoutBlockingMain(
             from: pasteboard,
             timeout: 0.05,
@@ -98,7 +96,10 @@ final class PasteboardContentsSnapshotTests: XCTestCase {
         )
 
         XCTAssertNil(snapshot)
-        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.25)
+        XCTAssertTrue(
+            coordinator.isCaptureInFlight,
+            "The timeout must return while the slow owner is still resolving in the background."
+        )
         withExtendedLifetime(provider) {}
     }
 
@@ -3133,7 +3134,7 @@ final class SettingsSearchIndexTests: XCTestCase {
         }
     }
 
-    func testStoreBuildDoesNotIndexUnavailableDirectUpdateControls() {
+    func testCommunityBuildDoesNotIndexUnavailableDirectUpdateControls() {
         let items = SettingsSearchIndex.items(
             localizer: AppLocalizer(language: .english),
             context: SettingsSearchContext(

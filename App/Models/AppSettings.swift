@@ -1,5 +1,21 @@
 import Foundation
 
+/// Stores model choices and successful protocol checks for a user-entered
+/// OpenAI-compatible endpoint. Credentials deliberately stay in the Keychain,
+/// scoped by endpoint, rather than in this persisted settings contract.
+struct CustomOpenAIEndpointProfile: Codable, Equatable {
+    var transcriptionModelSelectionMode: OpenAIModelSelectionMode = .automatic
+    var automaticTranscriptionModelID = OpenAIModelCatalog.defaultTranscriptionModelID
+    var fixedTranscriptionModelID = OpenAIModelCatalog.defaultTranscriptionModelID
+    var verifiedTranscriptionModelID: String?
+    var textModelSelectionMode: OpenAITextModelSelectionMode = .automatic
+    var automaticTextModelID = OpenAIModelCatalog.defaultTextModelID
+    var fixedTextModelID = OpenAIModelCatalog.defaultTextModelID
+    var verifiedTextModelID: String?
+
+    init() {}
+}
+
 struct AppSettings: Codable, Equatable {
     static let defaultOpenAIBaseURL = "https://api.openai.com/v1"
 
@@ -21,7 +37,6 @@ struct AppSettings: Codable, Equatable {
     var cloudTextServicePreset: CloudTextServicePreset = .openAI
     var cloudTextOpenAIBaseURL = Self.defaultOpenAIBaseURL
     var lastCustomCloudTextOpenAIBaseURL = ""
-    var acknowledgedCloudTextRelayEndpoint = ""
     var cloudTextGeminiModel = GeminiTranscriptionService.defaultModelID
     var customModelName = ""
     // Chinese + English covers Shuo's primary mixed-language path while
@@ -34,9 +49,14 @@ struct AppSettings: Codable, Equatable {
     var chineseScriptPreference: ChineseScriptPreference = .automatic
     var openAIBaseURL = Self.defaultOpenAIBaseURL
     var lastCustomOpenAIBaseURL = ""
+    /// Keeps an explicitly chosen Custom service distinct from a built-in
+    /// service, even before the user finishes entering its endpoint URL.
+    var openAIUsesCustomEndpoint = false
+    /// User-entered endpoints keep their own model selections and verification
+    /// results, so switching to a built-in provider and back is lossless.
+    var customOpenAIEndpointProfiles: [String: CustomOpenAIEndpointProfile] = [:]
     var openAIOrganizationID = ""
     var openAIProjectID = ""
-    var acknowledgedOpenAICompatibleRelayEndpoint = ""
     var localWhisperExecutablePath = ""
     var localWhisperModelDirectoryPath = Self.defaultLocalWhisperModelDirectoryPath
     var localWhisperModelPath = ""
@@ -87,9 +107,6 @@ struct AppSettings: Codable, Equatable {
     var contextPrompt = "Prefer verbatim transcription. Do not translate. Preserve mixed Chinese, English, Spanish, French, and Japanese."
 
     init() {}
-
-    static let audibleAudioPeakFloorDBFS = -65.0
-    static let audibleAudioRMSFloorDBFS = -72.0
 
     var effectiveModel: String {
         if provider == .local {
@@ -181,23 +198,80 @@ struct AppSettings: Codable, Equatable {
 
     mutating func resetOpenAIConnectionDetails() {
         openAIBaseURL = Self.defaultOpenAIBaseURL
+        openAIUsesCustomEndpoint = false
         openAIOrganizationID = ""
         openAIProjectID = ""
-        acknowledgedOpenAICompatibleRelayEndpoint = ""
     }
 
-    var hasAcknowledgedOpenAICompatibleRelay: Bool {
-        guard OpenAICompatibleRequestBuilder.usesThirdPartyRelay(baseURLString: openAIBaseURL) else {
-            return true
+    var isCustomOpenAITranscriptionService: Bool {
+        provider == .openAI
+            && (openAIUsesCustomEndpoint
+                || CloudServiceCatalog.inferred(
+                    backendProvider: provider,
+                    compatibleBaseURL: openAIBaseURL
+                ).id == .custom)
+    }
+
+    var effectiveCloudTranscriptionPreset: CloudTranscriptionPreset {
+        guard provider == .openAI else {
+            return CloudServiceCatalog.inferred(
+                backendProvider: provider,
+                compatibleBaseURL: openAIBaseURL
+            ).preset
         }
-        return acknowledgedOpenAICompatibleRelayEndpoint
-            == OpenAICompatibleRequestBuilder.connectionIdentity(baseURLString: openAIBaseURL)
+        return isCustomOpenAITranscriptionService
+            ? .custom
+            : CloudServiceCatalog.inferred(
+                backendProvider: provider,
+                compatibleBaseURL: openAIBaseURL
+            ).preset
     }
 
-    mutating func acknowledgeOpenAICompatibleRelay() {
-        acknowledgedOpenAICompatibleRelayEndpoint = OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: openAIBaseURL
-        )
+    var requiresCustomOpenAITranscriptionVerification: Bool {
+        resolvedCloudTranscriptionConnection?.verification == .required
+    }
+
+    mutating func saveCurrentCustomOpenAITranscriptionProfile() {
+        guard isCustomOpenAITranscriptionService else {
+            return
+        }
+
+        let identity = customEndpointIdentity(openAIBaseURL)
+        var profile = customOpenAIEndpointProfiles[identity] ?? CustomOpenAIEndpointProfile()
+        profile.transcriptionModelSelectionMode = openAITranscriptionModelSelectionMode
+        profile.automaticTranscriptionModelID = automaticOpenAITranscriptionModel
+        profile.fixedTranscriptionModelID = fixedOpenAITranscriptionModel
+        customOpenAIEndpointProfiles[identity] = profile
+    }
+
+    mutating func restoreCustomOpenAITranscriptionProfile() {
+        guard isCustomOpenAITranscriptionService else {
+            return
+        }
+
+        let profile = customOpenAIEndpointProfiles[customEndpointIdentity(openAIBaseURL)]
+            ?? CustomOpenAIEndpointProfile()
+        openAITranscriptionModelSelectionMode = profile.transcriptionModelSelectionMode
+        automaticOpenAITranscriptionModel = profile.automaticTranscriptionModelID
+        fixedOpenAITranscriptionModel = profile.fixedTranscriptionModelID
+        saveCurrentCustomOpenAITranscriptionProfile()
+    }
+
+    mutating func markCurrentCustomOpenAITranscriptionModelVerified() {
+        guard isCustomOpenAITranscriptionService,
+              let modelID = try? OpenAIModelCatalog.validatedFixedTranscriptionModelID(
+                  effectiveModel
+              ) else {
+            return
+        }
+
+        let identity = customEndpointIdentity(openAIBaseURL)
+        var profile = customOpenAIEndpointProfiles[identity] ?? CustomOpenAIEndpointProfile()
+        profile.transcriptionModelSelectionMode = openAITranscriptionModelSelectionMode
+        profile.automaticTranscriptionModelID = automaticOpenAITranscriptionModel
+        profile.fixedTranscriptionModelID = fixedOpenAITranscriptionModel
+        profile.verifiedTranscriptionModelID = modelID
+        customOpenAIEndpointProfiles[identity] = profile
     }
 
     var effectiveContextPrompt: String {
@@ -250,89 +324,94 @@ struct AppSettings: Codable, Equatable {
         effectiveCloudTextModel
     }
 
-    var cloudTextServiceProvider: TranscriptionProvider? {
-        if cloudTextUsesTranscriptionService {
-            switch provider {
-            case .openAI, .gemini:
-                return provider
-            case .local, .elevenLabs, .alibaba, .custom:
-                return nil
-            }
-        }
-
-        return cloudTextServicePreset.provider
-    }
-
-    var cloudTextUsesGemini: Bool {
-        cloudTextServiceProvider == .gemini
+    /// The selected OpenAI-compatible text model after the existing automatic
+    /// and fixed-mode normalization. Cloud connection resolution consumes this
+    /// value without exposing the private normalization implementation.
+    var effectiveOpenAICompatibleTextModel: String {
+        effectiveTextModel
     }
 
     var effectiveCloudTextBaseURL: String? {
-        guard cloudTextServiceProvider == .openAI else {
+        guard let connection = resolvedCloudTextConnection,
+              connection.isOpenAICompatible else {
             return nil
         }
-
-        if cloudTextUsesTranscriptionService {
-            return openAIBaseURL
-        }
-
-        return cloudTextServicePreset.baseURL ?? cloudTextOpenAIBaseURL
+        return connection.endpoint
     }
 
     var effectiveCloudTextModel: String {
-        if cloudTextUsesGemini {
-            return GeminiTranscriptionService.modelIDs.contains(cloudTextGeminiModel)
-                ? cloudTextGeminiModel
-                : GeminiTranscriptionService.defaultModelID
-        }
-
-        return effectiveTextModel
+        resolvedCloudTextConnection?.modelSelection.modelID ?? effectiveTextModel
     }
 
-    var cloudTextRequiresRelayAcknowledgement: Bool {
-        guard let baseURL = effectiveCloudTextBaseURL else {
-            return false
-        }
-        return OpenAICompatibleRequestBuilder.usesThirdPartyRelay(baseURLString: baseURL)
+    var isCustomOpenAICloudTextService: Bool {
+        resolvedCloudTextConnection?.service.id == .custom
     }
 
-    var hasAcknowledgedCloudTextRelay: Bool {
-        guard cloudTextRequiresRelayAcknowledgement,
+    var requiresCustomOpenAICloudTextVerification: Bool {
+        resolvedCloudTextConnection?.verification == .required
+    }
+
+    mutating func saveCurrentCustomOpenAICloudTextProfile() {
+        guard isCustomOpenAICloudTextService,
               let baseURL = effectiveCloudTextBaseURL else {
-            return true
+            return
         }
 
-        if cloudTextUsesTranscriptionService {
-            return hasAcknowledgedOpenAICompatibleRelay
+        let identity = customEndpointIdentity(baseURL)
+        var profile = customOpenAIEndpointProfiles[identity] ?? CustomOpenAIEndpointProfile()
+        profile.textModelSelectionMode = openAITextModelSelectionMode
+        profile.automaticTextModelID = automaticOpenAITextModel
+        profile.fixedTextModelID = fixedOpenAITextModel
+        customOpenAIEndpointProfiles[identity] = profile
+    }
+
+    mutating func restoreCustomOpenAICloudTextProfile() {
+        guard isCustomOpenAICloudTextService,
+              let baseURL = effectiveCloudTextBaseURL else {
+            return
         }
 
-        return OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: acknowledgedCloudTextRelayEndpoint
-        ) == OpenAICompatibleRequestBuilder.connectionIdentity(baseURLString: baseURL)
+        let profile = customOpenAIEndpointProfiles[customEndpointIdentity(baseURL)]
+            ?? CustomOpenAIEndpointProfile()
+        openAITextModelSelectionMode = profile.textModelSelectionMode
+        automaticOpenAITextModel = profile.automaticTextModelID
+        fixedOpenAITextModel = profile.fixedTextModelID
+        saveCurrentCustomOpenAICloudTextProfile()
+    }
+
+    mutating func markCurrentCustomOpenAICloudTextModelVerified() {
+        guard isCustomOpenAICloudTextService,
+              let baseURL = effectiveCloudTextBaseURL else {
+            return
+        }
+
+        let identity = customEndpointIdentity(baseURL)
+        var profile = customOpenAIEndpointProfiles[identity] ?? CustomOpenAIEndpointProfile()
+        profile.textModelSelectionMode = openAITextModelSelectionMode
+        profile.automaticTextModelID = automaticOpenAITextModel
+        profile.fixedTextModelID = fixedOpenAITextModel
+        profile.verifiedTextModelID = effectiveCloudTextModel
+        customOpenAIEndpointProfiles[identity] = profile
     }
 
     var cloudTextExecutionSettings: AppSettings {
         var executionSettings = self
-        guard let cloudTextServiceProvider else {
+        guard let connection = resolvedCloudTextConnection else {
             return executionSettings
         }
 
-        executionSettings.provider = cloudTextServiceProvider
-        if cloudTextServiceProvider == .gemini {
-            executionSettings.selectedModel = effectiveCloudTextModel
-        } else if let baseURL = effectiveCloudTextBaseURL {
-            executionSettings.openAIBaseURL = baseURL
+        executionSettings.provider = connection.backendProvider
+        if connection.backendProvider == .gemini {
+            executionSettings.selectedModel = connection.modelSelection.modelID
+                ?? GeminiTranscriptionService.defaultModelID
+        } else if connection.isOpenAICompatible {
+            executionSettings.openAIBaseURL = connection.endpoint
         }
         return executionSettings
     }
 
-    mutating func acknowledgeCloudTextRelay() {
-        guard let baseURL = effectiveCloudTextBaseURL else {
-            return
-        }
-        acknowledgedCloudTextRelayEndpoint = OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: baseURL
-        )
+    private func customEndpointIdentity(_ baseURL: String) -> String {
+        OpenAICompatibleRequestBuilder.connectionIdentity(baseURLString: baseURL)
     }
 
     var appliesPunctuationPostProcessing: Bool {
@@ -480,13 +559,14 @@ struct AppSettings: Codable, Equatable {
 /// when they later select a cloud transcription provider.
 enum CloudTextAICapabilityPolicy {
     static func isCloudTextAIAvailable(for settings: AppSettings) -> Bool {
-        guard settings.cloudTextServiceProvider != nil else {
+        guard let connection = settings.resolvedCloudTextConnection else {
             return false
         }
 
-        // A non-default OpenAI-compatible endpoint receives optional text
-        // traffic only after it has been explicitly confirmed.
-        guard settings.hasAcknowledgedCloudTextRelay else {
+        // A user-entered endpoint must first prove that its selected text
+        // model accepts Shuo's request contract. Built-in providers are
+        // deliberately not subject to this gate.
+        guard connection.verification.permitsRealRequests else {
             return false
         }
 
@@ -494,7 +574,7 @@ enum CloudTextAICapabilityPolicy {
         // provider-neutral, explicit opt-out for every optional cloud text
         // feature. Gemini still uses its own credential and selected model;
         // this switch only controls whether optional text is sent at all.
-        return settings.openAITextModelSelectionMode != .disabled
+        return connection.modelSelection.isEnabled
     }
 
     static func applying(to source: AppSettings) -> AppSettings {

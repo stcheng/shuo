@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A10000000000000000000050"
-               BuildableName = "Shuo.app"
-               BlueprintName = "Shuo"
+               BuildableName = "Shuo Community.app"
+               BlueprintName = "ShuoCommunity"
                ReferencedContainer = "container:Shuo.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -46,8 +46,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000000000000000000050"
-            BuildableName = "Shuo.app"
-            BlueprintName = "Shuo"
+            BuildableName = "Shuo Community.app"
+            BlueprintName = "ShuoCommunity"
             ReferencedContainer = "container:Shuo.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -66,8 +66,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000000000000000000050"
-            BuildableName = "Shuo.app"
-            BlueprintName = "Shuo"
+            BuildableName = "Shuo Community.app"
+            BlueprintName = "ShuoCommunity"
             ReferencedContainer = "container:Shuo.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -82,8 +82,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000000000000000000050"
-            BuildableName = "Shuo.app"
-            BlueprintName = "Shuo"
+            BuildableName = "Shuo Community.app"
+            BlueprintName = "ShuoCommunity"
             ReferencedContainer = "container:Shuo.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

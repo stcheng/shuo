@@ -639,24 +639,6 @@ struct AppLocalizer {
         )
     }
 
-    func cloudTextRelayTestConfirmationTitle() -> String {
-        localized(
-            "Test third-party text model?",
-            "测试第三方文本模型？",
-            "測試第三方文字模型？",
-            "サードパーティのテキストモデルをテストしますか？"
-        )
-    }
-
-    func cloudTextRelayTestConfirmationDetail() -> String {
-        localized(
-            "Shuo will send a generated short text prompt to this endpoint. It does not use one of your recordings, but the relay may process or forward the prompt.",
-            "Shuo 会向这个端点发送一段生成的短文本提示，不会使用你的录音；但中转站可能会处理或转发这段文本。",
-            "Shuo 會向這個端點傳送一段產生的短文字提示，不會使用你的錄音；但中繼站可能會處理或轉送這段文字。",
-            "Shuoは生成した短いテキストプロンプトをこのエンドポイントへ送信します。あなたの録音は使用しませんが、中継が処理または転送する可能性があります。"
-        )
-    }
-
     func invalidOpenAITranscriptionModelID(
         _ error: OpenAITranscriptionModelIDValidationError
     ) -> String {
@@ -679,34 +661,30 @@ struct AppLocalizer {
         )
     }
 
-    func openAICompatibleRelayAcknowledgementRequired() -> String {
+    func customOpenAIServiceModelTestRequired() -> String {
         localized(
-            "Confirm the third-party relay in Settings before sending a recording.",
-            "发送录音前，请先在设置中确认第三方中转站。",
-            "傳送錄音前，請先在設定中確認第三方中轉站。",
-            "録音を送信する前に、設定でサードパーティ中継を確認してください。"
+            "This custom service has not been tested. Test the selected model before enabling it.",
+            "这个自定义服务尚未测试。请测试所选模型后再启用。",
+            "這個自訂服務尚未測試。請測試所選模型後再啟用。",
+            "このカスタムサービスはまだテストされていません。有効にする前に選択したモデルをテストしてください。"
         )
     }
 
-    func thirdPartyOpenAICompatibleRelayBetaLabel() -> String {
+    func customOpenAIServiceModelTestRequiredForRecording() -> String {
         localized(
-            "Third-Party OpenAI-compatible Relay (Beta)",
-            "第三方 OpenAI 兼容中转站（Beta）",
-            "第三方 OpenAI 相容中轉站（Beta）",
-            "サードパーティ OpenAI互換中継（ベータ）"
+            "Test the selected model for this custom service before sending a recording.",
+            "发送录音前，请先测试这个自定义服务所选的模型。",
+            "傳送錄音前，請先測試這個自訂服務所選的模型。",
+            "録音を送信する前に、このカスタムサービスで選択したモデルをテストしてください。"
         )
     }
 
-    func openAICompatibleRelayTestConfirmationTitle() -> String {
-        localized("Test third-party relay?", "测试第三方中转站？", "測試第三方中轉站？", "サードパーティ中継をテストしますか？")
-    }
-
-    func openAICompatibleRelayTestConfirmationDetail() -> String {
+    func customOpenAICompatibleServiceBetaLabel() -> String {
         localized(
-            "Shuo will send a generated, silent test clip to this endpoint. The test does not use one of your recordings, but the relay may process or forward it.",
-            "Shuo 会向这个端点发送一段生成的静音测试音频，不会使用你的录音；但中转站可能会处理或转发它。",
-            "Shuo 會向這個端點傳送一段產生的靜音測試音訊，不會使用你的錄音；但中轉站可能會處理或轉送它。",
-            "Shuoは生成した無音のテスト音声をこのエンドポイントへ送信します。あなたの録音は使用しませんが、中継が処理または転送する可能性があります。"
+            "Custom OpenAI-compatible Service (Beta)",
+            "自定义 OpenAI 兼容服务（Beta）",
+            "自訂 OpenAI 相容服務（Beta）",
+            "カスタム OpenAI互換サービス（ベータ）"
         )
     }
 
@@ -3290,15 +3268,6 @@ struct AppLocalizer {
             "直装版更新会同时验证 Sparkle EdDSA 和 Apple 代码签名。",
             "直裝版更新會同時驗證 Sparkle EdDSA 和 Apple 程式碼簽章。",
             "直接配布版の更新はSparkle EdDSAとAppleコード署名の両方で検証されます。"
-        )
-    }
-
-    func appStoreUpdateHint() -> String {
-        localized(
-            "Updates for this build are delivered by the Mac App Store.",
-            "此版本由 Mac App Store 提供更新。",
-            "此版本由 Mac App Store 提供更新。",
-            "このビルドのアップデートはMac App Storeから配信されます。"
         )
     }
 

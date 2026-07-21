@@ -139,11 +139,11 @@ private struct GeminiGenerateContentResponse: Decodable {
 struct GeminiTranscriptionService: TranscriptionService {
     typealias DataLoader = (URLRequest) async throws -> (Data, URLResponse)
 
-    static let endpointBaseURL = CloudTranscriptionProviderConfiguration.gemini.endpoint.fixedURL!
+    static let endpointBaseURL = CloudServiceCatalog.definition(for: .gemini).endpoint.fixedURL!
     // Keep the Gemini integration deliberately simple and responsive: one
     // audio-capable, low-latency model for transcription and optional text
     // enhancements alike.
-    static let modelIDs = [CloudTranscriptionProviderConfiguration.gemini.fixedTranscriptionModelID!]
+    static let modelIDs = [CloudServiceCatalog.definition(for: .gemini).fixedTranscriptionModelID!]
     static let defaultModelID = modelIDs[0]
     static let maximumInlineRequestByteCount = 20_000_000
 

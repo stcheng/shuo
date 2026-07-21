@@ -16,12 +16,23 @@ struct AudioActivityAnalysis {
             return false
         }
 
-        if activeDuration >= settings.minimumSpeechDuration {
-            return true
+        // Use an adaptive activity window so quiet speech is not compared to
+        // the same absolute level as ordinary speech. It still needs to be
+        // meaningfully above the recording's low-level noise: a quiet but
+        // otherwise steady microphone floor can make every adaptive chunk
+        // appear active.
+        let quietSpeechFloorDBFS = min(
+            -45,
+            max(-60, settings.silenceThresholdDBFS - 8)
+        )
+        guard speechLevelDBFS >= quietSpeechFloorDBFS else {
+            return false
         }
 
-        return peakDBFS >= AppSettings.audibleAudioPeakFloorDBFS
-            || rmsDBFS >= AppSettings.audibleAudioRMSFloorDBFS
+        // A single click, keyboard tap, or microphone transient can have a
+        // high peak without containing speech. Require sustained activity so
+        // those sounds cannot trigger a transcription request.
+        return activeDuration >= settings.minimumSpeechDuration
     }
 }
 

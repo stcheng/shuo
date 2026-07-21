@@ -242,34 +242,14 @@ final class AppState: ObservableObject {
             }
             persist(settings, key: Self.settingsKey)
 
-            let openAIKeyScopeChanged = OpenAICompatibleCredentialScope(
-                baseURLString: settings.openAIBaseURL
-            ) != OpenAICompatibleCredentialScope(
-                baseURLString: oldValue.openAIBaseURL
+            let connectionTransition = CloudConnectionSettingsCoordinator.transition(
+                from: oldValue,
+                to: settings
             )
-            if settings.openAIBaseURL != oldValue.openAIBaseURL
-                || settings.openAIOrganizationID != oldValue.openAIOrganizationID
-                || settings.openAIProjectID != oldValue.openAIProjectID {
-                resetOpenAIModelAvailability()
-                if openAIKeyScopeChanged {
-                    loadOpenAIAPIKeyIfNeeded()
-                }
-                if settings.provider != .gemini {
-                    scheduleOpenAIModelRefresh(forceRefresh: false)
-                }
-            }
-
-            if settings.provider == .openAI,
-               oldValue.provider != .openAI {
-                loadOpenAIAPIKeyIfNeeded()
-            }
-
-            if settings.provider == .gemini,
-               oldValue.provider != .gemini {
-                // A switch to Gemini must leave no pending OpenAI model
-                // availability request running in the background.
-                resetOpenAIModelAvailability()
-            }
+            handleCloudConnectionTransition(
+                connectionTransition,
+                previousSettings: oldValue
+            )
 
             if settings.pushToTalkEnabled != oldValue.pushToTalkEnabled
                 || settings.pushToTalkShortcut != oldValue.pushToTalkShortcut
@@ -547,44 +527,112 @@ final class AppState: ObservableObject {
         guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(openAIAPIKey),
               let modelID = try? OpenAIModelCatalog.validatedFixedTranscriptionModelID(
                   settings.effectiveModel
-              ),
-              let testScopeID = openAITranscriptionModelTestScopeID,
-              testScopeID == OpenAIModelAvailabilityService.scopeID(
-                  settings: settings,
-                  apiKey: apiKey
-              ),
-              openAITranscriptionModelTestModelID == modelID else {
+              ) else {
             return nil
         }
 
-        if isTestingOpenAITranscriptionModel {
-            return localizer.testingOpenAITranscriptionModel()
+        let ownsVisibleState = openAITranscriptionModelTestScopeID
+            == OpenAIModelAvailabilityService.scopeID(settings: settings, apiKey: apiKey)
+            && openAITranscriptionModelTestModelID == modelID
+        if ownsVisibleState {
+            if isTestingOpenAITranscriptionModel {
+                return localizer.testingOpenAITranscriptionModel()
+            }
+            if openAITranscriptionModelTestSucceeded {
+                return localizer.openAITranscriptionModelTestPassed()
+            }
+            if let openAITranscriptionModelTestError {
+                return localizer.openAITranscriptionModelTestFailed(openAITranscriptionModelTestError)
+            }
         }
-        if openAITranscriptionModelTestSucceeded {
+        if settings.isCustomOpenAITranscriptionService,
+           !settings.requiresCustomOpenAITranscriptionVerification {
             return localizer.openAITranscriptionModelTestPassed()
-        }
-        if let openAITranscriptionModelTestError {
-            return localizer.openAITranscriptionModelTestFailed(openAITranscriptionModelTestError)
         }
         return nil
     }
 
+    var hasSuccessfulOpenAITranscriptionModelTest: Bool {
+        openAITranscriptionModelTestSucceeded
+            || (settings.isCustomOpenAITranscriptionService
+                && !settings.requiresCustomOpenAITranscriptionVerification)
+    }
+
     var cloudTextModelTestMessage: String? {
-        guard let configurationID = cloudTextModelConfigurationID,
-              cloudTextModelTestConfigurationID == configurationID else {
+        guard let configurationID = cloudTextModelConfigurationID else {
             return nil
         }
 
-        if isTestingCloudTextModel {
-            return localizer.testingCloudTextModel()
+        if cloudTextModelTestConfigurationID == configurationID {
+            if isTestingCloudTextModel {
+                return localizer.testingCloudTextModel()
+            }
+            if cloudTextModelTestSucceeded {
+                return localizer.cloudTextModelTestPassed()
+            }
+            if let cloudTextModelTestError {
+                return localizer.cloudTextModelTestFailed(cloudTextModelTestError)
+            }
         }
-        if cloudTextModelTestSucceeded {
+        if settings.isCustomOpenAICloudTextService,
+           !settings.requiresCustomOpenAICloudTextVerification {
             return localizer.cloudTextModelTestPassed()
         }
-        if let cloudTextModelTestError {
-            return localizer.cloudTextModelTestFailed(cloudTextModelTestError)
-        }
         return nil
+    }
+
+    var hasSuccessfulCloudTextModelTest: Bool {
+        cloudTextModelTestSucceeded
+            || (settings.isCustomOpenAICloudTextService
+                && !settings.requiresCustomOpenAICloudTextVerification)
+    }
+
+    /// Applies the UI-side effects of a pure connection transition. The
+    /// settings coordinator owns profile preservation; this store owns task
+    /// cancellation, cached model visibility, and credential loading.
+    private func handleCloudConnectionTransition(
+        _ transition: CloudConnectionTransition,
+        previousSettings: AppSettings
+    ) {
+        let openAIRequestConfigurationChanged = settings.openAIBaseURL
+            != previousSettings.openAIBaseURL
+            || settings.openAIOrganizationID != previousSettings.openAIOrganizationID
+            || settings.openAIProjectID != previousSettings.openAIProjectID
+        let transcriptionDiscoveryChanged = transition.transcriptionDiscoveryChanged
+            || (settings.resolvedCloudTranscriptionConnection?.isOpenAICompatible == true
+                && openAIRequestConfigurationChanged)
+
+        if transition.transcriptionChanged {
+            if transcriptionDiscoveryChanged {
+                resetOpenAIModelAvailability()
+                loadCloudTranscriptionCredentialsIfNeeded()
+                if settings.resolvedCloudTranscriptionConnection?.supportsModelDiscovery == true {
+                    scheduleOpenAIModelRefresh(forceRefresh: false)
+                }
+            } else {
+                resetOpenAITranscriptionModelTest()
+            }
+        } else if transcriptionDiscoveryChanged {
+            resetOpenAIModelAvailability()
+            loadCloudTranscriptionCredentialsIfNeeded()
+            if settings.resolvedCloudTranscriptionConnection?.supportsModelDiscovery == true {
+                scheduleOpenAIModelRefresh(forceRefresh: false)
+            }
+        }
+
+        if transition.textChanged {
+            if transition.textDiscoveryChanged {
+                resetCloudTextModelAvailability()
+                loadCloudTextCredentialsIfNeeded()
+                if let connection = settings.resolvedCloudTextConnection,
+                   connection.source == .separateTextService,
+                   connection.supportsModelDiscovery {
+                    scheduleCloudTextModelRefresh(forceRefresh: false)
+                }
+            } else {
+                resetCloudTextModelTest()
+            }
+        }
     }
 
     private var localizer: AppLocalizer {
@@ -596,24 +644,18 @@ final class AppState: ObservableObject {
     }
 
     private var cloudTextOpenAIAPIKeyScope: OpenAICompatibleCredentialScope? {
-        guard !settings.cloudTextUsesTranscriptionService,
-              settings.cloudTextServiceProvider == .openAI,
-              let baseURL = settings.effectiveCloudTextBaseURL else {
+        guard let connection = settings.resolvedCloudTextConnection,
+              connection.source == .separateTextService else {
             return nil
         }
-        return OpenAICompatibleCredentialScope(baseURLString: baseURL)
+        return connection.credentialScope.openAICompatibleScope
     }
 
     private var cloudTextModelConfigurationID: String? {
-        guard let provider = settings.cloudTextServiceProvider else {
+        guard let connection = settings.resolvedCloudTextConnection else {
             return nil
         }
-        return [
-            provider.rawValue,
-            settings.effectiveCloudTextBaseURL ?? "",
-            settings.effectiveCloudTextModel,
-            settings.openAITextModelSelectionMode.rawValue
-        ].joined(separator: "\u{1F}")
+        return connection.configurationID
     }
 
     var shouldShowOnboarding: Bool {
@@ -1097,7 +1139,13 @@ final class AppState: ObservableObject {
             let analysis = try audioActivityAnalyzer.analyze(
                 transcriptionAudioURL,
                 silenceThresholdDBFS: settings.silenceThresholdDBFS,
-                adaptsToNoiseFloor: settings.whisperModeEnabled
+                // The gate must measure activity relative to the recording's
+                // own noise floor; otherwise soft speech is indistinguishable
+                // from a completely inactive fixed -42 dBFS window. The
+                // analysis still applies an absolute low-level floor before
+                // a request can be sent.
+                adaptsToNoiseFloor: settings.voiceActivityGateEnabled
+                    || settings.whisperModeEnabled
             )
             recordingDuration = analysis.duration
             updatePendingAttemptRecordingDuration(
@@ -1385,23 +1433,14 @@ final class AppState: ObservableObject {
             to: pluginCapabilityPolicy.applying(to: requestSettings)
         )
         let provider = effectiveSettings.provider
-        guard pluginCapabilityPolicy.isTranscriptionProviderEnabled(provider) else {
+        guard pluginCapabilityPolicy.isTranscriptionEnabled(for: effectiveSettings) else {
             throw PluginFeatureError.disabledProvider(provider.displayName)
-        }
-
-        if provider == .openAI,
-           effectiveSettings.openAITranscriptionModelSelectionMode == .automatic,
-           openAIModelAvailabilityFetchedAt != nil,
-           OpenAIModelCatalog.recommendedTranscriptionModelID(
-               availableModelIDs: openAIAvailableModelIDs
-           ) == nil {
-            throw OpenAIModelSelectionError.noCompatibleTranscriptionModel
         }
 
         let model = effectiveSettings.effectiveModel
         let languageHint = effectiveSettings.languageHint
         let service = TranscriptionServiceFactory.makeService(for: provider)
-        let apiKey = apiKey(for: provider)
+        let apiKey = transcriptionAPIKey(for: effectiveSettings)
         let correctionLearningSnapshot = recordingCorrectionLearningSnapshot
             ?? correctionLearningSnapshotForExecution(settings: effectiveSettings)
         let vocabulary = recordingVocabularySnapshot ?? captureTranscriptionVocabulary(
@@ -1761,7 +1800,10 @@ final class AppState: ObservableObject {
         resetOpenAIModelAvailability()
 
         do {
-            try OpenAIAPIKeyStore.save(apiKey, scope: scope)
+            try CloudCredentialFacade.save(
+                apiKey,
+                for: .openAICompatible(scope)
+            )
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -1779,9 +1821,9 @@ final class AppState: ObservableObject {
 
         loadedOpenAIAPIKeyScope = scope
         do {
-            openAIAPIKey = try OpenAIAPIKeyStore.load(
-                scope: scope,
-                migrateLegacyDefault: migratingLegacyDefault
+            openAIAPIKey = try CloudCredentialFacade.load(
+                for: .openAICompatible(scope),
+                migrateLegacyOpenAIDefault: migratingLegacyDefault
             )
             restoreCachedOpenAIModelAvailability()
         } catch {
@@ -1790,13 +1832,13 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Reads the credential selected by a cloud-provider configuration. The
+    /// Reads the credential selected by a cloud-service definition. The
     /// underlying stores remain separate where a provider uses a native API;
     /// OpenAI-compatible providers share endpoint-scoped credentials.
-    func cloudAPIKey(for configuration: CloudTranscriptionProviderConfiguration) -> String {
-        loadCloudAPIKeyIfNeeded(for: configuration)
+    func cloudAPIKey(for service: CloudServiceDefinition) -> String {
+        loadCloudAPIKeyIfNeeded(for: service)
 
-        switch configuration.credential {
+        switch service.credential {
         case .openAICompatible:
             return openAIAPIKey
         case .gemini:
@@ -1810,9 +1852,9 @@ final class AppState: ObservableObject {
 
     func updateCloudAPIKey(
         _ apiKey: String,
-        for configuration: CloudTranscriptionProviderConfiguration
+        for service: CloudServiceDefinition
     ) {
-        switch configuration.credential {
+        switch service.credential {
         case .openAICompatible:
             updateOpenAIAPIKey(apiKey)
         case .gemini:
@@ -1824,8 +1866,8 @@ final class AppState: ObservableObject {
         }
     }
 
-    func loadCloudAPIKeyIfNeeded(for configuration: CloudTranscriptionProviderConfiguration) {
-        switch configuration.credential {
+    func loadCloudAPIKeyIfNeeded(for service: CloudServiceDefinition) {
+        switch service.credential {
         case .openAICompatible:
             loadOpenAIAPIKeyIfNeeded()
         case .gemini:
@@ -1847,7 +1889,10 @@ final class AppState: ObservableObject {
         resetCloudTextModelAvailability()
 
         do {
-            try OpenAIAPIKeyStore.save(apiKey, scope: scope)
+            try CloudCredentialFacade.save(
+                apiKey,
+                for: .openAICompatible(scope)
+            )
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -1865,7 +1910,9 @@ final class AppState: ObservableObject {
 
         loadedCloudTextOpenAIAPIKeyScope = scope
         do {
-            cloudTextOpenAIAPIKey = try OpenAIAPIKeyStore.load(scope: scope)
+            cloudTextOpenAIAPIKey = try CloudCredentialFacade.load(
+                for: .openAICompatible(scope)
+            )
             restoreCachedCloudTextModelAvailability()
         } catch {
             cloudTextOpenAIAPIKey = ""
@@ -1874,23 +1921,41 @@ final class AppState: ObservableObject {
     }
 
     func loadCloudTextCredentialsIfNeeded() {
-        switch settings.cloudTextServiceProvider {
-        case .gemini:
+        guard let connection = settings.resolvedCloudTextConnection else {
+            return
+        }
+
+        switch connection.credentialScope {
+        case .native(.gemini):
             loadGeminiAPIKeyIfNeeded()
-        case .openAI:
-            if settings.cloudTextUsesTranscriptionService {
+        case .openAICompatible:
+            if connection.source == .transcriptionService {
                 loadOpenAIAPIKeyIfNeeded()
             } else {
                 loadCloudTextOpenAIAPIKeyIfNeeded()
             }
-        case .none, .some(.local), .some(.elevenLabs), .some(.alibaba), .some(.custom):
+        case .native:
             break
         }
     }
 
-    func cloudTextConnectionConfigurationDidChange() {
-        resetCloudTextModelAvailability()
-        loadCloudTextCredentialsIfNeeded()
+    func loadCloudTranscriptionCredentialsIfNeeded() {
+        guard let connection = settings.resolvedCloudTranscriptionConnection else {
+            return
+        }
+
+        switch connection.credentialScope {
+        case .openAICompatible:
+            loadOpenAIAPIKeyIfNeeded()
+        case .native(.gemini):
+            loadGeminiAPIKeyIfNeeded()
+        case .native(.elevenLabs):
+            loadElevenLabsAPIKeyIfNeeded()
+        case .native(.alibaba):
+            loadAlibabaAPIKeyIfNeeded()
+        case .native(.openAICompatible):
+            break
+        }
     }
 
     func updateElevenLabsAPIKey(_ apiKey: String) {
@@ -1898,7 +1963,7 @@ final class AppState: ObservableObject {
         hasLoadedElevenLabsAPIKey = true
 
         do {
-            try ElevenLabsAPIKeyStore.save(apiKey)
+            try CloudCredentialFacade.save(apiKey, for: .native(.elevenLabs))
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -1911,7 +1976,7 @@ final class AppState: ObservableObject {
 
         hasLoadedElevenLabsAPIKey = true
         do {
-            elevenLabsAPIKey = try ElevenLabsAPIKeyStore.load()
+            elevenLabsAPIKey = try CloudCredentialFacade.load(for: .native(.elevenLabs))
         } catch {
             elevenLabsAPIKey = ""
             errorMessage = localizedErrorMessage(error)
@@ -1923,7 +1988,7 @@ final class AppState: ObservableObject {
         hasLoadedAlibabaAPIKey = true
 
         do {
-            try AlibabaAPIKeyStore.save(apiKey)
+            try CloudCredentialFacade.save(apiKey, for: .native(.alibaba))
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -1936,7 +2001,7 @@ final class AppState: ObservableObject {
 
         hasLoadedAlibabaAPIKey = true
         do {
-            alibabaAPIKey = try AlibabaAPIKeyStore.load()
+            alibabaAPIKey = try CloudCredentialFacade.load(for: .native(.alibaba))
         } catch {
             alibabaAPIKey = ""
             errorMessage = localizedErrorMessage(error)
@@ -1948,7 +2013,7 @@ final class AppState: ObservableObject {
         hasLoadedGeminiAPIKey = true
 
         do {
-            try GeminiAPIKeyStore.save(apiKey)
+            try CloudCredentialFacade.save(apiKey, for: .native(.gemini))
         } catch {
             errorMessage = localizedErrorMessage(error)
         }
@@ -1961,7 +2026,7 @@ final class AppState: ObservableObject {
 
         hasLoadedGeminiAPIKey = true
         do {
-            geminiAPIKey = try GeminiAPIKeyStore.load()
+            geminiAPIKey = try CloudCredentialFacade.load(for: .native(.gemini))
         } catch {
             geminiAPIKey = ""
             errorMessage = localizedErrorMessage(error)
@@ -1976,23 +2041,122 @@ final class AppState: ObservableObject {
     }
 
     func refreshOpenAIModelsIfNeeded() {
-        guard settings.provider != .gemini else {
+        guard settings.resolvedCloudTranscriptionConnection?.supportsModelDiscovery == true else {
             return
         }
-        loadOpenAIAPIKeyIfNeeded()
+        loadCloudTranscriptionCredentialsIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: false, delayNanoseconds: 0)
     }
 
     func refreshOpenAIModels() {
-        guard settings.provider != .gemini else {
+        guard settings.resolvedCloudTranscriptionConnection?.supportsModelDiscovery == true else {
             return
         }
-        loadOpenAIAPIKeyIfNeeded()
+        loadCloudTranscriptionCredentialsIfNeeded()
         scheduleOpenAIModelRefresh(forceRefresh: true, delayNanoseconds: 0)
     }
 
+    func selectCloudTranscriptionPreset(_ preset: CloudTranscriptionPreset) {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(preset),
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func selectLocalTranscription() {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .selectLocalTranscription,
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func updateCustomOpenAITranscriptionBaseURL(_ baseURL: String) {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTranscriptionEndpoint(baseURL),
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func selectAutomaticOpenAITranscriptionModel() {
+        var updatedSettings = settings
+        updatedSettings.openAITranscriptionModelSelectionMode = .automatic
+        if let recommendedModelID = OpenAIModelCatalog.recommendedTranscriptionModelID(
+            availableModelIDs: openAIAvailableModelIDs
+        ) {
+            updatedSettings.automaticOpenAITranscriptionModel = recommendedModelID
+        }
+        updatedSettings.saveCurrentCustomOpenAITranscriptionProfile()
+        settings = updatedSettings
+    }
+
+    func selectFixedOpenAITranscriptionModel(_ modelID: String) {
+        var updatedSettings = settings
+        updatedSettings.fixedOpenAITranscriptionModel = modelID
+        updatedSettings.openAITranscriptionModelSelectionMode = .fixed
+        updatedSettings.saveCurrentCustomOpenAITranscriptionProfile()
+        settings = updatedSettings
+    }
+
+    func setCloudTextUsesTranscriptionService(_ usesTranscriptionService: Bool) {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .setTextServiceReuse(usesTranscriptionService),
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func selectCloudTextServicePreset(_ preset: CloudTextServicePreset) {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTextService(preset),
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func updateCustomOpenAICloudTextBaseURL(_ baseURL: String) {
+        var updatedSettings = settings
+        CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTextEndpoint(baseURL),
+            to: &updatedSettings
+        )
+        settings = updatedSettings
+    }
+
+    func selectAutomaticOpenAICloudTextModel() {
+        var updatedSettings = settings
+        updatedSettings.openAITextModelSelectionMode = .automatic
+        let availableModelIDs = updatedSettings.resolvedCloudTextConnection?.source
+            == .transcriptionService
+            ? openAIAvailableModelIDs
+            : cloudTextAvailableModelIDs
+        if let recommendedModelID = OpenAIModelCatalog.recommendedTextModelID(
+            availableModelIDs: availableModelIDs
+        ) {
+            updatedSettings.automaticOpenAITextModel = recommendedModelID
+        }
+        updatedSettings.saveCurrentCustomOpenAICloudTextProfile()
+        settings = updatedSettings
+    }
+
+    func selectFixedOpenAICloudTextModel(_ modelID: String) {
+        var updatedSettings = settings
+        updatedSettings.fixedOpenAITextModel = modelID
+        updatedSettings.openAITextModelSelectionMode = .fixed
+        updatedSettings.saveCurrentCustomOpenAICloudTextProfile()
+        settings = updatedSettings
+    }
+
     func testOpenAITranscriptionModel() {
-        guard !isTestingOpenAITranscriptionModel else {
+        guard settings.isCustomOpenAITranscriptionService,
+              !isTestingOpenAITranscriptionModel else {
             return
         }
 
@@ -2035,6 +2199,9 @@ final class AppState: ObservableObject {
                     return
                 }
                 self.openAITranscriptionModelTestSucceeded = true
+                var updatedSettings = self.settings
+                updatedSettings.markCurrentCustomOpenAITranscriptionModelVerified()
+                self.settings = updatedSettings
             } catch is CancellationError {
                 // Connection details or the selected model changed before the
                 // request completed, so it no longer owns visible state.
@@ -2056,24 +2223,12 @@ final class AppState: ObservableObject {
         }
     }
 
-    func acknowledgeOpenAICompatibleRelayAndTestModel() {
-        guard OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
-            baseURLString: settings.openAIBaseURL
-        ) else {
-            testOpenAITranscriptionModel()
-            return
-        }
-
-        var updatedSettings = settings
-        updatedSettings.acknowledgeOpenAICompatibleRelay()
-        settings = updatedSettings
-        testOpenAITranscriptionModel()
-    }
-
     func testCloudTextModel() {
-        guard !isTestingCloudTextModel,
+        guard settings.isCustomOpenAICloudTextService,
+              !isTestingCloudTextModel,
               let configurationID = cloudTextModelConfigurationID,
-              CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings) else {
+              let connection = settings.resolvedCloudTextConnection,
+              connection.modelSelection.isEnabled else {
             return
         }
 
@@ -2097,7 +2252,8 @@ final class AppState: ObservableObject {
                         previousText: "Shuo model test.",
                         commandText: "Return the previous transcript unchanged.",
                         settings: requestSettings,
-                        apiKey: apiKey
+                        apiKey: apiKey,
+                        allowsUnverifiedCustomEndpointTesting: true
                     )
                 )
                 guard let self,
@@ -2105,6 +2261,9 @@ final class AppState: ObservableObject {
                     return
                 }
                 self.cloudTextModelTestSucceeded = true
+                var updatedSettings = self.settings
+                updatedSettings.markCurrentCustomOpenAICloudTextModelVerified()
+                self.settings = updatedSettings
             } catch is CancellationError {
                 // A changed connection or model owns the next visible state.
             } catch {
@@ -2121,13 +2280,6 @@ final class AppState: ObservableObject {
             }
             self.isTestingCloudTextModel = false
         }
-    }
-
-    func acknowledgeCloudTextRelayAndTestModel() {
-        var updatedSettings = settings
-        updatedSettings.acknowledgeCloudTextRelay()
-        settings = updatedSettings
-        testCloudTextModel()
     }
 
     func isOpenAIModelAvailable(_ modelID: String) -> Bool {
@@ -2150,10 +2302,11 @@ final class AppState: ObservableObject {
     }
 
     func isCloudTextModelAvailable(_ modelID: String) -> Bool {
-        guard settings.cloudTextServiceProvider == .openAI else {
+        guard let connection = settings.resolvedCloudTextConnection,
+              connection.supportsModelDiscovery else {
             return true
         }
-        if settings.cloudTextUsesTranscriptionService {
+        if connection.source == .transcriptionService {
             return isOpenAIModelAvailable(modelID)
         }
         guard cloudTextModelAvailabilityFetchedAt != nil else {
@@ -2175,10 +2328,11 @@ final class AppState: ObservableObject {
     }
 
     func refreshCloudTextModels() {
-        guard settings.cloudTextServiceProvider == .openAI else {
+        guard let connection = settings.resolvedCloudTextConnection,
+              connection.supportsModelDiscovery else {
             return
         }
-        if settings.cloudTextUsesTranscriptionService {
+        if connection.source == .transcriptionService {
             refreshOpenAIModels()
             return
         }
@@ -2292,12 +2446,15 @@ final class AppState: ObservableObject {
         openAIModelAvailabilityFetchedAt = snapshot.fetchedAt
         openAIModelAvailabilityError = nil
 
+        var updatedSettings = settings
+        var didChangeSelection = false
         if settings.openAITranscriptionModelSelectionMode == .automatic,
            let recommendedModelID = OpenAIModelCatalog.recommendedTranscriptionModelID(
                availableModelIDs: snapshot.modelIDSet
            ),
            settings.automaticOpenAITranscriptionModel != recommendedModelID {
-            settings.automaticOpenAITranscriptionModel = recommendedModelID
+            updatedSettings.automaticOpenAITranscriptionModel = recommendedModelID
+            didChangeSelection = true
         }
 
         if settings.openAITextModelSelectionMode == .automatic,
@@ -2305,7 +2462,14 @@ final class AppState: ObservableObject {
                availableModelIDs: snapshot.modelIDSet
            ),
            settings.automaticOpenAITextModel != recommendedModelID {
-            settings.automaticOpenAITextModel = recommendedModelID
+            updatedSettings.automaticOpenAITextModel = recommendedModelID
+            didChangeSelection = true
+        }
+
+        if didChangeSelection {
+            updatedSettings.saveCurrentCustomOpenAITranscriptionProfile()
+            updatedSettings.saveCurrentCustomOpenAICloudTextProfile()
+            settings = updatedSettings
         }
     }
 
@@ -2335,8 +2499,9 @@ final class AppState: ObservableObject {
         cloudTextModelRefreshTask?.cancel()
         cloudTextModelRefreshGeneration &+= 1
         let refreshGeneration = cloudTextModelRefreshGeneration
-        guard settings.cloudTextServiceProvider == .openAI,
-              !settings.cloudTextUsesTranscriptionService,
+        guard let connection = settings.resolvedCloudTextConnection,
+              connection.source == .separateTextService,
+              connection.supportsModelDiscovery,
               OpenAICompatibleRequestBuilder.normalizedAPIKey(cloudTextOpenAIAPIKey) != nil else {
             return
         }
@@ -2361,8 +2526,9 @@ final class AppState: ObservableObject {
     ) async {
         guard !Task.isCancelled,
               generation == cloudTextModelRefreshGeneration,
-              settings.cloudTextServiceProvider == .openAI,
-              !settings.cloudTextUsesTranscriptionService,
+              let connection = settings.resolvedCloudTextConnection,
+              connection.source == .separateTextService,
+              connection.supportsModelDiscovery,
               let normalizedAPIKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(
                   cloudTextOpenAIAPIKey
               ) else {
@@ -2406,8 +2572,9 @@ final class AppState: ObservableObject {
     }
 
     private func restoreCachedCloudTextModelAvailability() {
-        guard settings.cloudTextServiceProvider == .openAI,
-              !settings.cloudTextUsesTranscriptionService,
+        guard let connection = settings.resolvedCloudTextConnection,
+              connection.source == .separateTextService,
+              connection.supportsModelDiscovery,
               let snapshot = openAIModelAvailabilityService.cachedSnapshot(
                   settings: settings.cloudTextExecutionSettings,
                   apiKey: cloudTextOpenAIAPIKey
@@ -2427,7 +2594,10 @@ final class AppState: ObservableObject {
                availableModelIDs: snapshot.modelIDSet
            ),
            settings.automaticOpenAITextModel != recommendedModelID {
-            settings.automaticOpenAITextModel = recommendedModelID
+            var updatedSettings = settings
+            updatedSettings.automaticOpenAITextModel = recommendedModelID
+            updatedSettings.saveCurrentCustomOpenAICloudTextProfile()
+            settings = updatedSettings
         }
     }
 
@@ -3500,23 +3670,11 @@ final class AppState: ObservableObject {
         pushToTalkMonitor?.isRunning == true
     }
 
-    private func apiKey(for provider: TranscriptionProvider) -> String {
-        switch provider {
-        case .openAI, .custom:
-            loadOpenAIAPIKeyIfNeeded()
-            return openAIAPIKey
-        case .elevenLabs:
-            loadElevenLabsAPIKeyIfNeeded()
-            return elevenLabsAPIKey
-        case .alibaba:
-            loadAlibabaAPIKeyIfNeeded()
-            return alibabaAPIKey
-        case .gemini:
-            loadGeminiAPIKeyIfNeeded()
-            return geminiAPIKey
-        case .local:
+    private func transcriptionAPIKey(for requestSettings: AppSettings) -> String {
+        guard let connection = requestSettings.resolvedCloudTranscriptionConnection else {
             return ""
         }
+        return cloudCredential(for: connection)
     }
 
     private func apiKeyForPostTranscriptionProcessing(settings requestSettings: AppSettings) -> String {
@@ -3535,21 +3693,16 @@ final class AppState: ObservableObject {
     }
 
     private func cloudTextAPIKey(for requestSettings: AppSettings) -> String {
-        guard let provider = requestSettings.cloudTextServiceProvider else {
+        guard let connection = requestSettings.resolvedCloudTextConnection else {
             return ""
         }
 
-        if provider == .gemini {
-            loadGeminiAPIKeyIfNeeded()
-            return geminiAPIKey
-        }
+        return cloudCredential(for: connection)
+    }
 
-        guard let baseURL = requestSettings.effectiveCloudTextBaseURL else {
-            return ""
-        }
-        let scope = OpenAICompatibleCredentialScope(baseURLString: baseURL)
+    private func cloudCredential(for connection: ResolvedCloudConnection) -> String {
         do {
-            return try OpenAIAPIKeyStore.load(scope: scope)
+            return try CloudCredentialFacade.load(for: connection.credentialScope)
         } catch {
             errorMessage = localizedErrorMessage(error)
             return ""
@@ -4099,11 +4252,12 @@ final class AppState: ObservableObject {
                     settings: effectiveSettings,
                     apiKey: apiKey
                 )
-            )
+        )
             return TranscriptPostProcessor().process(rewritten, settings: effectiveSettings)
         } catch {
-            if effectiveSettings.cloudTextServiceProvider == .openAI {
-                if effectiveSettings.cloudTextUsesTranscriptionService {
+            if let connection = effectiveSettings.resolvedCloudTextConnection,
+               connection.supportsModelDiscovery {
+                if connection.source == .transcriptionService {
                     refreshOpenAIModelsAfterFailureIfNeeded(error)
                 } else {
                     refreshCloudTextModels()
@@ -4312,6 +4466,12 @@ final class AppState: ObservableObject {
     }
 
     private func normalizeProviderForPluginConfiguration() {
+        // A user-configured Custom endpoint is intentionally available even
+        // when all built-in cloud provider plugins are disabled.
+        guard !settings.isCustomOpenAITranscriptionService else {
+            return
+        }
+
         guard let provider = pluginCapabilityPolicy.availableProvider(fallingBackFrom: settings.provider),
               provider != settings.provider else {
             return
@@ -4657,8 +4817,8 @@ final class AppState: ObservableObject {
             return localizer.invalidOpenAIBaseURL(baseURL)
         case OpenAITranscriptionError.invalidModelID(let error):
             return localizer.invalidOpenAITranscriptionModelID(error)
-        case OpenAITranscriptionError.relayAcknowledgementRequired:
-            return localizer.openAICompatibleRelayAcknowledgementRequired()
+        case OpenAITranscriptionError.customEndpointVerificationRequired:
+            return localizer.customOpenAIServiceModelTestRequiredForRecording()
         case OpenAITranscriptionError.requestFailed(let statusCode, let message):
             return localizer.openAIRequestFailed(statusCode: statusCode, message: message)
         case OpenAITranscriptionError.invalidResponse:

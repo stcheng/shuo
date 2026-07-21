@@ -2,6 +2,9 @@ import Foundation
 import XCTest
 @testable import Shuo
 
+private let groqBaseURL = CloudServiceCatalog.definition(for: .groq).endpoint.defaultURLString
+private let siliconFlowBaseURL = CloudServiceCatalog.definition(for: .siliconFlow).endpoint.defaultURLString
+
 final class OpenAIModelCatalogTests: XCTestCase {
     func testManagedLocalModelListContainsOnlyThreeCuratedChoices() {
         XCTAssertEqual(
@@ -147,67 +150,342 @@ final class OpenAIModelCatalogTests: XCTestCase {
 
     func testCloudPresetInferenceKeepsKnownEndpointsAndNativeProvidersDistinct() {
         XCTAssertEqual(
-            CloudTranscriptionPreset.inferred(
-                provider: .openAI,
-                openAIBaseURL: AppSettings.defaultOpenAIBaseURL
-            ),
+            CloudServiceCatalog.inferred(
+                backendProvider: .openAI,
+                compatibleBaseURL: AppSettings.defaultOpenAIBaseURL
+            ).preset,
             .openAI
         )
         XCTAssertEqual(
-            CloudTranscriptionPreset.inferred(
-                provider: .openAI,
-                openAIBaseURL: CloudTranscriptionPreset.groqBaseURL
-            ),
+            CloudServiceCatalog.inferred(
+                backendProvider: .openAI,
+                compatibleBaseURL: groqBaseURL
+            ).preset,
             .groq
         )
         XCTAssertEqual(
-            CloudTranscriptionPreset.inferred(
-                provider: .openAI,
-                openAIBaseURL: CloudTranscriptionPreset.siliconFlowBaseURL
-            ),
+            CloudServiceCatalog.inferred(
+                backendProvider: .openAI,
+                compatibleBaseURL: siliconFlowBaseURL
+            ).preset,
             .siliconFlow
         )
         XCTAssertEqual(
-            CloudTranscriptionPreset.inferred(
-                provider: .openAI,
-                openAIBaseURL: "https://example.com/v1"
-            ),
+            CloudServiceCatalog.inferred(
+                backendProvider: .openAI,
+                compatibleBaseURL: "https://example.com/v1"
+            ).preset,
             .custom
         )
         XCTAssertEqual(
-            CloudTranscriptionPreset.inferred(
-                provider: .gemini,
-                openAIBaseURL: AppSettings.defaultOpenAIBaseURL
-            ),
+            CloudServiceCatalog.inferred(
+                backendProvider: .gemini,
+                compatibleBaseURL: AppSettings.defaultOpenAIBaseURL
+            ).preset,
             .gemini
         )
     }
 
-    func testCloudProviderConfigurationOwnsPickerMetadataAndCapabilities() {
+    func testCloudServiceCatalogOwnsPickerMetadataAndCapabilities() {
         XCTAssertEqual(
-            CloudTranscriptionProviderConfiguration.all.map(\.preset),
-            CloudTranscriptionPreset.allCases
+            CloudServiceCatalog.all.map(\.id),
+            CloudServiceID.allCases
         )
+        XCTAssertEqual(
+            CloudServiceCatalog.definitions(for: .transcription).map(\.id),
+            [.alibaba, .elevenLabs, .gemini, .groq, .openAI, .siliconFlow, .custom]
+        )
+        XCTAssertEqual(
+            CloudServiceCatalog.definitions(for: .textProcessing).map(\.id),
+            [.gemini, .groq, .openAI, .siliconFlow, .custom]
+        )
+        XCTAssertEqual(
+            CloudTranscriptionPreset.allCases.map(\.serviceID),
+            CloudServiceCatalog.definitions(for: .transcription).map(\.id)
+        )
+        XCTAssertEqual(
+            CloudTextServicePreset.allCases.map(\.serviceID),
+            CloudServiceCatalog.definitions(for: .textProcessing).map(\.id)
+        )
+        for service in CloudServiceCatalog.all {
+            XCTAssertEqual(service.backendProvider.requiredPlugin, service.requiredPlugin)
+        }
 
-        let siliconFlow = CloudTranscriptionProviderConfiguration.siliconFlow
+        let siliconFlow = CloudServiceCatalog.definition(for: .siliconFlow)
         XCTAssertEqual(siliconFlow.backendProvider, .openAI)
         XCTAssertEqual(siliconFlow.credential, .openAICompatible)
         XCTAssertEqual(siliconFlow.endpoint.defaultURLString, "https://api.siliconflow.cn/v1")
         XCTAssertTrue(siliconFlow.supportsModelDiscovery)
         XCTAssertTrue(siliconFlow.supportsTextProcessing)
 
-        let alibaba = CloudTranscriptionProviderConfiguration.alibaba
+        let alibaba = CloudServiceCatalog.definition(for: .alibaba)
         XCTAssertEqual(alibaba.backendProvider, .alibaba)
         XCTAssertEqual(alibaba.fixedTranscriptionModelID, "qwen3-asr-flash")
         XCTAssertEqual(alibaba.connectionDetail, .alibabaQwen3)
         XCTAssertFalse(alibaba.supportsModelDiscovery)
         XCTAssertFalse(alibaba.supportsTextProcessing)
 
-        XCTAssertTrue(CloudTranscriptionProviderConfiguration.custom.endpoint.isEditable)
+        XCTAssertTrue(CloudServiceCatalog.definition(for: .custom).endpoint.isEditable)
         XCTAssertEqual(
-            CloudTranscriptionProviderConfiguration.enabled { $0 == .providerOpenAI }.map(\.preset),
-            [.openAI, .groq, .siliconFlow, .custom]
+            CloudServiceCatalog.enabled { $0 == .providerOpenAI }.map(\.id),
+            [.groq, .openAI, .siliconFlow, .custom]
         )
+        XCTAssertEqual(
+            CloudServiceCatalog.enabled { $0 == .providerGemini }.map(\.id),
+            [.gemini, .custom]
+        )
+        XCTAssertEqual(
+            CloudServiceCatalog.enabled { _ in false }.map(\.id),
+            [.custom]
+        )
+        XCTAssertEqual(siliconFlow.endpoint.defaultURLString, siliconFlowBaseURL)
+    }
+
+    func testResolvedCloudConnectionsPreserveBuiltInAndCustomEndpointSemantics() throws {
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.openAIBaseURL = groqBaseURL
+        settings.openAITranscriptionModelSelectionMode = .automatic
+        settings.automaticOpenAITranscriptionModel = "whisper-large-v3"
+        settings.openAITextModelSelectionMode = .automatic
+        settings.automaticOpenAITextModel = "openai/gpt-oss-20b"
+
+        let transcription = try XCTUnwrap(settings.resolvedCloudTranscriptionConnection)
+        XCTAssertEqual(transcription.workload, .transcription)
+        XCTAssertEqual(transcription.service.id, .groq)
+        XCTAssertEqual(transcription.endpoint, groqBaseURL)
+        XCTAssertEqual(transcription.credentialScope, .openAICompatible(.groq))
+        XCTAssertEqual(transcription.modelSelection, .automatic("whisper-large-v3"))
+        XCTAssertEqual(transcription.verification, .notRequired)
+
+        let sharedText = try XCTUnwrap(settings.resolvedCloudTextConnection)
+        XCTAssertEqual(sharedText.workload, .textProcessing)
+        XCTAssertEqual(sharedText.source, .transcriptionService)
+        XCTAssertEqual(sharedText.service.id, .groq)
+        XCTAssertEqual(sharedText.endpoint, groqBaseURL)
+        XCTAssertEqual(sharedText.credentialScope, .openAICompatible(.groq))
+        XCTAssertEqual(sharedText.modelSelection, .automatic("openai/gpt-oss-20b"))
+        XCTAssertEqual(sharedText.verification, .notRequired)
+
+        settings.cloudTextUsesTranscriptionService = false
+        settings.cloudTextServicePreset = .custom
+        settings.cloudTextOpenAIBaseURL = "https://relay.example.test/v1"
+        settings.openAITextModelSelectionMode = .fixed
+        settings.fixedOpenAITextModel = "relay-text-v1"
+
+        let customText = try XCTUnwrap(settings.resolvedCloudTextConnection)
+        XCTAssertEqual(customText.source, .separateTextService)
+        XCTAssertEqual(customText.service.id, .custom)
+        XCTAssertEqual(customText.endpoint, "https://relay.example.test/v1")
+        XCTAssertEqual(
+            customText.credentialScope,
+            .openAICompatible(.custom(endpointIdentity: "https://relay.example.test/v1"))
+        )
+        XCTAssertEqual(customText.modelSelection, .fixed("relay-text-v1"))
+        XCTAssertEqual(customText.verification, .required)
+
+        settings.markCurrentCustomOpenAICloudTextModelVerified()
+        XCTAssertEqual(settings.resolvedCloudTextConnection?.verification, .verified)
+    }
+
+    func testResolvedCloudConnectionsKeepNativeRoutesAndTextEligibilityDistinct() throws {
+        var settings = AppSettings()
+        settings.provider = .alibaba
+
+        let alibaba = try XCTUnwrap(settings.resolvedCloudTranscriptionConnection)
+        XCTAssertEqual(alibaba.service.id, .alibaba)
+        XCTAssertEqual(
+            alibaba.endpoint,
+            CloudServiceCatalog.definition(for: .alibaba).endpoint.defaultURLString
+        )
+        XCTAssertEqual(alibaba.credentialScope, .native(.alibaba))
+        XCTAssertEqual(alibaba.modelSelection, .fixed("qwen3-asr-flash"))
+        XCTAssertEqual(alibaba.verification, .notRequired)
+        XCTAssertNil(settings.resolvedCloudTextConnection)
+
+        settings.cloudTextUsesTranscriptionService = false
+        settings.cloudTextServicePreset = .gemini
+        settings.cloudTextGeminiModel = GeminiTranscriptionService.defaultModelID
+
+        let geminiText = try XCTUnwrap(settings.resolvedCloudTextConnection)
+        XCTAssertEqual(geminiText.source, .separateTextService)
+        XCTAssertEqual(geminiText.service.id, .gemini)
+        XCTAssertEqual(
+            geminiText.endpoint,
+            CloudServiceCatalog.definition(for: .gemini).endpoint.defaultURLString
+        )
+        XCTAssertEqual(geminiText.credentialScope, .native(.gemini))
+        XCTAssertEqual(
+            geminiText.modelSelection,
+            .fixed(GeminiTranscriptionService.defaultModelID)
+        )
+        XCTAssertEqual(geminiText.verification, .notRequired)
+    }
+
+    func testResolvedCloudConnectionMatrixCoversEverySelectableService() throws {
+        for service in CloudServiceCatalog.definitions(for: .transcription) {
+            var settings = AppSettings()
+            settings.provider = service.backendProvider
+
+            if service.id == .custom {
+                settings.openAIUsesCustomEndpoint = true
+                settings.openAIBaseURL = "https://transcription-relay.example.test/v1"
+            } else if service.transportKind == .openAICompatible {
+                settings.openAIBaseURL = service.endpoint.defaultURLString
+            }
+
+            let connection = try XCTUnwrap(
+                settings.resolvedCloudTranscriptionConnection,
+                "Expected a transcription connection for \(service.id.rawValue)"
+            )
+            XCTAssertEqual(connection.service.id, service.id)
+            XCTAssertEqual(connection.backendProvider, service.backendProvider)
+            XCTAssertEqual(connection.supportsModelDiscovery, service.supportsModelDiscovery)
+            XCTAssertEqual(
+                connection.endpoint,
+                service.id == .custom
+                    ? "https://transcription-relay.example.test/v1"
+                    : service.endpoint.defaultURLString
+            )
+        }
+
+        for service in CloudServiceCatalog.definitions(for: .textProcessing) {
+            var settings = AppSettings()
+            settings.provider = .local
+            settings.cloudTextUsesTranscriptionService = false
+            settings.cloudTextServicePreset = try XCTUnwrap(
+                CloudTextServicePreset(serviceID: service.id)
+            )
+
+            if service.id == .custom {
+                settings.cloudTextOpenAIBaseURL = "https://text-relay.example.test/v1"
+            }
+
+            let connection = try XCTUnwrap(
+                settings.resolvedCloudTextConnection,
+                "Expected a text connection for \(service.id.rawValue)"
+            )
+            XCTAssertEqual(connection.source, .separateTextService)
+            XCTAssertEqual(connection.service.id, service.id)
+            XCTAssertEqual(connection.backendProvider, service.backendProvider)
+            XCTAssertEqual(connection.supportsModelDiscovery, service.supportsModelDiscovery)
+            XCTAssertEqual(
+                connection.endpoint,
+                service.id == .custom
+                    ? "https://text-relay.example.test/v1"
+                    : service.endpoint.defaultURLString
+            )
+        }
+    }
+
+    func testConnectionCoordinatorRestoresSharedCustomProfilesAcrossServiceSwitches() {
+        var settings = AppSettings()
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(.custom),
+            to: &settings
+        )
+        CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTranscriptionEndpoint("https://relay-a.example.test/v1"),
+            to: &settings
+        )
+        settings.openAITranscriptionModelSelectionMode = .fixed
+        settings.fixedOpenAITranscriptionModel = "gpt-4o-transcribe"
+        settings.openAITextModelSelectionMode = .fixed
+        settings.fixedOpenAITextModel = "relay-a-text-v1"
+        settings.saveCurrentCustomOpenAITranscriptionProfile()
+        settings.saveCurrentCustomOpenAICloudTextProfile()
+        settings.markCurrentCustomOpenAITranscriptionModelVerified()
+        settings.markCurrentCustomOpenAICloudTextModelVerified()
+
+        let separateText = CloudConnectionSettingsCoordinator.apply(
+            .setTextServiceReuse(false),
+            to: &settings
+        )
+        XCTAssertTrue(separateText.textChanged)
+        XCTAssertTrue(separateText.textDiscoveryChanged)
+        XCTAssertFalse(settings.cloudTextUsesTranscriptionService)
+
+        let reuseText = CloudConnectionSettingsCoordinator.apply(
+            .setTextServiceReuse(true),
+            to: &settings
+        )
+        XCTAssertTrue(reuseText.textChanged)
+        XCTAssertTrue(reuseText.textDiscoveryChanged)
+        XCTAssertTrue(settings.cloudTextUsesTranscriptionService)
+        XCTAssertEqual(settings.fixedOpenAITextModel, "relay-a-text-v1")
+
+        let switchToGroq = CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(.groq),
+            to: &settings
+        )
+        XCTAssertTrue(switchToGroq.transcriptionChanged)
+        XCTAssertTrue(switchToGroq.transcriptionDiscoveryChanged)
+        XCTAssertTrue(switchToGroq.textChanged)
+        XCTAssertTrue(switchToGroq.textDiscoveryChanged)
+        XCTAssertEqual(settings.effectiveCloudTranscriptionPreset, .groq)
+
+        let restoreCustom = CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(.custom),
+            to: &settings
+        )
+        XCTAssertTrue(restoreCustom.transcriptionChanged)
+        XCTAssertTrue(restoreCustom.textChanged)
+        XCTAssertEqual(settings.openAIBaseURL, "https://relay-a.example.test/v1")
+        XCTAssertEqual(settings.openAITranscriptionModelSelectionMode, .fixed)
+        XCTAssertEqual(settings.fixedOpenAITranscriptionModel, "gpt-4o-transcribe")
+        XCTAssertEqual(settings.openAITextModelSelectionMode, .fixed)
+        XCTAssertEqual(settings.fixedOpenAITextModel, "relay-a-text-v1")
+        XCTAssertFalse(settings.requiresCustomOpenAITranscriptionVerification)
+        XCTAssertFalse(settings.requiresCustomOpenAICloudTextVerification)
+
+        var changedModel = settings
+        changedModel.fixedOpenAITranscriptionModel = "gpt-4o-mini-transcribe"
+        let modelOnlyTransition = CloudConnectionSettingsCoordinator.transition(
+            from: settings,
+            to: changedModel
+        )
+        XCTAssertTrue(modelOnlyTransition.transcriptionChanged)
+        XCTAssertFalse(modelOnlyTransition.transcriptionDiscoveryChanged)
+        XCTAssertFalse(modelOnlyTransition.textChanged)
+    }
+
+    func testConnectionCoordinatorKeepsCustomTextProfilesSeparateByEndpoint() {
+        var settings = AppSettings()
+        settings.provider = .local
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTextService(.custom),
+            to: &settings
+        )
+        CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTextEndpoint("https://relay-a.example.test/v1"),
+            to: &settings
+        )
+        settings.openAITextModelSelectionMode = .fixed
+        settings.fixedOpenAITextModel = "relay-a-text-v1"
+        settings.saveCurrentCustomOpenAICloudTextProfile()
+        settings.markCurrentCustomOpenAICloudTextModelVerified()
+
+        let switchToB = CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTextEndpoint("https://relay-b.example.test/v1"),
+            to: &settings
+        )
+        XCTAssertTrue(switchToB.textChanged)
+        XCTAssertTrue(switchToB.textDiscoveryChanged)
+        XCTAssertTrue(settings.requiresCustomOpenAICloudTextVerification)
+
+        settings.openAITextModelSelectionMode = .fixed
+        settings.fixedOpenAITextModel = "relay-b-text-v1"
+        settings.saveCurrentCustomOpenAICloudTextProfile()
+        settings.markCurrentCustomOpenAICloudTextModelVerified()
+
+        let restoreA = CloudConnectionSettingsCoordinator.apply(
+            .updateCustomTextEndpoint("https://relay-a.example.test/v1"),
+            to: &settings
+        )
+        XCTAssertTrue(restoreA.textChanged)
+        XCTAssertEqual(settings.cloudTextOpenAIBaseURL, "https://relay-a.example.test/v1")
+        XCTAssertEqual(settings.fixedOpenAITextModel, "relay-a-text-v1")
+        XCTAssertFalse(settings.requiresCustomOpenAICloudTextVerification)
     }
 
     func testAutomaticTextSelectionAppliesToEveryLLMFeature() {
@@ -245,7 +523,7 @@ final class OpenAIModelCatalogTests: XCTestCase {
         XCTAssertEqual(settings.voiceEditCommandMode, .llmOnly)
     }
 
-    func testUnacknowledgedRelayKeepsCloudTextFeaturesLocal() {
+    func testUnverifiedCustomEndpointKeepsCloudTextFeaturesLocal() {
         var settings = AppSettings()
         settings.provider = .openAI
         settings.openAIBaseURL = "https://relay.example.test/v1"
@@ -255,7 +533,8 @@ final class OpenAIModelCatalogTests: XCTestCase {
 
         let runtime = CloudTextAICapabilityPolicy.applying(to: settings)
 
-        XCTAssertFalse(settings.hasAcknowledgedOpenAICompatibleRelay)
+        XCTAssertTrue(settings.isCustomOpenAITranscriptionService)
+        XCTAssertTrue(settings.requiresCustomOpenAICloudTextVerification)
         XCTAssertFalse(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
         XCTAssertFalse(runtime.transcriptRetouchEnabled)
         XCTAssertFalse(runtime.aiEmojiResolverEnabled)
@@ -270,17 +549,14 @@ final class OpenAIModelCatalogTests: XCTestCase {
         settings.openAITextModelSelectionMode = .fixed
         settings.fixedOpenAITextModel = "openai/gpt-oss-20b"
 
-        XCTAssertEqual(settings.cloudTextServiceProvider, .openAI)
-        XCTAssertEqual(settings.effectiveCloudTextBaseURL, CloudTranscriptionPreset.groqBaseURL)
+        XCTAssertEqual(settings.resolvedCloudTextConnection?.backendProvider, .openAI)
+        XCTAssertEqual(settings.effectiveCloudTextBaseURL, groqBaseURL)
         XCTAssertEqual(settings.effectiveCloudTextModel, "openai/gpt-oss-20b")
-        XCTAssertFalse(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
-
-        settings.acknowledgeCloudTextRelay()
         XCTAssertTrue(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
         XCTAssertEqual(settings.cloudTextExecutionSettings.provider, .openAI)
         XCTAssertEqual(
             settings.cloudTextExecutionSettings.openAIBaseURL,
-            CloudTranscriptionPreset.groqBaseURL
+            groqBaseURL
         )
     }
 
@@ -291,11 +567,11 @@ final class OpenAIModelCatalogTests: XCTestCase {
 
         XCTAssertEqual(
             settings.effectiveCloudTextBaseURL,
-            CloudTranscriptionPreset.siliconFlowBaseURL
+            siliconFlowBaseURL
         )
         XCTAssertEqual(
             OpenAICompatibleCredentialScope(
-                baseURLString: CloudTranscriptionPreset.siliconFlowBaseURL
+                baseURLString: siliconFlowBaseURL
             ).credentialAccount,
             "siliconflow"
         )
@@ -306,13 +582,13 @@ final class OpenAIModelCatalogTests: XCTestCase {
         settings.provider = .elevenLabs
         settings.cloudTextUsesTranscriptionService = true
 
-        XCTAssertNil(settings.cloudTextServiceProvider)
+        XCTAssertNil(settings.resolvedCloudTextConnection)
         XCTAssertFalse(CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: settings))
 
         settings.cloudTextUsesTranscriptionService = false
         settings.cloudTextServicePreset = .gemini
 
-        XCTAssertEqual(settings.cloudTextServiceProvider, .gemini)
+        XCTAssertEqual(settings.resolvedCloudTextConnection?.backendProvider, .gemini)
         XCTAssertEqual(
             settings.effectiveCloudTextModel,
             GeminiTranscriptionService.defaultModelID
@@ -326,9 +602,10 @@ final class OpenAIModelCatalogTests: XCTestCase {
         settings.cloudTextServicePreset = .custom
         settings.cloudTextOpenAIBaseURL = "https://relay.example.com/v1"
         settings.lastCustomCloudTextOpenAIBaseURL = settings.cloudTextOpenAIBaseURL
-        settings.acknowledgeCloudTextRelay()
         settings.openAITextModelSelectionMode = .fixed
         settings.fixedOpenAITextModel = "text-model-v1"
+        settings.saveCurrentCustomOpenAICloudTextProfile()
+        settings.markCurrentCustomOpenAICloudTextModelVerified()
 
         let decoded = try JSONDecoder().decode(
             AppSettings.self,
@@ -338,8 +615,44 @@ final class OpenAIModelCatalogTests: XCTestCase {
         XCTAssertFalse(decoded.cloudTextUsesTranscriptionService)
         XCTAssertEqual(decoded.cloudTextServicePreset, .custom)
         XCTAssertEqual(decoded.effectiveCloudTextBaseURL, "https://relay.example.com/v1")
-        XCTAssertTrue(decoded.hasAcknowledgedCloudTextRelay)
         XCTAssertEqual(decoded.effectiveCloudTextModel, "text-model-v1")
+        XCTAssertFalse(decoded.requiresCustomOpenAICloudTextVerification)
+    }
+
+    func testCustomEndpointProfilesRestoreTheirModelAndVerificationState() {
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.openAIBaseURL = "https://relay.example.test/v1"
+        settings.openAITranscriptionModelSelectionMode = .fixed
+        settings.fixedOpenAITranscriptionModel = "relay-asr-v1"
+        settings.saveCurrentCustomOpenAITranscriptionProfile()
+        settings.markCurrentCustomOpenAITranscriptionModelVerified()
+
+        settings.openAIBaseURL = groqBaseURL
+        settings.openAITranscriptionModelSelectionMode = .automatic
+        settings.automaticOpenAITranscriptionModel = "whisper-large-v3"
+
+        settings.openAIBaseURL = "https://relay.example.test/v1"
+        settings.restoreCustomOpenAITranscriptionProfile()
+
+        XCTAssertEqual(settings.openAITranscriptionModelSelectionMode, .fixed)
+        XCTAssertEqual(settings.effectiveModel, "relay-asr-v1")
+        XCTAssertFalse(settings.requiresCustomOpenAITranscriptionVerification)
+
+        settings.fixedOpenAITranscriptionModel = "relay-asr-v2"
+        settings.saveCurrentCustomOpenAITranscriptionProfile()
+        XCTAssertTrue(settings.requiresCustomOpenAITranscriptionVerification)
+    }
+
+    func testExplicitCustomServiceStaysCustomBeforeItsEndpointIsEntered() {
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.openAIBaseURL = AppSettings.defaultOpenAIBaseURL
+        settings.openAIUsesCustomEndpoint = true
+
+        XCTAssertEqual(settings.effectiveCloudTranscriptionPreset, .custom)
+        XCTAssertTrue(settings.isCustomOpenAITranscriptionService)
+        XCTAssertTrue(settings.requiresCustomOpenAITranscriptionVerification)
     }
 
     func testAutomaticAndFixedTranscriptionSelectionRemainDistinct() {
@@ -535,7 +848,7 @@ final class OpenAIModelAvailabilityServiceTests: XCTestCase {
 }
 
 final class OpenAITranscriptionServiceTests: XCTestCase {
-    func testRelayUsesMinimalMultipartRequestAndKeepsManualModelID() async throws {
+    func testVerifiedCustomEndpointUsesMinimalMultipartRequestAndKeepsManualModelID() async throws {
         let capture = TranscriptionRequestCapture(responseData: Data(#"{"text":"relay transcript"}"#.utf8))
         let service = OpenAITranscriptionService(dataLoader: { request in
             try await capture.load(request)
@@ -551,7 +864,8 @@ final class OpenAITranscriptionServiceTests: XCTestCase {
         settings.openAITranscriptionModelSelectionMode = .fixed
         settings.fixedOpenAITranscriptionModel = "company/mandarin-asr-v2"
         settings.selectedTranscriptionLanguages = [.chinese]
-        settings.acknowledgeOpenAICompatibleRelay()
+        settings.saveCurrentCustomOpenAITranscriptionProfile()
+        settings.markCurrentCustomOpenAITranscriptionModelVerified()
 
         let result = try await service.transcribe(
             TranscriptionRequest(
@@ -606,7 +920,6 @@ final class OpenAITranscriptionServiceTests: XCTestCase {
         settings.openAIBaseURL = "https://relay.example.test/v1"
         settings.openAITranscriptionModelSelectionMode = .fixed
         settings.fixedOpenAITranscriptionModel = "invalid\nmodel"
-        settings.acknowledgeOpenAICompatibleRelay()
 
         let service = OpenAITranscriptionService(dataLoader: { _ in
             XCTFail("An invalid model ID must not upload audio")
@@ -640,9 +953,9 @@ final class OpenAITranscriptionServiceTests: XCTestCase {
         }
     }
 
-    func testRelayRefusesRealAudioUntilTheEndpointIsAcknowledged() async throws {
+    func testCustomEndpointRefusesRealAudioUntilItsModelIsVerified() async throws {
         let service = OpenAITranscriptionService(dataLoader: { _ in
-            XCTFail("An unacknowledged relay must not receive audio")
+            XCTFail("An unverified custom endpoint must not receive audio")
             throw CancellationError()
         })
         let audioURL = FileManager.default.temporaryDirectory
@@ -666,10 +979,40 @@ final class OpenAITranscriptionServiceTests: XCTestCase {
                     apiKey: "relay-secret"
                 )
             )
-            XCTFail("Expected relay acknowledgement error")
+            XCTFail("Expected custom endpoint verification error")
         } catch let error as OpenAITranscriptionError {
-            XCTAssertEqual(error, .relayAcknowledgementRequired)
+            XCTAssertEqual(error, .customEndpointVerificationRequired)
         }
+    }
+
+    func testBuiltInCompatibleProviderSendsRealAudioWithoutAModelTest() async throws {
+        let capture = TranscriptionRequestCapture(responseData: Data(#"{"text":"provider transcript"}"#.utf8))
+        let service = OpenAITranscriptionService(dataLoader: { request in
+            try await capture.load(request)
+        })
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shuo-provider-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+        try Data([0, 1]).write(to: audioURL)
+
+        var settings = AppSettings()
+        settings.provider = .openAI
+        settings.openAIBaseURL = groqBaseURL
+        settings.openAITranscriptionModelSelectionMode = .automatic
+        settings.automaticOpenAITranscriptionModel = "whisper-large-v3"
+
+        let result = try await service.transcribe(
+            TranscriptionRequest(
+                audioFileURL: audioURL,
+                settings: settings,
+                context: "",
+                vocabulary: .empty,
+                apiKey: "provider-secret"
+            )
+        )
+
+        XCTAssertEqual(result.text, "provider transcript")
+        XCTAssertEqual(capture.requests.count, 1)
     }
 }
 
