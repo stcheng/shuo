@@ -220,6 +220,15 @@ enum AppTextKey: String, CaseIterable {
 struct AppLocalizer {
     let language: AppLanguage
 
+    func appLanguageName(_ appLanguage: AppLanguage) -> String {
+        switch appLanguage {
+        case .system:
+            return localized("System", "跟随系统", "跟隨系統", "システム設定")
+        case .english, .simplifiedChinese, .traditionalChinese, .japanese:
+            return appLanguage.nativeDisplayName
+        }
+    }
+
     func text(_ key: AppTextKey) -> String {
         resourceText("text.\(key.rawValue)", fallback: key.rawValue)
     }
@@ -3500,7 +3509,7 @@ struct AppLocalizer {
     }
 
     private func localized(_ english: String, _ simplifiedChinese: String, _ traditionalChinese: String, _ japanese: String) -> String {
-        switch language {
+        switch language.resolved {
         case .english:
             return english
         case .simplifiedChinese:
@@ -3509,13 +3518,15 @@ struct AppLocalizer {
             return traditionalChinese
         case .japanese:
             return japanese
+        case .system:
+            preconditionFailure("System language must resolve before localization")
         }
     }
 }
 
 private extension AppLanguage {
     var localizationResourceKey: String {
-        switch self {
+        switch resolved {
         case .english:
             return "en"
         case .simplifiedChinese:
@@ -3524,6 +3535,8 @@ private extension AppLanguage {
             return "zh-Hant"
         case .japanese:
             return "ja"
+        case .system:
+            preconditionFailure("System language must resolve before loading resources")
         }
     }
 }

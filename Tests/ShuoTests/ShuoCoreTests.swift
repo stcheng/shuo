@@ -18,6 +18,51 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(AppSettings().hasCompletedOnboarding)
     }
 
+    func testFreshSettingsFollowTheSystemLanguage() {
+        XCTAssertEqual(AppSettings().appLanguage, .system)
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["zh-Hant-TW", "en-US"]
+            ),
+            .traditionalChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["zh-CN", "en-US"]
+            ),
+            .simplifiedChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["fr-FR", "ja-JP"]
+            ),
+            .japanese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(preferredLanguages: ["fr-FR"]),
+            .english
+        )
+    }
+
+    func testSystemLanguagePickerNameIsLocalized() {
+        XCTAssertEqual(
+            AppLocalizer(language: .english).appLanguageName(.system),
+            "System"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .simplifiedChinese).appLanguageName(.system),
+            "跟随系统"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .traditionalChinese).appLanguageName(.system),
+            "跟隨系統"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .japanese).appLanguageName(.system),
+            "システム設定"
+        )
+    }
+
     func testExistingSettingsWithoutOnboardingFlagDoNotReopenWelcome() throws {
         let data = Data(#"{"appLanguage":"english"}"#.utf8)
 
@@ -3664,7 +3709,7 @@ final class AppLocalizerTests: XCTestCase {
     }
 
     func testHumanCorrectionCopyUsesMacSymbolsAndConciseHierarchy() {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let localizer = AppLocalizer(language: language)
             let floatingBarDetail = localizer.floatingWindowDetail()
 
@@ -3736,7 +3781,7 @@ final class AppLocalizerTests: XCTestCase {
             ]
         ]
 
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let localizer = AppLocalizer(language: language)
             let privacy = localizer.privacyDetail()
 
@@ -3782,7 +3827,7 @@ final class AppLocalizerTests: XCTestCase {
             .traditionalChinese: "即使使用本機轉寫",
             .japanese: "ローカル文字起こしを使用している場合でも"
         ]
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let privacy = AppLocalizer(language: language).privacyDetail()
             XCTAssertFalse(
                 privacy.contains(staleClaims[language, default: ""]),
@@ -3807,7 +3852,7 @@ final class AppLocalizerTests: XCTestCase {
     }
 
     func testUninstallCopyExplainsCompleteDataRemovalInEveryLanguage() {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let detail = AppLocalizer(language: language).uninstallAndDataDetail()
             XCTAssertTrue(detail.contains(AppBuildIdentity.bundleIdentifier))
             XCTAssertTrue(detail.contains("Application Support"))
@@ -3877,7 +3922,7 @@ final class AppLocalizerTests: XCTestCase {
             ]
         ]
 
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let releaseNotes = AppLocalizer(language: language).releaseNotesDetail()
 
             XCTAssertEqual(
@@ -3916,7 +3961,7 @@ final class AppLocalizerTests: XCTestCase {
     }
 
     func testCustomServiceVerificationWarningIsLocalized() {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let message = AppLocalizer(language: language)
                 .customOpenAIServiceModelTestRequired()
             XCTAssertFalse(message.isEmpty)

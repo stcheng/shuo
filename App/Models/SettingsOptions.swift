@@ -1,6 +1,10 @@
 import Foundation
 
 enum AppLanguage: String, CaseIterable, Codable, Identifiable {
+    /// Follows the first supported language in the macOS language preference
+    /// list. The persisted value remains `.system`; callers that render copy
+    /// should use `resolved`.
+    case system
     case english
     case simplifiedChinese
     case traditionalChinese
@@ -8,8 +12,62 @@ enum AppLanguage: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Languages with dedicated Shuo copy. This intentionally excludes
+    /// `.system`, which resolves to one of these values at runtime.
+    static let fixedCases: [AppLanguage] = [
+        .english,
+        .simplifiedChinese,
+        .traditionalChinese,
+        .japanese
+    ]
+
+    var resolved: AppLanguage {
+        switch self {
+        case .system:
+            return Self.resolvedSystemLanguage()
+        case .english, .simplifiedChinese, .traditionalChinese, .japanese:
+            return self
+        }
+    }
+
+    /// Uses the first supported macOS language. Unsupported system languages
+    /// fall back to English, then later supported preferred languages can still
+    /// take precedence (for example French followed by Chinese).
+    static func resolvedSystemLanguage(
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> AppLanguage {
+        for identifier in preferredLanguages {
+            let components = identifier
+                .lowercased()
+                .replacingOccurrences(of: "_", with: "-")
+                .split(separator: "-")
+                .map(String.init)
+            guard let languageCode = components.first else {
+                continue
+            }
+
+            switch languageCode {
+            case "en":
+                return .english
+            case "ja":
+                return .japanese
+            case "zh":
+                let usesTraditionalChinese = components.contains { component in
+                    ["hant", "tw", "hk", "mo"].contains(component)
+                }
+                return usesTraditionalChinese ? .traditionalChinese : .simplifiedChinese
+            default:
+                continue
+            }
+        }
+
+        return .english
+    }
+
     var nativeDisplayName: String {
         switch self {
+        case .system:
+            return "System"
         case .english:
             return "English"
         case .simplifiedChinese:

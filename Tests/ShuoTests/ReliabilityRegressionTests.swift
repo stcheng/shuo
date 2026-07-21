@@ -3190,7 +3190,7 @@ final class SettingsSearchIndexTests: XCTestCase {
     }
 
     func testMaintenanceSearchUsesLocalizedDestinations() throws {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let localizer = AppLocalizer(language: language)
             let items = SettingsSearchIndex.items(
                 localizer: localizer,

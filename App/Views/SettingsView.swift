@@ -1128,7 +1128,7 @@ struct SettingsView: View {
         Section(localizer.applicationSettingsLabel()) {
             Picker(localizer.text(.appLanguage), selection: $appState.settings.appLanguage) {
                 ForEach(AppLanguage.allCases) { language in
-                    Text(language.nativeDisplayName).tag(language)
+                    Text(localizer.appLanguageName(language)).tag(language)
                 }
             }
             .settingsSearchAnchor(.appLanguage, highlightedTarget: highlightedSearchTarget)

@@ -20,7 +20,7 @@ struct AppSettings: Codable, Equatable {
     static let defaultOpenAIBaseURL = "https://api.openai.com/v1"
 
     var hasCompletedOnboarding = false
-    var appLanguage: AppLanguage = .english
+    var appLanguage: AppLanguage = .system
     var showDockIcon = false
     var provider: TranscriptionProvider = .local
     var selectedModel: String = "local.medium"
@@ -172,7 +172,7 @@ struct AppSettings: Codable, Equatable {
         case .traditional:
             return .traditional
         case .automatic:
-            return appLanguage == .traditionalChinese ? .traditional : .simplified
+            return appLanguage.resolved == .traditionalChinese ? .traditional : .simplified
         }
     }
 
