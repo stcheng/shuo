@@ -3013,6 +3013,21 @@ final class AudioCapturePipelineTests: XCTestCase {
         )
     }
 
+    func testUSBReadinessFailureGetsOneFreshGraphRetry() {
+        XCTAssertEqual(
+            AudioCaptureStartRetryPolicy.maximumAttemptCount(
+                forTransportType: Int32(bitPattern: kAudioDeviceTransportTypeUSB)
+            ),
+            2
+        )
+        XCTAssertEqual(
+            AudioCaptureStartRetryPolicy.maximumAttemptCount(
+                forTransportType: Int32(bitPattern: kAudioDeviceTransportTypeBuiltIn)
+            ),
+            1
+        )
+    }
+
     func testCaptureCallbacksRequireTheCurrentActiveSegmentGeneration() {
         XCTAssertTrue(
             AudioCaptureSegmentCallbackPolicy.shouldAccept(
@@ -3048,16 +3063,24 @@ final class AudioCapturePipelineTests: XCTestCase {
         )
     }
 
-    func testBluetoothTransportUsesReadinessHandshake() {
-        XCTAssertNotNil(
+    func testExternalTransportsUseReadinessHandshake() {
+        XCTAssertEqual(
             AudioCaptureReadinessPolicy.policy(
                 forTransportType: Int32(bitPattern: kAudioDeviceTransportTypeBluetooth)
-            )
+            ),
+            .bluetooth
         )
-        XCTAssertNotNil(
+        XCTAssertEqual(
             AudioCaptureReadinessPolicy.policy(
                 forTransportType: Int32(bitPattern: kAudioDeviceTransportTypeBluetoothLE)
-            )
+            ),
+            .bluetooth
+        )
+        XCTAssertEqual(
+            AudioCaptureReadinessPolicy.policy(
+                forTransportType: Int32(bitPattern: kAudioDeviceTransportTypeUSB)
+            ),
+            .usb
         )
         XCTAssertNil(
             AudioCaptureReadinessPolicy.policy(
@@ -4419,24 +4442,63 @@ final class DiagnosticsPrivacyPolicyTests: XCTestCase {
         )
     }
 
-    func testAudioInputSummaryNeverContainsTheDeviceIdentifier() {
+    func testUSBTransportHasAReadableDiagnosticName() {
         XCTAssertEqual(
-            DiagnosticsPrivacyPolicy.audioInputSelection(
-                deviceID: AudioInputDeviceCatalog.automaticDeviceID
+            AudioInputDeviceCatalog.transportDescription(
+                for: Int32(bitPattern: kAudioDeviceTransportTypeUSB)
             ),
-            "System Default"
+            "USB"
         )
+    }
+
+    func testAudioInputSummaryIncludesRedactedRouteDetails() {
+        let diagnostics = AudioInputDiagnostics(
+            selection: .custom,
+            resolvedDevice: AudioInputDeviceDiagnostics(
+                transport: "USB",
+                isConnected: true
+            ),
+            availableDeviceCount: 3
+        )
+
+        let summary = DiagnosticsPrivacyPolicy.audioInputSelection(diagnostics)
+
         XCTAssertEqual(
-            DiagnosticsPrivacyPolicy.audioInputSelection(
-                deviceID: AudioInputDeviceCatalog.systemDefaultDeviceID
+            summary,
+            "Custom (identifier omitted); resolved: yes; transport: USB; connected: yes; available inputs: 3"
+        )
+    }
+
+    func testAudioInputSummaryExplainsAnUnavailableCustomDevice() {
+        let diagnostics = AudioInputDiagnostics(
+            selection: .custom,
+            resolvedDevice: nil,
+            availableDeviceCount: 2
+        )
+
+        XCTAssertEqual(
+            DiagnosticsPrivacyPolicy.audioInputSelection(diagnostics),
+            "Custom (identifier omitted); resolved: no; available inputs: 2"
+        )
+    }
+
+    func testAudioInputSummaryNeverContainsTheDeviceIdentifierOrName() {
+        let diagnostics = AudioInputDiagnostics(
+            selection: .systemDefault,
+            resolvedDevice: AudioInputDeviceDiagnostics(
+                transport: "Built-in",
+                isConnected: true
             ),
-            "System Default"
+            availableDeviceCount: 1
         )
-        let summary = DiagnosticsPrivacyPolicy.audioInputSelection(
-            deviceID: "private-hardware-identifier"
+        let summary = DiagnosticsPrivacyPolicy.audioInputSelection(diagnostics)
+
+        XCTAssertEqual(
+            summary,
+            "System Default; resolved: yes; transport: Built-in; connected: yes; available inputs: 1"
         )
-        XCTAssertEqual(summary, "Custom (identifier omitted)")
         XCTAssertFalse(summary.contains("private-hardware-identifier"))
+        XCTAssertFalse(summary.contains("Alice's USB Microphone"))
     }
 }
 

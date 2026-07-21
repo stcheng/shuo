@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import OSLog
 
 struct AudioActivityAnalysis {
     let duration: TimeInterval
@@ -25,6 +26,11 @@ struct AudioActivityAnalysis {
 }
 
 struct AudioActivityAnalyzer {
+    private static let logger = Logger(
+        subsystem: AppBuildIdentity.bundleIdentifier,
+        category: "AudioCapture"
+    )
+
     func analyze(
         _ url: URL,
         silenceThresholdDBFS: Double,
@@ -83,6 +89,7 @@ struct AudioActivityAnalyzer {
         }
 
         guard totalFrames > 0 else {
+            Self.logger.error("Audio activity analysis found no frames")
             return AudioActivityAnalysis(
                 duration: 0,
                 activeDuration: 0,
@@ -110,7 +117,7 @@ struct AudioActivityAnalyzer {
         }
         let rms = sqrt(totalSquaredAmplitude / Double(totalFrames))
 
-        return AudioActivityAnalysis(
+        let analysis = AudioActivityAnalysis(
             duration: Double(totalFrames) / sampleRate,
             activeDuration: Double(activeFrames) / sampleRate,
             rmsDBFS: Self.dbFS(fromAmplitude: rms),
@@ -119,6 +126,10 @@ struct AudioActivityAnalyzer {
             speechLevelDBFS: speechLevelDBFS,
             speechThresholdDBFS: speechThresholdDBFS
         )
+        Self.logger.info(
+            "Audio activity analyzed: duration=\(analysis.duration, privacy: .public), activeDuration=\(analysis.activeDuration, privacy: .public), rmsDBFS=\(analysis.rmsDBFS, privacy: .public), peakDBFS=\(analysis.peakDBFS, privacy: .public), noiseFloorDBFS=\(analysis.noiseFloorDBFS, privacy: .public), speechLevelDBFS=\(analysis.speechLevelDBFS, privacy: .public), speechThresholdDBFS=\(analysis.speechThresholdDBFS, privacy: .public)"
+        )
+        return analysis
     }
 
     static func adaptiveSpeechThresholdDBFS(

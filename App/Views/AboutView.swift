@@ -24,12 +24,17 @@ enum DiagnosticsPrivacyPolicy {
         return "~" + path.dropFirst(normalizedHomePath.count)
     }
 
-    static func audioInputSelection(deviceID: String) -> String {
-        let trimmedID = deviceID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return AudioInputDeviceCatalog.normalizedSelectionID(trimmedID)
-            == AudioInputDeviceCatalog.systemDefaultDeviceID
+    static func audioInputSelection(_ diagnostics: AudioInputDiagnostics) -> String {
+        let selection = diagnostics.selection == .systemDefault
             ? "System Default"
             : "Custom (identifier omitted)"
+        var details = [selection, "resolved: \(diagnostics.resolvedDevice == nil ? "no" : "yes")"]
+        if let device = diagnostics.resolvedDevice {
+            details.append("transport: \(device.transport)")
+            details.append("connected: \(device.isConnected ? "yes" : "no")")
+        }
+        details.append("available inputs: \(diagnostics.availableDeviceCount)")
+        return details.joined(separator: "; ")
     }
 }
 
@@ -354,7 +359,7 @@ struct AboutView: View {
             "Provider: \(appState.settings.provider.rawValue)",
             "Model: \(appState.settings.effectiveModel)",
             "Language Hint: \(appState.settings.languageHint.rawValue)",
-            "Audio Input: \(DiagnosticsPrivacyPolicy.audioInputSelection(deviceID: appState.settings.audioInputDeviceID))",
+            "Audio Input: \(DiagnosticsPrivacyPolicy.audioInputSelection(AudioInputDeviceCatalog.diagnostics(for: appState.settings.audioInputDeviceID)))",
             "History Count: \(appState.history.count)",
             "Application Support: \(DiagnosticsPrivacyPolicy.redactedPath(appSupportDirectoryURL))",
             "Crash Reports: \(DiagnosticsPrivacyPolicy.redactedPath(crashReportsDirectoryURL))"
