@@ -6,6 +6,16 @@
         <description>Signed updates for the direct-download edition of Shuo.</description>
         <language>en</language>
         <item>
+            <title>1.3.0</title>
+            <pubDate>Tue, 21 Jul 2026 17:24:12 -0700</pubDate>
+            <link>https://github.com/stcheng/shuo/releases/tag/v1.3.0</link>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://stcheng.github.io/shuo/Shuo-1.3.0-macOS.md</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/stcheng/shuo/releases/download/v1.3.0/Shuo-1.3.0-macOS.zip" length="11210117" type="application/octet-stream" sparkle:edSignature="Pb0COObYR/7IgcuCSY7sSj88gh5/gmU/Kz+U8EM5RlPk5u1OHV67GEjXmqEWHRbJZv4XiAVbgCbvPugBOjhgDw=="/>
+        </item>
+        <item>
             <title>1.2.4</title>
             <pubDate>Fri, 17 Jul 2026 18:57:54 -0700</pubDate>
             <link>https://github.com/stcheng/shuo/releases/tag/v1.2.4</link>
@@ -24,16 +34,6 @@
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:releaseNotesLink>https://stcheng.github.io/shuo/Shuo-1.2.3-macOS.md</sparkle:releaseNotesLink>
             <enclosure url="https://github.com/stcheng/shuo/releases/download/v1.2.3/Shuo-1.2.3-macOS.zip" length="10957976" type="application/octet-stream" sparkle:edSignature="fnHn+hJyaJhn5HV7AavlAI4BPUAltAPAUapod6xSusmy2oTVgFGxpJHdjkn4BTrDNC7NDFhgmsWc1G4HY/RxBg=="/>
-        </item>
-        <item>
-            <title>1.2.2</title>
-            <pubDate>Fri, 17 Jul 2026 00:54:29 -0700</pubDate>
-            <link>https://github.com/stcheng/shuo/releases/tag/v1.2.2</link>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <sparkle:releaseNotesLink>https://stcheng.github.io/shuo/Shuo-1.2.2-macOS.md</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/stcheng/shuo/releases/download/v1.2.2/Shuo-1.2.2-macOS.zip" length="10901539" type="application/octet-stream" sparkle:edSignature="mIILgFEWRW30QRWOv+6u+XbgiKDUeORj0+lE9w9cCClXuDmSuwBbJ9JmUERzbG2pX91BitQotaAefbDWt3NjBQ=="/>
         </item>
     </channel>
 </rss>
