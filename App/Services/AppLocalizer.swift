@@ -2688,34 +2688,12 @@ struct AppLocalizer {
     }
 
     func releaseNotesDetail() -> String {
-        let onePointTwoFourNotes = localized(
-            "New in 1.2.4\n\n• Adds Groq, SiliconFlow, and custom OpenAI-compatible endpoint support, with improved cloud model and API key configuration.",
-            "1.2.4 更新\n\n• 新增 Groq、硅基流动和自定义 OpenAI-compatible 端点支持，并完善云端模型与 API 密钥配置。",
-            "1.2.4 更新\n\n• 新增 Groq、矽基流動與自訂 OpenAI 相容端點支援，並完善雲端模型與 API 金鑰設定。",
-            "1.2.4 の新機能\n\n• Groq、SiliconFlow、カスタム OpenAI 互換エンドポイントに対応し、クラウドモデルと API キーの設定を改善しました。"
+        localized(
+            "New in 1.3.0\n\n• Improves automatic switching between cloud services.\n• Reduces false transcripts from recordings without speech.\n• Adds a System language option for new Shuo installations.\n• Improves the stability of live audio capture from USB microphones.",
+            "1.3.0 更新\n\n• 优化云端服务之间的自动切换体验。\n• 减少空录音被误转写为文字的情况。\n• 应用语言现已支持“跟随系统”选项。\n• 提升 USB 麦克风实时音频采集稳定性。",
+            "1.3.0 更新\n\n• 優化雲端服務之間的自動切換體驗。\n• 減少空錄音被誤轉寫為文字的情況。\n• App 語言現已支援「跟隨系統」選項。\n• 提升 USB 麥克風即時音訊擷取穩定性。",
+            "1.3.0 の新機能\n\n• クラウドサービス間の自動切り替えをよりスムーズにしました。\n• 無音または空の録音が誤って文字起こしされる問題を減らしました。\n• アプリの言語に「システム設定」の選択肢を追加しました。\n• USB マイクからのライブ音声キャプチャの安定性を改善しました。"
         )
-
-        let updateBullet = AppRuntime.isCommunityBuild
-            ? localized(
-                "• Community source builds do not use Shuo's official automatic updater",
-                "• Community 源码构建不使用 Shuo 官方自动更新",
-                "• Community 原始碼版本不使用 Shuo 官方自動更新",
-                "• CommunityソースビルドはShuo公式の自動アップデートを使用しません"
-            )
-            : localized(
-                "• Signed Sparkle updates with cross-user install coordination",
-                "• 支持跨用户安装协调的签名 Sparkle 更新",
-                "• 經簽署的 Sparkle 更新，支援跨使用者協調安裝",
-                "• 署名済みのSparkleアップデートは、複数のmacOSユーザーにまたがるインストール調整に対応"
-            )
-        let currentReleaseDetails = localized(
-            "Current release\n\n• Stable Local and OpenAI-compatible transcription; ElevenLabs and Alibaba Cloud adapters remain optional Beta profiles\n• Bundled local whisper.cpp runtime; Local setup requires only a model download\n• Each linked project keeps at most 60 high-priority terms in its local index; every transcription selects hints from all vocabulary sources within a shared request budget of 60 terms and 900 characters\n• Correction Learning is off by default, and each pattern must be enabled individually; choose conservative, conflict-free local Replacement or eligible preferred wording as Cloud AI hints\n• Optional Floating Bar with safe correction\n• Local recordings, raw/final text, and explicit correction capture\n• Adaptive Whisper Mode for quiet speech\n• Safe, quick Copy, Replace, Play, and Redo\n\(updateBullet)\n• Safer clipboard, transcript, and metrics recovery",
-            "当前版本\n\n• 稳定支持本地与 OpenAI-compatible 转写；ElevenLabs 和阿里云适配器仍作为可选 Beta profile 提供\n• 内置本地 whisper.cpp runtime；本地设置只需下载模型\n• 每个关联项目的本地索引最多保留 60 个高优先级术语；每次转写会从所有词汇来源中选取提示，总计不超过 60 个、900 字符\n• 人工纠正学习默认关闭，每条修正模式均需单独开启；可选择保守且无冲突的本地“替换”，或把符合条件的偏好写法作为“云端 AI”提示\n• 可选悬浮栏与安全纠正\n• 本地录音、原始/最终文字与明确纠正记录\n• 面向轻声说话的自适应轻声模式\n• 快速且安全的复制、替换、回听与重转\n\(updateBullet)\n• 更安全的剪贴板、转写历史与统计恢复",
-            "目前版本\n\n• 穩定支援本機與 OpenAI 相容轉寫；ElevenLabs 與阿里雲介接仍為選用的 Beta 功能\n• 內建本機 whisper.cpp 執行環境；本機設定只需下載模型\n• 每個連結專案的本機索引最多保留 60 個優先術語；每次轉寫會從所有詞彙來源中選取提示，總計不超過 60 個、900 字元\n• 人工修正學習預設關閉，每條修正模式均需個別啟用；可選擇保守且無衝突的本機「替換」，或將符合條件的偏好寫法作為「雲端 AI」提示\n• 可選用懸浮列，安全修正最新內容\n• 在本機儲存錄音、原始與最終文字，以及明確的修正記錄\n• 針對輕聲說話的自適應輕聲模式\n• 快速且安全的複製、替換、播放與重轉\n\(updateBullet)\n• 更安全地復原剪貼簿、轉寫記錄與統計資料",
-            "現在のバージョン\n\n• ローカル文字起こしとOpenAI互換文字起こしを安定版として提供。ElevenLabsとAlibaba Cloudのアダプタは、引き続きオプションのベータ版プロファイルで利用可能\n• ローカル文字起こし用のwhisper.cppランタイムを同梱。セットアップ時に必要なのはモデルのダウンロードのみ\n• リンクした各プロジェクトのローカル索引には、優先度の高い用語を最大60件保存。文字起こしごとに、すべての語彙ソースから合計60件・900文字以内でヒントを選択\n• 「手動修正からの学習」は初期設定でオフ。各パターンを個別に有効化し、競合のない安全性重視のローカル「置換」か、条件を満たした推奨表記を「クラウドAI」へのヒントとして送る方法を選択\n• 必要に応じて表示でき、最新の内容を安全に修正できるフローティングバー\n• 録音、元のテキスト、最終テキスト、明示的な修正をローカルに記録\n• 小さな声に対応する適応型のささやきモード\n• コピー、置換、再生、再文字起こしをすばやく安全に実行\n\(updateBullet)\n• クリップボード、文字起こし履歴、統計データをより安全に復旧"
-        )
-
-        return "\(onePointTwoFourNotes)\n\n\(currentReleaseDetails)"
     }
 
     func uninstallAndDataDetail() -> String {

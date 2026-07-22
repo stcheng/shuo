@@ -3870,55 +3870,35 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeOnePointTwoFourAndCurrentCapabilitiesInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointThreeZeroInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
-                "at most 60 high-priority terms",
-                "60 terms and 900 characters",
-                "enabled individually",
-                "local Replacement",
-                "Cloud AI hints",
-                "Adaptive Whisper Mode",
-                "New in 1.2.4",
-                "Groq",
-                "SiliconFlow",
-                "custom OpenAI-compatible endpoint support"
+                "New in 1.3.0",
+                "automatic switching between cloud services",
+                "recordings without speech",
+                "System language option",
+                "USB microphones"
             ],
             .simplifiedChinese: [
-                "最多保留 60 个高优先级术语",
-                "总计不超过 60 个、900 字符",
-                "均需单独开启",
-                "本地“替换”",
-                "“云端 AI”提示",
-                "自适应轻声模式",
-                "1.2.4 更新",
-                "Groq",
-                "硅基流动",
-                "自定义 OpenAI-compatible 端点支持"
+                "1.3.0 更新",
+                "云端服务之间的自动切换",
+                "空录音被误转写",
+                "跟随系统",
+                "USB 麦克风"
             ],
             .traditionalChinese: [
-                "最多保留 60 個優先術語",
-                "總計不超過 60 個、900 字元",
-                "均需個別啟用",
-                "本機「替換」",
-                "「雲端 AI」提示",
-                "自適應輕聲模式",
-                "1.2.4 更新",
-                "Groq",
-                "矽基流動",
-                "自訂 OpenAI 相容端點支援"
+                "1.3.0 更新",
+                "雲端服務之間的自動切換",
+                "空錄音被誤轉寫",
+                "跟隨系統",
+                "USB 麥克風"
             ],
             .japanese: [
-                "最大60件保存",
-                "合計60件・900文字以内",
-                "各パターンを個別に有効化",
-                "ローカル「置換」",
-                "「クラウドAI」へのヒント",
-                "適応型のささやきモード",
-                "1.2.4 の新機能",
-                "Groq",
-                "SiliconFlow",
-                "カスタム OpenAI 互換エンドポイントに対応"
+                "1.3.0 の新機能",
+                "クラウドサービス間の自動切り替え",
+                "無音または空の録音",
+                "システム設定",
+                "USB マイク"
             ]
         ]
 
@@ -3927,10 +3907,9 @@ final class AppLocalizerTests: XCTestCase {
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                11,
+                4,
                 "Unexpected release-note bullet count for \(language)"
             )
-            XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))
             for term in expectedTerms[language, default: []] {
                 XCTAssertTrue(
                     releaseNotes.contains(term),
@@ -3941,15 +3920,11 @@ final class AppLocalizerTests: XCTestCase {
 
         let traditionalChinese = AppLocalizer(language: .traditionalChinese).releaseNotesDetail()
         XCTAssertFalse(traditionalChinese.contains("OpenAI-compatible"))
-        XCTAssertFalse(traditionalChinese.contains("Beta profile"))
-        XCTAssertFalse(traditionalChinese.contains("Whisper Mode"))
-        XCTAssertFalse(traditionalChinese.contains("面向"))
+        XCTAssertFalse(traditionalChinese.contains("Beta"))
 
         let japanese = AppLocalizer(language: .japanese).releaseNotesDetail()
-        XCTAssertFalse(japanese.contains("現在のリリース"))
-        XCTAssertFalse(japanese.contains("任意のフローティングウインドウ"))
+        XCTAssertFalse(japanese.contains("ベータ版"))
         XCTAssertFalse(japanese.contains("Whisper Mode"))
-        XCTAssertFalse(japanese.contains("として保持"))
     }
 
     func testCloudOnboardingDoesNotClaimAnEnteredKeyWasVerified() {
