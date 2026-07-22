@@ -30,7 +30,6 @@ struct PostProcessingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightedSearchTarget: SettingsSearchTarget?
     @State private var highlightedSearchRequestID: UUID?
-    @State private var isConfirmingCloudTextRelayTest = false
 
     private let presentation: Presentation
     private let navigationSection: AppPanelSection
@@ -52,7 +51,10 @@ struct PostProcessingView: View {
     }
 
     private var cloudTextAIUnavailableDetail: String {
-        appState.settings.provider == .local
+        if appState.settings.requiresCustomOpenAICloudTextVerification {
+            return localizer.customOpenAIServiceModelTestRequired()
+        }
+        return appState.settings.provider == .local
             ? localizer.cloudAIUnavailableInLocalModeDetail()
             : localizer.disabledOpenAITextModelHint()
     }
@@ -129,28 +131,17 @@ struct PostProcessingView: View {
             reduceMotion ? nil : .easeOut(duration: 0.16),
             value: appState.settings.transcriptRetouchEnabled
         )
-        .alert(
-            localizer.cloudTextRelayTestConfirmationTitle(),
-            isPresented: $isConfirmingCloudTextRelayTest
-        ) {
-            Button(localizer.cancelLabel(), role: .cancel) {}
-            Button(localizer.testSelectedOpenAIModelLabel()) {
-                appState.acknowledgeCloudTextRelayAndTestModel()
-            }
-        } message: {
-            Text(localizer.cloudTextRelayTestConfirmationDetail())
-        }
     }
 
     @ViewBuilder
     private var transcriptRetouchCloudConfiguration: some View {
-        Toggle(localizer.useSameCloudServiceLabel(), isOn: $appState.settings.cloudTextUsesTranscriptionService)
-            .onChange(of: appState.settings.cloudTextUsesTranscriptionService) {
-                appState.cloudTextConnectionConfigurationDidChange()
-            }
+        Toggle(localizer.useSameCloudServiceLabel(), isOn: Binding(
+            get: { appState.settings.cloudTextUsesTranscriptionService },
+            set: { appState.setCloudTextUsesTranscriptionService($0) }
+        ))
 
         if appState.settings.cloudTextUsesTranscriptionService,
-           appState.settings.cloudTextServiceProvider == nil {
+           cloudTextConnection == nil {
             SettingsRowFeedback(
                 text: localizer.sameCloudTextServiceUnavailableDetail(),
                 style: .warning
@@ -175,20 +166,25 @@ struct PostProcessingView: View {
 
     @ViewBuilder
     private var cloudTextConnectionControls: some View {
-        switch appState.settings.cloudTextServicePreset {
-        case .openAI, .groq, .siliconFlow, .custom:
-            let preset = appState.settings.cloudTextServicePreset
+        let service = appState.settings.cloudTextServicePreset.definition
+
+        switch service.endpoint {
+        case let .editable(defaultURL):
             TextField(
                 localizer.text(.baseURL),
                 text: cloudTextBaseURL,
-                prompt: Text(AppSettings.defaultOpenAIBaseURL)
+                prompt: Text(defaultURL)
             )
             .textContentType(.URL)
-            .disabled(preset != .custom)
             .onSubmit {
                 appState.refreshCloudTextModels()
             }
 
+        case let .fixed(baseURL):
+            fixedBaseURLRow(baseURL)
+        }
+
+        if service.supportsModelDiscovery {
             SecureField(localizer.text(.apiKey), text: Binding(
                 get: { appState.cloudTextOpenAIAPIKey },
                 set: { appState.updateCloudTextOpenAIAPIKey($0) }
@@ -222,14 +218,13 @@ struct PostProcessingView: View {
                 )
             }
 
-        case .gemini:
-            fixedBaseURLRow(CloudTranscriptionProviderConfiguration.gemini.endpoint.fixedURL!)
+        } else {
             SecureField(localizer.text(.apiKey), text: Binding(
-                get: { appState.geminiAPIKey },
-                set: { appState.updateGeminiAPIKey($0) }
+                get: { appState.cloudAPIKey(for: service) },
+                set: { appState.updateCloudAPIKey($0, for: service) }
             ))
             .onAppear {
-                appState.loadGeminiAPIKeyIfNeeded()
+                appState.loadCloudTextCredentialsIfNeeded()
             }
         }
     }
@@ -242,13 +237,13 @@ struct PostProcessingView: View {
 
     @ViewBuilder
     private var cloudTextModelControls: some View {
-        if appState.settings.cloudTextUsesGemini {
+        if cloudTextConnection?.service.id == .gemini {
             Picker(localizer.text(.model), selection: $appState.settings.cloudTextGeminiModel) {
                 ForEach(GeminiTranscriptionService.modelIDs, id: \.self) { modelID in
                     Text(modelID).tag(modelID)
                 }
             }
-        } else if appState.settings.cloudTextServiceProvider == .openAI {
+        } else if cloudTextConnection?.isOpenAICompatible == true {
             Picker(selection: cloudTextModelSelection) {
                 Text(localizer.automaticCloudTextModelLabel())
                     .tag(CloudTextModelPickerSelection.automatic)
@@ -272,27 +267,19 @@ struct PostProcessingView: View {
             }
         }
 
-        Button(localizer.testSelectedOpenAIModelLabel()) {
-            if appState.settings.cloudTextRequiresRelayAcknowledgement,
-               !appState.settings.hasAcknowledgedCloudTextRelay {
-                isConfirmingCloudTextRelayTest = true
-            } else {
-                appState.testCloudTextModel()
-            }
-        }
-        .disabled(
-            appState.isTestingCloudTextModel
-                || !cloudTextHasAPIKey
-                || appState.settings.cloudTextServiceProvider == nil
-        )
-
-        if let message = appState.cloudTextModelTestMessage {
-            SettingsRowFeedback(
-                text: message,
-                style: appState.cloudTextModelTestSucceeded
-                    ? .success
-                    : (appState.cloudTextModelTestError == nil ? .neutral : .warning),
-                showsProgress: appState.isTestingCloudTextModel
+        if appState.settings.isCustomOpenAICloudTextService {
+            CustomCloudConnectionVerificationControls(
+                testLabel: localizer.testSelectedOpenAIModelLabel(),
+                isTesting: appState.isTestingCloudTextModel,
+                isTestEnabled: cloudTextHasAPIKey
+                    && cloudTextConnection != nil,
+                requiresVerification: appState.settings
+                    .requiresCustomOpenAICloudTextVerification,
+                testError: appState.cloudTextModelTestError,
+                statusMessage: appState.cloudTextModelTestMessage,
+                testSucceeded: appState.hasSuccessfulCloudTextModelTest,
+                requiredMessage: localizer.customOpenAIServiceModelTestRequired(),
+                action: appState.testCloudTextModel
             )
         }
     }
@@ -301,23 +288,7 @@ struct PostProcessingView: View {
         Binding(
             get: { appState.settings.cloudTextServicePreset },
             set: { preset in
-                var updatedSettings = appState.settings
-                updatedSettings.cloudTextServicePreset = preset
-                switch preset {
-                case .openAI, .groq, .siliconFlow:
-                    updatedSettings.cloudTextOpenAIBaseURL = preset.baseURL ?? AppSettings.defaultOpenAIBaseURL
-                case .custom:
-                    updatedSettings.cloudTextOpenAIBaseURL = updatedSettings
-                        .lastCustomCloudTextOpenAIBaseURL
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if updatedSettings.cloudTextOpenAIBaseURL.isEmpty {
-                        updatedSettings.cloudTextOpenAIBaseURL = AppSettings.defaultOpenAIBaseURL
-                    }
-                case .gemini:
-                    break
-                }
-                appState.settings = updatedSettings
-                appState.cloudTextConnectionConfigurationDidChange()
+                appState.selectCloudTextServicePreset(preset)
             }
         )
     }
@@ -326,13 +297,7 @@ struct PostProcessingView: View {
         Binding(
             get: { appState.settings.cloudTextOpenAIBaseURL },
             set: { baseURL in
-                var updatedSettings = appState.settings
-                updatedSettings.cloudTextOpenAIBaseURL = baseURL
-                if updatedSettings.cloudTextServicePreset == .custom {
-                    updatedSettings.lastCustomCloudTextOpenAIBaseURL = baseURL
-                }
-                appState.settings = updatedSettings
-                appState.cloudTextConnectionConfigurationDidChange()
+                appState.updateCustomOpenAICloudTextBaseURL(baseURL)
             }
         )
     }
@@ -347,25 +312,16 @@ struct PostProcessingView: View {
             set: { selection in
                 switch selection {
                 case .automatic:
-                    appState.settings.openAITextModelSelectionMode = .automatic
-                    let availableModelIDs = appState.settings.cloudTextUsesTranscriptionService
-                        ? appState.openAIAvailableModelIDs
-                        : appState.cloudTextAvailableModelIDs
-                    if let recommendedModelID = OpenAIModelCatalog.recommendedTextModelID(
-                        availableModelIDs: availableModelIDs
-                    ) {
-                        appState.settings.automaticOpenAITextModel = recommendedModelID
-                    }
+                    appState.selectAutomaticOpenAICloudTextModel()
                 case let .fixed(modelID):
-                    appState.settings.fixedOpenAITextModel = modelID
-                    appState.settings.openAITextModelSelectionMode = .fixed
+                    appState.selectFixedOpenAICloudTextModel(modelID)
                 }
             }
         )
     }
 
     private var cloudTextModelOptions: [String] {
-        guard appState.settings.cloudTextServiceProvider == .openAI else {
+        guard cloudTextConnection?.isOpenAICompatible == true else {
             return []
         }
 
@@ -388,17 +344,26 @@ struct PostProcessingView: View {
     }
 
     private var cloudTextHasAPIKey: Bool {
-        switch appState.settings.cloudTextServiceProvider {
-        case .gemini:
-            return !appState.geminiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .openAI:
-            let apiKey = appState.settings.cloudTextUsesTranscriptionService
-                ? appState.openAIAPIKey
-                : appState.cloudTextOpenAIAPIKey
-            return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .none, .some(.local), .some(.elevenLabs), .some(.alibaba), .some(.custom):
+        guard let cloudTextConnection else {
             return false
         }
+
+        let apiKey: String
+        switch cloudTextConnection.credentialScope {
+        case .native(.gemini):
+            apiKey = appState.geminiAPIKey
+        case .openAICompatible:
+            apiKey = cloudTextConnection.source == .transcriptionService
+                ? appState.openAIAPIKey
+                : appState.cloudTextOpenAIAPIKey
+        case .native:
+            return false
+        }
+        return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var cloudTextConnection: ResolvedCloudConnection? {
+        appState.settings.resolvedCloudTextConnection
     }
 
     @ViewBuilder

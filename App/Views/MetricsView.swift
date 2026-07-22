@@ -264,7 +264,7 @@ private struct MetricsResetCopy {
     private let localeIdentifier: String
 
     init(language: AppLanguage) {
-        switch language {
+        switch language.resolved {
         case .english:
             buttonTitle = "Reset"
             help = "Start the displayed statistics again from now"
@@ -305,6 +305,8 @@ private struct MetricsResetCopy {
             noActivitySinceReset = "リセット後の記録はまだありません。"
             displayScopePrefix = "集計開始："
             localeIdentifier = "ja"
+        case .system:
+            preconditionFailure("System language must resolve before formatting metrics")
         }
     }
 

@@ -265,15 +265,18 @@ enum OpenAICompatibleCredentialScope: Hashable {
             baseURLString: baseURLString
         )
         if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: CloudTranscriptionProviderConfiguration.openAI.endpoint.defaultURLString
+            baseURLString: CloudServiceCatalog.definition(for: .openAI)
+                .endpoint.defaultURLString
         ) {
             self = .openAI
         } else if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: CloudTranscriptionProviderConfiguration.groq.endpoint.defaultURLString
+            baseURLString: CloudServiceCatalog.definition(for: .groq)
+                .endpoint.defaultURLString
         ) {
             self = .groq
         } else if identity == OpenAICompatibleRequestBuilder.connectionIdentity(
-            baseURLString: CloudTranscriptionProviderConfiguration.siliconFlow.endpoint.defaultURLString
+            baseURLString: CloudServiceCatalog.definition(for: .siliconFlow)
+                .endpoint.defaultURLString
         ) {
             self = .siliconFlow
         } else {
@@ -762,6 +765,50 @@ private enum ProviderAPIKeyStore {
 
     private static func normalized(_ apiKey: String) -> String {
         apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+/// Scope-based access to the existing credential stores. The facade deliberately
+/// does not define a new Keychain service or account scheme: it only lets cloud
+/// connection callers use the credential scope produced by the resolver.
+enum CloudCredentialFacade {
+    static func load(
+        for scope: CloudConnectionCredentialScope,
+        migrateLegacyOpenAIDefault: Bool = false
+    ) throws -> String {
+        switch scope {
+        case let .openAICompatible(openAIScope):
+            return try OpenAIAPIKeyStore.load(
+                scope: openAIScope,
+                migrateLegacyDefault: migrateLegacyOpenAIDefault
+            )
+        case .native(.gemini):
+            return try GeminiAPIKeyStore.load()
+        case .native(.elevenLabs):
+            return try ElevenLabsAPIKeyStore.load()
+        case .native(.alibaba):
+            return try AlibabaAPIKeyStore.load()
+        case .native(.openAICompatible):
+            return ""
+        }
+    }
+
+    static func save(
+        _ apiKey: String,
+        for scope: CloudConnectionCredentialScope
+    ) throws {
+        switch scope {
+        case let .openAICompatible(openAIScope):
+            try OpenAIAPIKeyStore.save(apiKey, scope: openAIScope)
+        case .native(.gemini):
+            try GeminiAPIKeyStore.save(apiKey)
+        case .native(.elevenLabs):
+            try ElevenLabsAPIKeyStore.save(apiKey)
+        case .native(.alibaba):
+            try AlibabaAPIKeyStore.save(apiKey)
+        case .native(.openAICompatible):
+            return
+        }
     }
 }
 

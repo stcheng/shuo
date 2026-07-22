@@ -3,6 +3,8 @@
   "profile": "public",
   "enabledPlugins": [
     "provider.openai",
+    "provider.elevenLabs",
+    "provider.alibaba",
     "provider.gemini",
     "provider.localWhisper",
     "history.basic",
@@ -15,8 +17,6 @@
     "advanced.settingsExport"
   ],
   "disabledPlugins": [
-    "provider.elevenLabs",
-    "provider.alibaba",
     "output.customCorrections",
     "output.chineseConversion",
     "output.emoji",

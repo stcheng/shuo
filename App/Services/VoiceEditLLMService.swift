@@ -33,6 +33,23 @@ struct VoiceEditLLMRequest {
     let commandText: String
     let settings: AppSettings
     let apiKey: String?
+    /// Protocol tests intentionally exercise a custom endpoint before it has
+    /// earned runtime permission to process user text.
+    let allowsUnverifiedCustomEndpointTesting: Bool
+
+    init(
+        previousText: String,
+        commandText: String,
+        settings: AppSettings,
+        apiKey: String?,
+        allowsUnverifiedCustomEndpointTesting: Bool = false
+    ) {
+        self.previousText = previousText
+        self.commandText = commandText
+        self.settings = settings
+        self.apiKey = apiKey
+        self.allowsUnverifiedCustomEndpointTesting = allowsUnverifiedCustomEndpointTesting
+    }
 }
 
 struct TranscriptRetouchLLMRequest {
@@ -43,7 +60,8 @@ struct TranscriptRetouchLLMRequest {
 
 struct VoiceEditLLMService {
     func rewrite(_ request: VoiceEditLLMRequest) async throws -> String {
-        guard CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: request.settings) else {
+        guard CloudTextAICapabilityPolicy.isCloudTextAIAvailable(for: request.settings)
+                || request.allowsUnverifiedCustomEndpointTesting else {
             throw request.settings.provider == .local
                 ? VoiceEditLLMError.unavailableInLocalMode
                 : VoiceEditLLMError.disabledInSettings

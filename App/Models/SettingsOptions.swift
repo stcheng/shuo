@@ -1,6 +1,10 @@
 import Foundation
 
 enum AppLanguage: String, CaseIterable, Codable, Identifiable {
+    /// Follows the first supported language in the macOS language preference
+    /// list. The persisted value remains `.system`; callers that render copy
+    /// should use `resolved`.
+    case system
     case english
     case simplifiedChinese
     case traditionalChinese
@@ -8,8 +12,62 @@ enum AppLanguage: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Languages with dedicated Shuo copy. This intentionally excludes
+    /// `.system`, which resolves to one of these values at runtime.
+    static let fixedCases: [AppLanguage] = [
+        .english,
+        .simplifiedChinese,
+        .traditionalChinese,
+        .japanese
+    ]
+
+    var resolved: AppLanguage {
+        switch self {
+        case .system:
+            return Self.resolvedSystemLanguage()
+        case .english, .simplifiedChinese, .traditionalChinese, .japanese:
+            return self
+        }
+    }
+
+    /// Uses the first supported macOS language. Unsupported system languages
+    /// fall back to English, then later supported preferred languages can still
+    /// take precedence (for example French followed by Chinese).
+    static func resolvedSystemLanguage(
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> AppLanguage {
+        for identifier in preferredLanguages {
+            let components = identifier
+                .lowercased()
+                .replacingOccurrences(of: "_", with: "-")
+                .split(separator: "-")
+                .map(String.init)
+            guard let languageCode = components.first else {
+                continue
+            }
+
+            switch languageCode {
+            case "en":
+                return .english
+            case "ja":
+                return .japanese
+            case "zh":
+                let usesTraditionalChinese = components.contains { component in
+                    ["hant", "tw", "hk", "mo"].contains(component)
+                }
+                return usesTraditionalChinese ? .traditionalChinese : .simplifiedChinese
+            default:
+                continue
+            }
+        }
+
+        return .english
+    }
+
     var nativeDisplayName: String {
         switch self {
+        case .system:
+            return "System"
         case .english:
             return "English"
         case .simplifiedChinese:
@@ -31,6 +89,23 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
     case custom
 
     var id: String { rawValue }
+
+    /// `.custom` remains a decode-only legacy provider identity; its current
+    /// plugin ownership is the OpenAI-compatible provider plugin.
+    var requiredPlugin: PluginID {
+        switch self {
+        case .local:
+            return .providerLocalWhisper
+        case .openAI, .custom:
+            return .providerOpenAI
+        case .elevenLabs:
+            return .providerElevenLabs
+        case .alibaba:
+            return .providerAlibaba
+        case .gemini:
+            return .providerGemini
+        }
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -91,9 +166,8 @@ enum TranscriptionProvider: String, CaseIterable, Codable, Identifiable {
     /// Kept for call sites outside the cloud picker. The actual guide URL is
     /// defined with the provider's other connection metadata.
     var apiKeyGuideURL: URL? {
-        CloudTranscriptionProviderConfiguration.apiKeyGuideURL(for: self)
+        CloudServiceCatalog.defaultDefinition(for: self)?.apiKeyGuideURL
     }
-
 }
 
 enum TranscriptionExecutionLocation: String, CaseIterable, Identifiable {
@@ -107,32 +181,37 @@ enum TranscriptionExecutionLocation: String, CaseIterable, Identifiable {
 /// and Alibaba Cloud are intentionally absent: their Shuo integrations expose
 /// speech transcription, not the chat-completions interface used for retouch.
 enum CloudTextServicePreset: String, CaseIterable, Codable, Identifiable {
-    case openAI
-    case groq
-    case siliconFlow
     case gemini
+    case groq
+    case openAI
+    case siliconFlow
     case custom
 
     var id: String { rawValue }
 
-    var provider: TranscriptionProvider {
-        self == .gemini ? .gemini : .openAI
+    var serviceID: CloudServiceID {
+        guard let serviceID = CloudServiceID(rawValue: rawValue) else {
+            preconditionFailure("Missing cloud service ID for \(rawValue)")
+        }
+        return serviceID
     }
 
-    var baseURL: String? {
-        switch self {
-        case .openAI:
-            return CloudTranscriptionProviderConfiguration.openAI.endpoint.defaultURLString
-        case .groq:
-            return CloudTranscriptionProviderConfiguration.groq.endpoint.defaultURLString
-        case .siliconFlow:
-            return CloudTranscriptionProviderConfiguration.siliconFlow.endpoint.defaultURLString
-        case .gemini:
-            return nil
-        case .custom:
-            return nil
+    init?(serviceID: CloudServiceID) {
+        self.init(rawValue: serviceID.rawValue)
+    }
+
+    /// Text-service picker order and membership are derived from the canonical
+    /// cloud catalog. Persisted raw values remain unchanged.
+    static var allCases: [Self] {
+        CloudServiceCatalog.definitions(for: .textProcessing).compactMap {
+            Self(serviceID: $0.id)
         }
     }
+
+    var definition: CloudServiceDefinition {
+        CloudServiceCatalog.definition(for: serviceID)
+    }
+
 }
 
 enum LanguageHint: String, CaseIterable, Codable, Identifiable {

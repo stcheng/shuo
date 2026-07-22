@@ -249,6 +249,43 @@ struct SettingsRowFeedback: View {
     }
 }
 
+/// Verification is an explicit safety requirement for a user-entered relay,
+/// not a prerequisite for built-in cloud services. Keeping its presentation in
+/// one view prevents the transcription and text settings from drifting apart.
+struct CustomCloudConnectionVerificationControls: View {
+    let testLabel: String
+    let isTesting: Bool
+    let isTestEnabled: Bool
+    let requiresVerification: Bool
+    let testError: String?
+    let statusMessage: String?
+    let testSucceeded: Bool
+    let requiredMessage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(testLabel, action: action)
+            .disabled(isTesting || !isTestEnabled)
+
+        if requiresVerification, testError == nil {
+            SettingsRowFeedback(
+                text: requiredMessage,
+                style: .warning
+            )
+        }
+
+        if let statusMessage {
+            SettingsRowFeedback(
+                text: statusMessage,
+                style: testSucceeded
+                    ? .success
+                    : (testError == nil ? .neutral : .warning),
+                showsProgress: isTesting
+            )
+        }
+    }
+}
+
 struct SettingsDisclosureRow<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -549,7 +586,6 @@ struct SettingsView: View {
     @State private var isConfirmingCorrectionDataClear = false
     @State private var pendingLocalWhisperModelDeletion: LocalWhisperManagedModel?
     @State private var isConfirmingLocalWhisperModelDeletion = false
-    @State private var isConfirmingOpenAIRelayTest = false
 
     let category: SettingsCategory
 
@@ -575,10 +611,7 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            rememberedCloudPreset = CloudTranscriptionPreset.inferred(
-                provider: appState.settings.provider,
-                openAIBaseURL: appState.settings.openAIBaseURL
-            )
+            rememberedCloudPreset = appState.settings.effectiveCloudTranscriptionPreset
             if category == .transcription || category == .architectureAIInference {
                 appState.reloadLocalWhisperModels()
             }
@@ -603,10 +636,7 @@ struct SettingsView: View {
         }
         .onChange(of: appState.settings.provider) { _, provider in
             if provider != .local {
-                rememberedCloudPreset = CloudTranscriptionPreset.inferred(
-                    provider: provider,
-                    openAIBaseURL: appState.settings.openAIBaseURL
-                )
+                rememberedCloudPreset = appState.settings.effectiveCloudTranscriptionPreset
             }
             if shouldPrepareOpenAIModels {
                 appState.loadOpenAIAPIKeyIfNeeded()
@@ -653,17 +683,6 @@ struct SettingsView: View {
             }
         } message: {
             Text(localizer.deleteLocalWhisperModelConfirmationDetail())
-        }
-        .confirmationDialog(
-            localizer.openAICompatibleRelayTestConfirmationTitle(),
-            isPresented: $isConfirmingOpenAIRelayTest,
-            titleVisibility: .visible
-        ) {
-            Button(localizer.testSelectedOpenAIModelLabel()) {
-                appState.acknowledgeOpenAICompatibleRelayAndTestModel()
-            }
-        } message: {
-            Text(localizer.openAICompatibleRelayTestConfirmationDetail())
         }
     }
 
@@ -1109,7 +1128,7 @@ struct SettingsView: View {
         Section(localizer.applicationSettingsLabel()) {
             Picker(localizer.text(.appLanguage), selection: $appState.settings.appLanguage) {
                 ForEach(AppLanguage.allCases) { language in
-                    Text(language.nativeDisplayName).tag(language)
+                    Text(localizer.appLanguageName(language)).tag(language)
                 }
             }
             .settingsSearchAnchor(.appLanguage, highlightedTarget: highlightedSearchTarget)
@@ -1173,9 +1192,6 @@ struct SettingsView: View {
                     }
                 }
                 .settingsSearchAnchor(.updates, highlightedTarget: highlightedSearchTarget)
-            } else if !AppRuntime.isCommunityBuild {
-                SettingsRowFeedback(text: localizer.appStoreUpdateHint())
-                    .settingsSearchAnchor(.updates, highlightedTarget: highlightedSearchTarget)
             }
         }
     }
@@ -1201,9 +1217,9 @@ struct SettingsView: View {
 
             if transcriptionExecutionLocation.wrappedValue == .cloud {
                 Picker(localizer.cloudServiceLabel(), selection: cloudTranscriptionPreset) {
-                    ForEach(availableCloudTranscriptionConfigurations) { configuration in
-                        Text(localizer.cloudTranscriptionPresetName(configuration.preset))
-                            .tag(configuration.preset)
+                    ForEach(availableCloudTranscriptionServices) { service in
+                        Text(localizer.cloudTranscriptionPresetName(service.preset))
+                            .tag(service.preset)
                     }
                 }
 
@@ -1214,7 +1230,7 @@ struct SettingsView: View {
 
             if appState.settings.provider == .local {
                 localModelManagementContent(includesManualSetup: includesAdvancedConfiguration)
-            } else if currentCloudTranscriptionConfiguration.supportsModelDiscovery {
+            } else if currentCloudTranscriptionService.supportsModelDiscovery {
                 VStack(alignment: .leading, spacing: 7) {
                     if !endpointReportedOpenAITranscriptionModels.isEmpty {
                         Picker(
@@ -1250,45 +1266,29 @@ struct SettingsView: View {
                             style: .warning
                         )
                     } else {
-                        if OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
-                            baseURLString: appState.settings.openAIBaseURL
-                        ) {
+                        if appState.settings.isCustomOpenAITranscriptionService {
                             SettingsRowFeedback(
-                                text: localizer.thirdPartyOpenAICompatibleRelayBetaLabel()
+                                text: localizer.customOpenAICompatibleServiceBetaLabel()
                             )
-                        }
-
-                        Button(localizer.testSelectedOpenAIModelLabel()) {
-                            if OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
-                                baseURLString: appState.settings.openAIBaseURL
-                            ) {
-                                isConfirmingOpenAIRelayTest = true
-                            } else {
-                                appState.testOpenAITranscriptionModel()
-                            }
-                        }
-                        .disabled(
-                            appState.isTestingOpenAITranscriptionModel
-                                || appState.openAIAPIKey.trimmingCharacters(
+                            CustomCloudConnectionVerificationControls(
+                                testLabel: localizer.testSelectedOpenAIModelLabel(),
+                                isTesting: appState.isTestingOpenAITranscriptionModel,
+                                isTestEnabled: !appState.openAIAPIKey.trimmingCharacters(
                                     in: .whitespacesAndNewlines
-                                ).isEmpty
-                        )
-
-                        if let testMessage = appState.openAITranscriptionModelTestMessage {
-                            SettingsRowFeedback(
-                                text: testMessage,
-                                style: appState.openAITranscriptionModelTestSucceeded
-                                    ? .success
-                                    : (appState.openAITranscriptionModelTestError == nil
-                                        ? .neutral
-                                        : .warning),
-                                showsProgress: appState.isTestingOpenAITranscriptionModel
+                                ).isEmpty,
+                                requiresVerification: appState.settings
+                                    .requiresCustomOpenAITranscriptionVerification,
+                                testError: appState.openAITranscriptionModelTestError,
+                                statusMessage: appState.openAITranscriptionModelTestMessage,
+                                testSucceeded: appState.hasSuccessfulOpenAITranscriptionModelTest,
+                                requiredMessage: localizer.customOpenAIServiceModelTestRequired(),
+                                action: appState.testOpenAITranscriptionModel
                             )
                         }
                     }
                 }
                 .settingsSearchAnchor(.transcriptionModel, highlightedTarget: highlightedSearchTarget)
-            } else if let fixedModelID = currentCloudTranscriptionConfiguration.fixedTranscriptionModelID {
+            } else if let fixedModelID = currentCloudTranscriptionService.fixedTranscriptionModelID {
                 LabeledContent(
                     localizer.text(.model),
                     value: fixedModelID
@@ -1645,9 +1645,9 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var cloudTranscriptionConnectionControls: some View {
-        let configuration = currentCloudTranscriptionConfiguration
+        let service = currentCloudTranscriptionService
 
-        switch configuration.endpoint {
+        switch service.endpoint {
         case .editable(let defaultURL):
             TextField(
                 localizer.text(.baseURL),
@@ -1665,26 +1665,26 @@ struct SettingsView: View {
         }
 
         SecureField(localizer.text(.apiKey), text: Binding(
-            get: { appState.cloudAPIKey(for: configuration) },
-            set: { appState.updateCloudAPIKey($0, for: configuration) }
+            get: { appState.cloudAPIKey(for: service) },
+            set: { appState.updateCloudAPIKey($0, for: service) }
         ))
         .settingsSearchAnchor(
-            configuration.apiKeySearchTarget,
+            service.apiKeySearchTarget,
             highlightedTarget: highlightedSearchTarget
         )
         .onSubmit {
-            if configuration.supportsModelDiscovery {
+            if service.supportsModelDiscovery {
                 appState.refreshOpenAIModels()
             }
         }
 
-        if configuration.supportsModelDiscovery {
+        if service.supportsModelDiscovery {
             Button(localizer.refreshOpenAIModelsLabel()) {
                 appState.refreshOpenAIModels()
             }
             .disabled(
                 appState.isRefreshingOpenAIModels
-                    || appState.cloudAPIKey(for: configuration)
+                    || appState.cloudAPIKey(for: service)
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                         .isEmpty
             )
@@ -1702,11 +1702,11 @@ struct SettingsView: View {
             }
         }
 
-        if let detail = configuration.connectionDetail {
+        if let detail = service.connectionDetail {
             SettingsRowFeedback(text: cloudProviderConnectionDetail(detail))
         }
 
-        apiKeyGuideLink(for: configuration)
+        apiKeyGuideLink(for: service)
     }
 
     private func cloudProviderConnectionDetail(_ detail: CloudProviderConnectionDetail) -> String {
@@ -1723,8 +1723,8 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func apiKeyGuideLink(for configuration: CloudTranscriptionProviderConfiguration) -> some View {
-        if let destination = configuration.apiKeyGuideURL {
+    private func apiKeyGuideLink(for service: CloudServiceDefinition) -> some View {
+        if let destination = service.apiKeyGuideURL {
             Link(destination: destination) {
                 HStack(spacing: 5) {
                     Text(localizer.apiKeyGuideLabel())
@@ -2175,15 +2175,9 @@ struct SettingsView: View {
             set: { selection in
                 switch selection {
                 case .automatic:
-                    appState.settings.openAITranscriptionModelSelectionMode = .automatic
-                    if let recommendedModelID = OpenAIModelCatalog.recommendedTranscriptionModelID(
-                        availableModelIDs: appState.openAIAvailableModelIDs
-                    ) {
-                        appState.settings.automaticOpenAITranscriptionModel = recommendedModelID
-                    }
+                    appState.selectAutomaticOpenAITranscriptionModel()
                 case let .fixed(modelID):
-                    appState.settings.fixedOpenAITranscriptionModel = modelID
-                    appState.settings.openAITranscriptionModelSelectionMode = .fixed
+                    appState.selectFixedOpenAITranscriptionModel(modelID)
                 }
             }
         )
@@ -2193,10 +2187,7 @@ struct SettingsView: View {
         Binding(
             get: { appState.settings.openAIBaseURL },
             set: { baseURL in
-                var updatedSettings = appState.settings
-                updatedSettings.openAIBaseURL = baseURL
-                updatedSettings.lastCustomOpenAIBaseURL = baseURL
-                appState.settings = updatedSettings
+                appState.updateCustomOpenAITranscriptionBaseURL(baseURL)
             }
         )
     }
@@ -2209,9 +2200,15 @@ struct SettingsView: View {
             set: { location in
                 switch location {
                 case .local:
-                    appState.settings.provider = .local
+                    appState.selectLocalTranscription()
                 case .cloud:
-                    selectCloudTranscriptionPreset(rememberedCloudPreset)
+                    let preset = availableCloudTranscriptionServices.contains {
+                        $0.preset == rememberedCloudPreset
+                    }
+                        ? rememberedCloudPreset
+                        : .custom
+                    rememberedCloudPreset = preset
+                    appState.selectCloudTranscriptionPreset(preset)
                 }
             }
         )
@@ -2220,67 +2217,30 @@ struct SettingsView: View {
     private var cloudTranscriptionPreset: Binding<CloudTranscriptionPreset> {
         Binding(
             get: { currentCloudTranscriptionPreset },
-            set: { selectCloudTranscriptionPreset($0) }
+            set: {
+                rememberedCloudPreset = $0
+                appState.selectCloudTranscriptionPreset($0)
+            }
         )
     }
 
     private var currentCloudTranscriptionPreset: CloudTranscriptionPreset {
-        currentCloudTranscriptionConfiguration.preset
+        currentCloudTranscriptionService.preset
     }
 
-    private var currentCloudTranscriptionConfiguration: CloudTranscriptionProviderConfiguration {
+    private var currentCloudTranscriptionService: CloudServiceDefinition {
         guard appState.settings.provider != .local else {
-            return rememberedCloudPreset.configuration
+            return CloudServiceCatalog.definition(for: rememberedCloudPreset.serviceID)
         }
-        return CloudTranscriptionProviderConfiguration.inferred(
-            backendProvider: appState.settings.provider,
-            compatibleBaseURL: appState.settings.openAIBaseURL
+        return CloudServiceCatalog.definition(
+            for: appState.settings.effectiveCloudTranscriptionPreset.serviceID
         )
     }
 
-    private var availableCloudTranscriptionConfigurations: [CloudTranscriptionProviderConfiguration] {
-        CloudTranscriptionProviderConfiguration.enabled(
+    private var availableCloudTranscriptionServices: [CloudServiceDefinition] {
+        CloudServiceCatalog.enabled(
             isPluginEnabled: appState.isPluginEnabled
         )
-    }
-
-    private func selectCloudTranscriptionPreset(_ preset: CloudTranscriptionPreset) {
-        rememberedCloudPreset = preset
-        let configuration = preset.configuration
-
-        var updatedSettings = appState.settings
-        updatedSettings.provider = configuration.backendProvider
-
-        guard configuration.transportKind == .openAICompatible else {
-            appState.settings = updatedSettings
-            return
-        }
-
-        switch configuration.endpoint {
-        case .fixed:
-            updatedSettings.openAIBaseURL = configuration.endpoint.defaultURLString
-            updatedSettings.openAIOrganizationID = ""
-            updatedSettings.openAIProjectID = ""
-            updatedSettings.acknowledgedOpenAICompatibleRelayEndpoint = ""
-
-            if updatedSettings.openAITranscriptionModelSelectionMode == .automatic,
-               let modelID = configuration.automaticTranscriptionModelID {
-                updatedSettings.automaticOpenAITranscriptionModel = modelID
-            }
-            if updatedSettings.openAITextModelSelectionMode == .automatic,
-               let modelID = configuration.automaticTextModelID {
-                updatedSettings.automaticOpenAITextModel = modelID
-            }
-        case .editable:
-            if currentCloudTranscriptionConfiguration.preset != .custom {
-                updatedSettings.openAIBaseURL = updatedSettings.lastCustomOpenAIBaseURL
-                updatedSettings.openAIOrganizationID = ""
-                updatedSettings.openAIProjectID = ""
-                updatedSettings.acknowledgedOpenAICompatibleRelayEndpoint = ""
-            }
-        }
-
-        appState.settings = updatedSettings
     }
 
     private func transcriptionLanguageBinding(_ language: TranscriptionLanguage) -> Binding<Bool> {

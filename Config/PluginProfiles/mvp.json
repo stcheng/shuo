@@ -3,6 +3,8 @@
   "profile": "mvp",
   "enabledPlugins": [
     "provider.openai",
+    "provider.elevenLabs",
+    "provider.alibaba",
     "provider.gemini",
     "provider.localWhisper",
     "history.basic",
@@ -14,8 +16,6 @@
     "smart.preferredTerms"
   ],
   "disabledPlugins": [
-    "provider.elevenLabs",
-    "provider.alibaba",
     "output.customCorrections",
     "output.chineseConversion",
     "output.emoji",

@@ -18,6 +18,51 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(AppSettings().hasCompletedOnboarding)
     }
 
+    func testFreshSettingsFollowTheSystemLanguage() {
+        XCTAssertEqual(AppSettings().appLanguage, .system)
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["zh-Hant-TW", "en-US"]
+            ),
+            .traditionalChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["zh-CN", "en-US"]
+            ),
+            .simplifiedChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(
+                preferredLanguages: ["fr-FR", "ja-JP"]
+            ),
+            .japanese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolvedSystemLanguage(preferredLanguages: ["fr-FR"]),
+            .english
+        )
+    }
+
+    func testSystemLanguagePickerNameIsLocalized() {
+        XCTAssertEqual(
+            AppLocalizer(language: .english).appLanguageName(.system),
+            "System"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .simplifiedChinese).appLanguageName(.system),
+            "跟随系统"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .traditionalChinese).appLanguageName(.system),
+            "跟隨系統"
+        )
+        XCTAssertEqual(
+            AppLocalizer(language: .japanese).appLanguageName(.system),
+            "システム設定"
+        )
+    }
+
     func testExistingSettingsWithoutOnboardingFlagDoNotReopenWelcome() throws {
         let data = Data(#"{"appLanguage":"english"}"#.utf8)
 
@@ -318,24 +363,12 @@ final class AppSettingsTests: XCTestCase {
         settings.openAIBaseURL = "https://example.com/v1"
         settings.openAIOrganizationID = "org-test"
         settings.openAIProjectID = "project-test"
-        settings.acknowledgedOpenAICompatibleRelayEndpoint = "https://example.com/v1"
 
         settings.resetOpenAIConnectionDetails()
 
         XCTAssertEqual(settings.openAIBaseURL, AppSettings.defaultOpenAIBaseURL)
         XCTAssertEqual(settings.openAIOrganizationID, "")
         XCTAssertEqual(settings.openAIProjectID, "")
-        XCTAssertEqual(settings.acknowledgedOpenAICompatibleRelayEndpoint, "")
-    }
-
-    @MainActor
-    func testAppStoreBuildDoesNotExposeDirectUpdater() {
-        let controller = AppUpdateController()
-
-        controller.start()
-
-        XCTAssertFalse(controller.supportsDirectUpdates)
-        XCTAssertFalse(controller.canCheckForUpdates)
     }
 
     func testErrorSummaryCompactsAndTruncatesLongMessages() {
@@ -2624,19 +2657,19 @@ final class OpenAICompatibleRequestBuilderTests: XCTestCase {
         ))
     }
 
-    func testRecognizesTheOfficialEndpointAndThirdPartyRelays() {
+    func testRecognizesEndpointsThatNeedTheCompatibilityPayload() {
         XCTAssertFalse(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "https://api.openai.com/v1/"
             )
         )
         XCTAssertTrue(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "https://relay.example.test/v1"
             )
         )
         XCTAssertTrue(
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: "http://localhost:11434/v1"
             )
         )
@@ -3426,18 +3459,45 @@ final class AudioCapturePipelineTests: XCTestCase {
 }
 
 final class AudioActivityAnalyzerTests: XCTestCase {
-    func testQuietAudibleRecordingIsNotIgnoredByDefaultGate() throws {
+    func testAdaptiveGateAdmitsQuietSpeechWithoutRequiringWhisperMode() throws {
         let url = temporaryWAVURL()
         defer { try? FileManager.default.removeItem(at: url) }
-        try writeSineWAV(to: url, peakDBFS: -58)
+        try writeSineWAV(to: url, peakDBFS: -44)
 
-        let analysis = try AudioActivityAnalyzer().analyze(
+        let analyzer = AudioActivityAnalyzer()
+        let standardAnalysis = try analyzer.analyze(
             url,
             silenceThresholdDBFS: AppSettings().silenceThresholdDBFS
         )
 
-        XCTAssertEqual(analysis.activeDuration, 0, accuracy: 0.001)
-        XCTAssertTrue(analysis.containsSpeech(settings: AppSettings()))
+        XCTAssertEqual(standardAnalysis.activeDuration, 0, accuracy: 0.001)
+        XCTAssertFalse(standardAnalysis.containsSpeech(settings: AppSettings()))
+
+        let adaptiveAnalysis = try analyzer.analyze(
+            url,
+            silenceThresholdDBFS: AppSettings().silenceThresholdDBFS,
+            adaptsToNoiseFloor: true
+        )
+
+        XCTAssertGreaterThan(adaptiveAnalysis.activeDuration, 0.9)
+        XCTAssertTrue(adaptiveAnalysis.containsSpeech(settings: AppSettings()))
+    }
+
+    func testAdaptiveGateRejectsLowLevelNoiseEvenWhenItsWindowIsActive() throws {
+        let url = temporaryWAVURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try writeSineWAV(to: url, peakDBFS: -49)
+
+        let settings = AppSettings()
+        let analysis = try AudioActivityAnalyzer().analyze(
+            url,
+            silenceThresholdDBFS: settings.silenceThresholdDBFS,
+            adaptsToNoiseFloor: true
+        )
+
+        XCTAssertGreaterThan(analysis.activeDuration, 0.9)
+        XCTAssertLessThan(analysis.speechLevelDBFS, -50)
+        XCTAssertFalse(analysis.containsSpeech(settings: settings))
     }
 
     func testNearSilentRecordingIsIgnoredByDefaultGate() throws {
@@ -3451,6 +3511,34 @@ final class AudioActivityAnalyzerTests: XCTestCase {
         )
 
         XCTAssertFalse(analysis.containsSpeech(settings: AppSettings()))
+    }
+
+    func testAmbientNoiseWithShortPeaksDoesNotPassDefaultGate() throws {
+        let samples: [(name: String, duration: TimeInterval, transientTimes: [TimeInterval])] = [
+            ("opening transient", 1.8, [0.01]),
+            ("late transient", 3.2, [2.9]),
+            ("several short transients", 3.4, [0.7, 1.4, 2.6])
+        ]
+
+        let analyzer = AudioActivityAnalyzer()
+        for sample in samples {
+            let url = temporaryWAVURL()
+            defer { try? FileManager.default.removeItem(at: url) }
+            try writeAmbientNoiseWAV(
+                to: url,
+                duration: sample.duration,
+                transientTimes: sample.transientTimes
+            )
+
+            let analysis = try analyzer.analyze(
+                url,
+                silenceThresholdDBFS: AppSettings().silenceThresholdDBFS,
+                adaptsToNoiseFloor: true
+            )
+
+            XCTAssertGreaterThan(analysis.peakDBFS, -65, sample.name)
+            XCTAssertFalse(analysis.containsSpeech(settings: AppSettings()), sample.name)
+        }
     }
 
     func testWhisperAnalysisAdaptsThresholdToRecordingLevels() throws {
@@ -3566,6 +3654,28 @@ final class AudioActivityAnalyzerTests: XCTestCase {
 
         try wavData.write(to: url)
     }
+
+    private func writeAmbientNoiseWAV(
+        to url: URL,
+        duration: TimeInterval,
+        transientTimes: [TimeInterval]
+    ) throws {
+        let sampleRate = 16_000
+        let ambientAmplitude = Float(pow(10.0, -49.0 / 20.0))
+        let transientAmplitude = Float(pow(10.0, -38.0 / 20.0))
+        let sampleCount = Int((duration * Double(sampleRate)).rounded())
+        var samples = (0..<sampleCount).map { index in
+            let phase = Double(index) * 2 * Double.pi * 173 / Double(sampleRate)
+            return Float(sin(phase)) * ambientAmplitude
+        }
+
+        for time in transientTimes {
+            let index = min(sampleCount - 1, max(0, Int((time * Double(sampleRate)).rounded())))
+            samples[index] = transientAmplitude
+        }
+
+        try AudioRecorder.writeWAV(samples: samples, sampleRate: sampleRate, to: url)
+    }
 }
 
 final class AppLocalizerTests: XCTestCase {
@@ -3599,7 +3709,7 @@ final class AppLocalizerTests: XCTestCase {
     }
 
     func testHumanCorrectionCopyUsesMacSymbolsAndConciseHierarchy() {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let localizer = AppLocalizer(language: language)
             let floatingBarDetail = localizer.floatingWindowDetail()
 
@@ -3671,7 +3781,7 @@ final class AppLocalizerTests: XCTestCase {
             ]
         ]
 
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let localizer = AppLocalizer(language: language)
             let privacy = localizer.privacyDetail()
 
@@ -3717,7 +3827,7 @@ final class AppLocalizerTests: XCTestCase {
             .traditionalChinese: "即使使用本機轉寫",
             .japanese: "ローカル文字起こしを使用している場合でも"
         ]
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let privacy = AppLocalizer(language: language).privacyDetail()
             XCTAssertFalse(
                 privacy.contains(staleClaims[language, default: ""]),
@@ -3742,7 +3852,7 @@ final class AppLocalizerTests: XCTestCase {
     }
 
     func testUninstallCopyExplainsCompleteDataRemovalInEveryLanguage() {
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let detail = AppLocalizer(language: language).uninstallAndDataDetail()
             XCTAssertTrue(detail.contains(AppBuildIdentity.bundleIdentifier))
             XCTAssertTrue(detail.contains("Application Support"))
@@ -3760,67 +3870,46 @@ final class AppLocalizerTests: XCTestCase {
         )
     }
 
-    func testReleaseNotesDescribeOnePointTwoFourAndCurrentCapabilitiesInEveryLanguage() {
+    func testReleaseNotesDescribeOnePointThreeZeroInEveryLanguage() {
         let expectedTerms: [AppLanguage: [String]] = [
             .english: [
-                "at most 60 high-priority terms",
-                "60 terms and 900 characters",
-                "enabled individually",
-                "local Replacement",
-                "Cloud AI hints",
-                "Adaptive Whisper Mode",
-                "New in 1.2.4",
-                "Groq",
-                "SiliconFlow",
-                "custom OpenAI-compatible endpoint support"
+                "New in 1.3.0",
+                "automatic switching between cloud services",
+                "recordings without speech",
+                "System language option",
+                "USB microphones"
             ],
             .simplifiedChinese: [
-                "最多保留 60 个高优先级术语",
-                "总计不超过 60 个、900 字符",
-                "均需单独开启",
-                "本地“替换”",
-                "“云端 AI”提示",
-                "自适应轻声模式",
-                "1.2.4 更新",
-                "Groq",
-                "硅基流动",
-                "自定义 OpenAI-compatible 端点支持"
+                "1.3.0 更新",
+                "云端服务之间的自动切换",
+                "空录音被误转写",
+                "跟随系统",
+                "USB 麦克风"
             ],
             .traditionalChinese: [
-                "最多保留 60 個優先術語",
-                "總計不超過 60 個、900 字元",
-                "均需個別啟用",
-                "本機「替換」",
-                "「雲端 AI」提示",
-                "自適應輕聲模式",
-                "1.2.4 更新",
-                "Groq",
-                "矽基流動",
-                "自訂 OpenAI 相容端點支援"
+                "1.3.0 更新",
+                "雲端服務之間的自動切換",
+                "空錄音被誤轉寫",
+                "跟隨系統",
+                "USB 麥克風"
             ],
             .japanese: [
-                "最大60件保存",
-                "合計60件・900文字以内",
-                "各パターンを個別に有効化",
-                "ローカル「置換」",
-                "「クラウドAI」へのヒント",
-                "適応型のささやきモード",
-                "1.2.4 の新機能",
-                "Groq",
-                "SiliconFlow",
-                "カスタム OpenAI 互換エンドポイントに対応"
+                "1.3.0 の新機能",
+                "クラウドサービス間の自動切り替え",
+                "無音または空の録音",
+                "システム設定",
+                "USB マイク"
             ]
         ]
 
-        for language in AppLanguage.allCases {
+        for language in AppLanguage.fixedCases {
             let releaseNotes = AppLocalizer(language: language).releaseNotesDetail()
 
             XCTAssertEqual(
                 releaseNotes.components(separatedBy: "\n• ").count - 1,
-                11,
+                4,
                 "Unexpected release-note bullet count for \(language)"
             )
-            XCTAssertTrue(releaseNotes.contains("Beta") || releaseNotes.contains("ベータ版"))
             for term in expectedTerms[language, default: []] {
                 XCTAssertTrue(
                     releaseNotes.contains(term),
@@ -3831,15 +3920,11 @@ final class AppLocalizerTests: XCTestCase {
 
         let traditionalChinese = AppLocalizer(language: .traditionalChinese).releaseNotesDetail()
         XCTAssertFalse(traditionalChinese.contains("OpenAI-compatible"))
-        XCTAssertFalse(traditionalChinese.contains("Beta profile"))
-        XCTAssertFalse(traditionalChinese.contains("Whisper Mode"))
-        XCTAssertFalse(traditionalChinese.contains("面向"))
+        XCTAssertFalse(traditionalChinese.contains("Beta"))
 
         let japanese = AppLocalizer(language: .japanese).releaseNotesDetail()
-        XCTAssertFalse(japanese.contains("現在のリリース"))
-        XCTAssertFalse(japanese.contains("任意のフローティングウインドウ"))
+        XCTAssertFalse(japanese.contains("ベータ版"))
         XCTAssertFalse(japanese.contains("Whisper Mode"))
-        XCTAssertFalse(japanese.contains("として保持"))
     }
 
     func testCloudOnboardingDoesNotClaimAnEnteredKeyWasVerified() {
@@ -3848,6 +3933,20 @@ final class AppLocalizerTests: XCTestCase {
 
         XCTAssertTrue(message.contains("not been verified"))
         XCTAssertTrue(message.contains("first transcription"))
+    }
+
+    func testCustomServiceVerificationWarningIsLocalized() {
+        for language in AppLanguage.fixedCases {
+            let message = AppLocalizer(language: language)
+                .customOpenAIServiceModelTestRequired()
+            XCTAssertFalse(message.isEmpty)
+        }
+
+        XCTAssertTrue(
+            AppLocalizer(language: .simplifiedChinese)
+                .customOpenAIServiceModelTestRequired()
+                .contains("尚未测试")
+        )
     }
 
     func testUpdateStatusMessagesUseTheSelectedLanguage() {
@@ -6039,8 +6138,8 @@ final class PluginConfigurationTests: XCTestCase {
         XCTAssertTrue(configuration.isEnabled(.outputCleanup))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
 
-        XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
         XCTAssertFalse(configuration.isEnabled(.outputEmoji))
         XCTAssertFalse(configuration.isEnabled(.outputLLMRetouch))
         XCTAssertFalse(configuration.isEnabled(.commandModifyPrevious))
@@ -6062,15 +6161,15 @@ final class PluginConfigurationTests: XCTestCase {
         }
     }
 
-    func testPublicReleaseProfileKeepsOptionalExperimentsDisabled() {
+    func testPublicReleaseProfileShowsAllCloudProviders() {
         let configuration = PluginConfiguration.publicRelease
 
         XCTAssertTrue(configuration.isEnabled(.providerLocalWhisper))
         XCTAssertTrue(configuration.isEnabled(.providerOpenAI))
         XCTAssertTrue(configuration.isEnabled(.providerGemini))
         XCTAssertTrue(configuration.isEnabled(.smartPreferredTerms))
-        XCTAssertFalse(configuration.isEnabled(.providerElevenLabs))
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerElevenLabs))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
         XCTAssertFalse(configuration.isEnabled(.outputLLMRetouch))
         XCTAssertFalse(configuration.isEnabled(.smartAdaptiveRecognition))
         XCTAssertTrue(configuration.isEnabled(.smartCorrectionWindow))
@@ -6248,7 +6347,7 @@ final class PluginConfigurationTests: XCTestCase {
             preservingConfiguredProvider: .alibaba
         )
 
-        XCTAssertFalse(configuration.isEnabled(.providerAlibaba))
+        XCTAssertTrue(configuration.isEnabled(.providerAlibaba))
     }
 
     func testOptionalCloudProvidersAreMarkedAsPublicBetaCapabilities() throws {
@@ -6351,6 +6450,23 @@ final class PluginConfigurationTests: XCTestCase {
 
         XCTAssertEqual(policy.availableProvider(fallingBackFrom: .local), .openAI)
         XCTAssertTrue(policy.isTranscriptionProviderEnabled(.custom))
+    }
+
+    func testCapabilityPolicyKeepsConfiguredCustomEndpointAvailableWithoutBuiltInCloudPlugins() {
+        let localOnly = PluginConfiguration(
+            profile: "local-only",
+            enabledPlugins: [.providerLocalWhisper]
+        )
+        let policy = PluginCapabilityPolicy(configuration: localOnly)
+        var settings = AppSettings()
+        CloudConnectionSettingsCoordinator.apply(
+            .selectTranscriptionService(.custom),
+            to: &settings
+        )
+
+        XCTAssertFalse(policy.isTranscriptionProviderEnabled(.openAI))
+        XCTAssertTrue(settings.isCustomOpenAITranscriptionService)
+        XCTAssertTrue(policy.isTranscriptionEnabled(for: settings))
     }
 }
 

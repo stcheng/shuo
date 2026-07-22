@@ -113,6 +113,8 @@ extension PluginConfiguration {
         profile: "mvp",
         enabledPlugins: [
             .providerOpenAI,
+            .providerElevenLabs,
+            .providerAlibaba,
             .providerGemini,
             .providerLocalWhisper,
             .historyBasic,
@@ -125,8 +127,6 @@ extension PluginConfiguration {
             .smartCorrectionWindow
         ],
         disabledPlugins: [
-            .providerElevenLabs,
-            .providerAlibaba,
             .outputCustomCorrections,
             .outputChineseConversion,
             .outputEmoji,
@@ -157,6 +157,8 @@ extension PluginConfiguration {
         profile: "public",
         enabledPlugins: [
             .providerOpenAI,
+            .providerElevenLabs,
+            .providerAlibaba,
             .providerGemini,
             .providerLocalWhisper,
             .historyBasic,
@@ -170,8 +172,6 @@ extension PluginConfiguration {
             .advancedSettingsExport
         ],
         disabledPlugins: [
-            .providerElevenLabs,
-            .providerAlibaba,
             .outputCustomCorrections,
             .outputChineseConversion,
             .outputEmoji,
@@ -190,18 +190,15 @@ struct PluginCapabilityPolicy {
     let configuration: PluginConfiguration
 
     func isTranscriptionProviderEnabled(_ provider: TranscriptionProvider) -> Bool {
-        switch provider {
-        case .local:
-            return configuration.isEnabled(.providerLocalWhisper)
-        case .openAI, .custom:
-            return configuration.isEnabled(.providerOpenAI)
-        case .elevenLabs:
-            return configuration.isEnabled(.providerElevenLabs)
-        case .alibaba:
-            return configuration.isEnabled(.providerAlibaba)
-        case .gemini:
-            return configuration.isEnabled(.providerGemini)
-        }
+        configuration.isEnabled(provider.requiredPlugin)
+    }
+
+    /// Custom OpenAI-compatible endpoints remain available independently of
+    /// the built-in OpenAI-compatible provider plugin. They are explicitly
+    /// configured by the user and still require endpoint verification.
+    func isTranscriptionEnabled(for settings: AppSettings) -> Bool {
+        settings.isCustomOpenAITranscriptionService
+            || isTranscriptionProviderEnabled(settings.provider)
     }
 
     var voiceEditCommandsEnabled: Bool {
@@ -663,20 +660,7 @@ enum PluginConfigurationStore {
     private static func providerPluginID(
         for provider: TranscriptionProvider?
     ) -> PluginID? {
-        switch provider {
-        case .local:
-            return .providerLocalWhisper
-        case .openAI, .custom:
-            return .providerOpenAI
-        case .elevenLabs:
-            return .providerElevenLabs
-        case .alibaba:
-            return .providerAlibaba
-        case .gemini:
-            return .providerGemini
-        case nil:
-            return nil
-        }
+        provider?.requiredPlugin
     }
 
     private static var encoder: JSONEncoder {

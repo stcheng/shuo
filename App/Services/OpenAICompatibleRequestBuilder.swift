@@ -121,7 +121,10 @@ struct OpenAICompatibleRequestBuilder {
         return baseURL.appendingPathComponent(path)
     }
 
-    static func usesThirdPartyRelay(baseURLString: String) -> Bool {
+    /// Non-OpenAI endpoints receive the narrow compatibility payload. This is
+    /// a transport choice, not a statement that the provider is a user-added
+    /// custom service.
+    static func usesOpenAICompatibleMinimalRequestProfile(baseURLString: String) -> Bool {
         connectionIdentity(baseURLString: baseURLString)
             != "https://api.openai.com/v1"
     }

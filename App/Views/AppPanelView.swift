@@ -691,7 +691,7 @@ private struct ShuoOnboardingView: View {
 
                 Picker(localizer.text(.appLanguage), selection: $appState.settings.appLanguage) {
                     ForEach(AppLanguage.allCases) { language in
-                        Text(language.nativeDisplayName).tag(language)
+                        Text(localizer.appLanguageName(language)).tag(language)
                     }
                 }
                 .labelsHidden()
@@ -1156,18 +1156,7 @@ private struct ShuoOnboardingView: View {
     }
 
     private func loadCredentialForSelectedProvider() {
-        switch appState.settings.provider {
-        case .openAI:
-            appState.loadOpenAIAPIKeyIfNeeded()
-        case .elevenLabs:
-            appState.loadElevenLabsAPIKeyIfNeeded()
-        case .alibaba:
-            appState.loadAlibabaAPIKeyIfNeeded()
-        case .gemini:
-            appState.loadGeminiAPIKeyIfNeeded()
-        case .local, .custom:
-            break
-        }
+        appState.loadCloudTranscriptionCredentialsIfNeeded()
     }
 
     private var onboardingProviders: [TranscriptionProvider] {
@@ -1317,7 +1306,7 @@ private struct ShuoOnboardingView: View {
 
     @ViewBuilder
     private func apiKeyGuideLink(for provider: TranscriptionProvider) -> some View {
-        if let destination = CloudTranscriptionProviderConfiguration.apiKeyGuideURL(for: provider) {
+        if let destination = CloudServiceCatalog.defaultDefinition(for: provider)?.apiKeyGuideURL {
             Link(destination: destination) {
                 HStack(spacing: 5) {
                     Text(localizer.apiKeyGuideLabel())

@@ -20,7 +20,12 @@ actively enables a cloud transcription or text feature.
 1. **Voice input** — A global push-to-talk shortcut captures one bounded
    recording.
 2. **Audio processing** — Shuo detects useful speech and prepares audio for
-   recognition without changing the archived source recording.
+   recognition without changing the archived source recording. When the voice
+   activity gate is enabled, this happens locally before inference: a recording
+   must meet its minimum duration, show sustained activity relative to its own
+   noise floor, and clear a bounded usable-speech energy floor. This rejects
+   quiet microphone ambience and brief transients without relying on a
+   transcript phrase blacklist, while still admitting soft speech.
 3. **Context** — Enabled terms, local project vocabulary, and reusable prompts
    are ranked into a bounded hint for engines and providers that support one.
    Project source and paths stay local. SenseVoice deliberately skips
@@ -52,6 +57,33 @@ web/          Public product site, privacy policy, and release notes
 Views do not directly call cloud providers or write persistent files.
 `AppState` coordinates a user-visible transaction; specialized services own
 I/O and policy decisions.
+
+## Cloud service ownership
+
+Cloud-service selection is a configuration concern inside the inference and
+optional cloud-text paths; it is not a view concern. `CloudServiceCatalog`
+owns stable service IDs, picker order, fixed versus editable endpoints,
+credential kind, supported workload, and discovery policy. A settings snapshot
+then resolves into a `ResolvedCloudConnection` for either transcription or
+text processing. `AppState` coordinates visible state, Keychain access, and
+asynchronous work, while provider adapters retain their explicit request and
+response contracts.
+
+Built-in services use their declared adapter contract directly. Model discovery
+can populate choices, but it never proves that a model supports a request
+contract and is not a prerequisite to sending a built-in request. A Custom
+OpenAI-compatible endpoint is different: it is user-configured, its API key is
+scoped to normalized endpoint identity in Keychain, and it must pass the
+non-sensitive model-interface test before Shuo sends a real recording through
+that endpoint. Switching away from Custom and back restores its endpoint,
+model selection, and verification state.
+
+Provider plugins control visibility of built-in cloud services. Custom remains
+visible and usable as the only cloud-service choice if an advanced profile
+disables every built-in provider; this does not re-enable those providers or
+relax Custom verification. Transcription and cloud-text connections remain
+separate resolved workloads, with separate model selection and verification
+state.
 
 ## Trust boundaries
 

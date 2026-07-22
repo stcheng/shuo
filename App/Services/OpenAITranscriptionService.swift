@@ -4,7 +4,7 @@ enum OpenAITranscriptionError: LocalizedError, Equatable {
     case missingAPIKey
     case invalidBaseURL(String)
     case invalidModelID(OpenAITranscriptionModelIDValidationError)
-    case relayAcknowledgementRequired
+    case customEndpointVerificationRequired
     case requestFailed(statusCode: Int, message: String)
     case invalidResponse
 
@@ -18,8 +18,8 @@ enum OpenAITranscriptionError: LocalizedError, Equatable {
             )
         case .invalidModelID(let error):
             return error.localizedDescription
-        case .relayAcknowledgementRequired:
-            return "Confirm the third-party relay in Settings before sending a recording."
+        case .customEndpointVerificationRequired:
+            return "Test the selected model for this custom service before sending a recording."
         case .requestFailed(let statusCode, let message):
             return "OpenAI transcription failed (\(statusCode)): \(message)"
         case .invalidResponse:
@@ -51,8 +51,8 @@ struct OpenAITranscriptionService: TranscriptionService {
         guard let apiKey = OpenAICompatibleRequestBuilder.normalizedAPIKey(request.apiKey) else {
             throw OpenAITranscriptionError.missingAPIKey
         }
-        guard request.settings.hasAcknowledgedOpenAICompatibleRelay else {
-            throw OpenAITranscriptionError.relayAcknowledgementRequired
+        guard !request.settings.requiresCustomOpenAITranscriptionVerification else {
+            throw OpenAITranscriptionError.customEndpointVerificationRequired
         }
 
         let modelID: String
@@ -66,9 +66,9 @@ struct OpenAITranscriptionService: TranscriptionService {
 
         let audioData = try Data(contentsOf: request.audioFileURL)
         let profile: OpenAITranscriptionRequestProfile =
-            OpenAICompatibleRequestBuilder.usesThirdPartyRelay(
+            OpenAICompatibleRequestBuilder.usesOpenAICompatibleMinimalRequestProfile(
                 baseURLString: request.settings.openAIBaseURL
-            ) ? .relayMinimal : .openAIStandard
+            ) ? .compatibleMinimal : .openAIStandard
         return try await transcribe(
             audioData: audioData,
             filename: request.audioFileURL.lastPathComponent,
@@ -107,7 +107,7 @@ struct OpenAITranscriptionService: TranscriptionService {
             apiKey: apiKey,
             context: "",
             vocabulary: .empty,
-            profile: .relayMinimal
+            profile: .compatibleMinimal
         )
     }
 
@@ -262,7 +262,7 @@ struct OpenAITranscriptionService: TranscriptionService {
 
 private enum OpenAITranscriptionRequestProfile {
     case openAIStandard
-    case relayMinimal
+    case compatibleMinimal
 }
 
 private enum OpenAIProtocolTestAudio {

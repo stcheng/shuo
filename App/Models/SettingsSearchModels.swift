@@ -403,19 +403,9 @@ enum SettingsSearchIndex {
             target: .transcriptionProvider,
             keywords: ["OpenAI", "Groq", "SiliconFlow", "硅基流动", "Gemini", "ElevenLabs", "Alibaba", "custom", "endpoint", "云端服务", "雲端服務"]
         )
-        let cloudAPIKeyTarget: SettingsSearchTarget
-        switch context.provider {
-        case .openAI:
-            cloudAPIKeyTarget = .openAIAPIKey
-        case .gemini:
-            cloudAPIKeyTarget = .geminiAPIKey
-        case .elevenLabs:
-            cloudAPIKeyTarget = .elevenLabsAPIKey
-        case .alibaba:
-            cloudAPIKeyTarget = .alibabaAPIKey
-        case .local, .custom:
-            cloudAPIKeyTarget = .transcriptionProvider
-        }
+        let cloudAPIKeyTarget = CloudServiceCatalog.defaultDefinition(
+            for: context.provider
+        )?.apiKeySearchTarget ?? .transcriptionProvider
         add(
             localizer.text(.apiKey),
             section: .transcription,

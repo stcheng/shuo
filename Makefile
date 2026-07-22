@@ -1,13 +1,7 @@
-.PHONY: install-dev install-dev-adhoc install-dev-signed build build-store build-community test test-community test-community-config perf verify audit-public-source scan-secrets test-release-scripts package package-zip package-dmg package-all release-rc release-public-assets appcast export-public
+.PHONY: install-dev install-dev-adhoc install-dev-signed build build-community test test-community test-community-config perf verify audit-public-source scan-secrets test-release-scripts package package-zip package-dmg package-all release-rc release-public-assets appcast export-public
 
 build:
 	xcodebuild -scheme ShuoDirect -destination 'platform=macOS' \
-		-onlyUsePackageVersionsFromResolvedFile \
-		-disableAutomaticPackageResolution \
-		-skipPackageUpdates build
-
-build-store:
-	xcodebuild -scheme Shuo -destination 'platform=macOS' \
 		-onlyUsePackageVersionsFromResolvedFile \
 		-disableAutomaticPackageResolution \
 		-skipPackageUpdates build
@@ -19,7 +13,7 @@ build-community:
 		-skipPackageUpdates build
 
 test:
-	xcodebuild test -scheme Shuo -destination 'platform=macOS' \
+	xcodebuild test -scheme ShuoCommunity -configuration Community -destination 'platform=macOS' \
 		-onlyUsePackageVersionsFromResolvedFile \
 		-disableAutomaticPackageResolution \
 		-skipPackageUpdates
@@ -35,14 +29,13 @@ test-community-config:
 
 perf:
 	mkdir -p build/perf
-	xcodebuild test -scheme Shuo -destination 'platform=macOS' \
+	SHUO_PERF_OUTPUT="$(CURDIR)/build/perf/shuo-perf-latest.json" \
+		xcodebuild test -scheme ShuoCommunity -configuration Community -destination 'platform=macOS' \
 		-onlyUsePackageVersionsFromResolvedFile \
 		-disableAutomaticPackageResolution \
 		-skipPackageUpdates \
 		-only-testing:ShuoTests/PerformanceBenchmarkTests/testPerformanceSnapshot
-	@source_file="$${SHUO_PERF_SOURCE:-$$HOME/Library/Containers/dev.shuotian.Shuo/Data/tmp/shuo-perf-latest.json}"; \
-	test -s "$$source_file"; \
-	cp "$$source_file" build/perf/shuo-perf-latest.json
+	test -s build/perf/shuo-perf-latest.json
 	jq empty build/perf/shuo-perf-latest.json
 	cp build/perf/shuo-perf-latest.json build/perf/shuo-perf-$$(date +%Y%m%d-%H%M%S).json
 
